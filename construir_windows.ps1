@@ -24,8 +24,11 @@ $datosAnteriores = $env:FENIX_DATA_DIR
 try {
     $env:PLAYWRIGHT_BROWSERS_PATH = '0'
     $env:PYTHONDONTWRITEBYTECODE = '1'
-    & $pythonFenix -m playwright install --only-shell chromium
-    if ($LASTEXITCODE -ne 0) { throw 'No se pudo descargar Chromium.' }
+    $navegadorExistente = Get-ChildItem -LiteralPath (Join-Path $Entorno 'Lib\site-packages\playwright\driver\package\.local-browsers') -Recurse -File -Filter 'chrome-headless-shell.exe' -ErrorAction SilentlyContinue
+    if (-not $navegadorExistente) {
+        & $pythonFenix -m playwright install --only-shell chromium
+        if ($LASTEXITCODE -ne 0) { throw 'No se pudo descargar Chromium.' }
+    }
     $carpetaPlaywrightFenix = & $pythonFenix -c "import pathlib,playwright; print(pathlib.Path(playwright.__file__).parent / 'driver' / 'package' / '.local-browsers')"
     $carpetaPlaywrightFenix = (Resolve-Path -LiteralPath $carpetaPlaywrightFenix).Path
     $raizEntornoFenix = (Resolve-Path -LiteralPath $Entorno).Path

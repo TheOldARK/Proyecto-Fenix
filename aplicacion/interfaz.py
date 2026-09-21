@@ -201,6 +201,9 @@ class DialogoPlan(QDialog):
             QLabel {{ color: {COLOR_TEXTO}; }}
             QComboBox {{ background-color: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO};
                 border: 1px solid {COLOR_LINEA}; border-radius: 7px; padding: 9px; }}
+            QComboBox QAbstractItemView {{ background-color: {COLOR_SUPERFICIE_CLARA};
+                color: {COLOR_TEXTO}; selection-background-color: {COLOR_VERDE};
+                selection-color: #FFFFFF; }}
             QListWidget {{ background-color: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO};
                 border: 1px solid {COLOR_LINEA}; border-radius: 7px; padding: 4px; }}
             QPushButton {{ background-color: {COLOR_VERDE_FONDO}; color: {COLOR_TEXTO};
@@ -228,6 +231,10 @@ class DialogoPlan(QDialog):
         )
         layout.addWidget(paso_plan)
         self.selector = QComboBox()
+        self.selector.view().setStyleSheet(
+            f"background-color: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO}; "
+            f"selection-background-color: {COLOR_VERDE}; selection-color: #FFFFFF;"
+        )
         self.selector.addItem("Selecciona tu plan de estudios…", None)
         for codigo, plan in sorted(
             planes.items(),
@@ -270,6 +277,10 @@ class DialogoPlan(QDialog):
         self.buscar_aprobadas.setPlaceholderText("Buscar materia por nombre o código…")
         layout.addWidget(self.buscar_aprobadas)
         self.selector_tipo = QComboBox()
+        self.selector_tipo.view().setStyleSheet(
+            f"background-color: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO}; "
+            f"selection-background-color: {COLOR_VERDE}; selection-color: #FFFFFF;"
+        )
         self.selector_tipo.addItems([
             "Todos los tipos", "Normales", "Nivelación", "Optativas",
             "Trabajo de grado (P)", "Otros"
