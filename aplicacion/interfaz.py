@@ -6,6 +6,7 @@ barra lateral. El estado de la actualización se comparte mediante un JSON.
 
 import subprocess
 import os
+import logging
 import re
 import sys
 import time
@@ -1515,6 +1516,7 @@ class VentanaPrincipal(QMainWindow):
         self.inicio_primera_actualizacion = None
         self.proceso_actualizacion = None
         self.cambiando_estudiante = False
+        self.comprobacion_version_pendiente = False
 
         self.configurar_ventana()
         self.crear_interfaz()
@@ -1522,6 +1524,10 @@ class VentanaPrincipal(QMainWindow):
         self.temporizador_estado.timeout.connect(self.revisar_actualizacion)
         self.temporizador_estado.start(1000)
         self.revisar_actualizacion()
+        # La consulta de GitHub se retrasa para no competir con el arranque
+        # del catálogo SIA. El usuario solo verá un diálogo si hay una versión
+        # nueva; cuando no hay cambios no se interrumpe la sesión.
+        QTimer.singleShot(5000, self.buscar_actualizacion_automatica)
         if self.datos_disponibles:
             self.activar_planificador()
         else:
@@ -3324,6 +3330,38 @@ class VentanaPrincipal(QMainWindow):
             QMessageBox.critical(self, "No se pudo actualizar Fénix", str(error))
         finally:
             QApplication.restoreOverrideCursor()
+
+    def buscar_actualizacion_automatica(self):
+        """Comprueba GitHub al iniciar y solo interrumpe si hay una versión nueva."""
+        if self.cambiando_estudiante or self.comprobacion_version_pendiente:
+            return
+        if self.estado_actualizacion == "actualizando":
+            QTimer.singleShot(10000, self.buscar_actualizacion_automatica)
+            return
+        self.comprobacion_version_pendiente = True
+        try:
+            from servicios.actualizacion_aplicacion import consultar_ultima_version, hay_actualizacion
+
+            release = consultar_ultima_version()
+            if hay_actualizacion(release):
+                respuesta = QMessageBox.question(
+                    self,
+                    "Actualización disponible",
+                    f"Está disponible Fénix {release['version']}. ¿Descargarla y reiniciar ahora?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes,
+                )
+                if respuesta == QMessageBox.StandardButton.Yes:
+                    from servicios.actualizacion_aplicacion import descargar_release, iniciar_reemplazo
+
+                    paquete = descargar_release(release)
+                    iniciar_reemplazo(paquete, os.getpid())
+                    QApplication.quit()
+        except Exception as error:
+            # Una consulta fallida no debe impedir abrir el planificador.
+            logging.getLogger("fenix").warning("No se pudo comprobar Fénix en GitHub: %s", error)
+        finally:
+            self.comprobacion_version_pendiente = False
 
     def preguntar_actualizacion_guardada(self):
         """Solicita confirmación antes de reemplazar información persistida."""
