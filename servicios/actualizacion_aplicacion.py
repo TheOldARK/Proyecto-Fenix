@@ -105,6 +105,16 @@ def descargar_release(release: dict, destino: Path | None = None, timeout: int =
     return destino
 
 
+def _extraer_seguro(archivo: ZipFile, destino: Path) -> None:
+    """Evita que un ZIP alterado escriba fuera del directorio temporal."""
+    raiz = destino.resolve()
+    for miembro in archivo.infolist():
+        salida = (destino / miembro.filename).resolve()
+        if salida != raiz and raiz not in salida.parents:
+            raise ValueError("El paquete contiene una ruta inválida.")
+    archivo.extractall(destino)
+
+
 def iniciar_reemplazo(paquete: Path, pid: int, instalacion: Path | None = None) -> None:
     """Inicia el auxiliar y devuelve el control para que la interfaz cierre."""
     instalacion = instalacion or Path(sys.executable).resolve().parent
@@ -134,7 +144,7 @@ def aplicar_actualizacion(paquete: str, instalacion: str, pid: str) -> int:
     reemplazados = []
     try:
         with ZipFile(paquete) as archivo:
-            archivo.extractall(temporal)
+            _extraer_seguro(archivo, temporal)
         raiz = temporal / "Fenix"
         if not raiz.is_dir():
             raiz = temporal
