@@ -1,0 +1,1905 @@
+{
+    "planes": {
+        "3528": {
+            "codigo": "3528",
+            "nombre": "Ingeniería Administrativa",
+            "nombres_asignaturas": {
+                "1000004": "Cálculo Diferencial",
+                "1000008": "Geometría Vectorial y Analítica",
+                "3011198": "Introducción a la Ingeniería Administrativa",
+                "1000005": "Cálculo Integral",
+                "1000003": "Álgebra Lineal",
+                "1000019": "Física Mecánica",
+                "3010651": "Estadística I",
+                "1000007": "Ecuaciones Diferenciales",
+                "3009743": "Microeconomía I",
+                "3010435": "Fundamentos de Programación",
+                "3010425": "Teoría Administrativa y Organizacional",
+                "3006915": "Estadística II",
+                "3009951": "Macroeconomía I",
+                "3011166": "Fundamentos de Sistemas de Información e Inteligencia de Negocios",
+                "3010507": "Contabilidad General y de Costos",
+                "3009137": "Estadística III",
+                "3010518": "Matemáticas Financieras",
+                "3007324": "Investigación de Operaciones I",
+                "3010500": "Gestión del Talento Humano",
+                "3010408": "Fundamentos de Proyectos en Ingeniería",
+                "3010524": "Fundamentos de Mercadeo",
+                "3010403": "Derecho para la Administración",
+                "3007325": "Investigación de Operaciones II",
+                "3010521": "Administración Financiera",
+                "3007323": "Investigación de Mercados",
+                "3010512": "Introducción a las Finanzas Corporativas",
+                "3010410": "Gestión de Procesos",
+                "3010407": "Estructuración y Evaluación de Proyectos de Ingeniería",
+                "3010396": "Administración Estratégica",
+                "3010411": "Innovación y Gestión Tecnológica",
+                "3010439": "Proyecto Integrado de Ingeniería",
+                "3007306": "Trabajo de Grado"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000004",
+                        "1000008",
+                        "3011198"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 6
+                    }
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000003",
+                        "1000005",
+                        "1000019"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 6
+                    }
+                },
+                "3": {
+                    "asignaturas": [
+                        "1000007",
+                        "3009743",
+                        "3010425",
+                        "3010435",
+                        "3010651"
+                    ],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [
+                        "3006915",
+                        "3009951",
+                        "3010507",
+                        "3011166"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 4
+                    }
+                },
+                "5": {
+                    "asignaturas": [
+                        "3007324",
+                        "3009137",
+                        "3010408",
+                        "3010500",
+                        "3010518"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "6": {
+                    "asignaturas": [
+                        "3007325",
+                        "3010403",
+                        "3010521",
+                        "3010524"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 3
+                    }
+                },
+                "7": {
+                    "asignaturas": [
+                        "3007323",
+                        "3010407",
+                        "3010410",
+                        "3010512"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 6
+                    }
+                },
+                "8": {
+                    "asignaturas": [
+                        "3010396",
+                        "3010411",
+                        "3010439"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 3
+                    }
+                },
+                "9": {
+                    "asignaturas": [],
+                    "creditos": {
+                        "optativa_disciplinar": 7,
+                        "libre_eleccion": 9
+                    }
+                },
+                "10": {
+                    "asignaturas": [
+                        "3007306"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                }
+            },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
+            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
+            "creditos_totales": 166,
+            "malla_verificada": true,
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3068",
+            "facultad_nombre": "3068 FACULTAD DE MINAS",
+            "valor_sede": "6",
+            "valor_facultad": "6",
+            "valor_plan": "1",
+            "clave": "1102:3068:3528"
+        },
+        "3529": {
+            "codigo": "3529",
+            "nombre": "Ingeniería Ambiental",
+            "nombres_asignaturas": {
+                "1000004": "Cálculo Diferencial",
+                "1000008": "Geometría Vectorial y Analítica",
+                "3006829": "Química General",
+                "3010446": "Introducción a la Ingeniería Ambiental",
+                "1000005": "Cálculo Integral",
+                "1000003": "Álgebra Lineal",
+                "1000019": "Física Mecánica",
+                "1000009": "Biología General",
+                "1000006": "Cálculo en Varias Variables",
+                "1000007": "Ecuaciones Diferenciales",
+                "3009024": "Cultura y Medio Ambiente",
+                "3010478": "Termodinámica General",
+                "3010651": "Estadística I",
+                "3006907": "Métodos Numéricos",
+                "3010660": "Economía de Recursos Naturales y del Medio Ambiente",
+                "3007000": "Geología Física",
+                "3007385": "Hidrología",
+                "3006960": "Mecánica de Fluidos",
+                "3011012": "Ecología General",
+                "3010435": "Fundamentos de Programación",
+                "3007383": "Hidráulica",
+                "3010501": "Gestión y Evaluación Ambiental",
+                "3010455": "Contaminación Ambiental",
+                "3008231": "Derecho Ambiental",
+                "3009404": "Suelos y Medio Ambiente",
+                "3009004": "Biogeoquímica",
+                "3010453": "Valoración Económica del Impacto Ambiental",
+                "3009230": "Trabajo de Grado",
+                "3009001": "Planificación Integral y Ordenamiento del Territorio",
+                "3010408": "Fundamentos de Proyectos en Ingeniería",
+                "3010407": "Estructuración y Evaluación de Proyectos de Ingeniería",
+                "3010439": "Proyecto Integrado de Ingeniería"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000004",
+                        "1000008",
+                        "3006829",
+                        "3010446"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 5
+                    }
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000003",
+                        "1000005",
+                        "1000009",
+                        "1000019"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "3": {
+                    "asignaturas": [
+                        "1000006",
+                        "1000007",
+                        "3009024",
+                        "3010478"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 3
+                    }
+                },
+                "4": {
+                    "asignaturas": [
+                        "3006907",
+                        "3007000",
+                        "3010651",
+                        "3010660"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 4
+                    }
+                },
+                "5": {
+                    "asignaturas": [
+                        "3006960",
+                        "3007385",
+                        "3010408",
+                        "3010435",
+                        "3011012"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "6": {
+                    "asignaturas": [
+                        "3007383",
+                        "3010407",
+                        "3010455",
+                        "3010501"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 6
+                    }
+                },
+                "7": {
+                    "asignaturas": [
+                        "3008231",
+                        "3009004",
+                        "3009404",
+                        "3010453"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 6
+                    }
+                },
+                "8": {
+                    "asignaturas": [
+                        "3009001",
+                        "3010439"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 6,
+                        "libre_eleccion": 6
+                    }
+                },
+                "9": {
+                    "asignaturas": [],
+                    "creditos": {
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 12
+                    }
+                },
+                "10": {
+                    "asignaturas": [
+                        "3009230"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 6
+                    }
+                }
+            },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
+            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3068",
+            "facultad_nombre": "3068 FACULTAD DE MINAS",
+            "valor_sede": "6",
+            "valor_facultad": "6",
+            "valor_plan": "3",
+            "clave": "1102:3068:3529"
+        },
+        "3530": {
+            "codigo": "3530",
+            "nombre": "Ingeniería Civil",
+            "nombres_asignaturas": {
+                "1000004": "Cálculo Diferencial",
+                "1000008": "Geometría Vectorial y Analítica",
+                "3007500": "Dibujo Asistido por Computador",
+                "1000005": "Cálculo Integral",
+                "1000003": "Álgebra Lineal",
+                "1000019": "Física Mecánica",
+                "1000006": "Cálculo en Varias Variables",
+                "1000007": "Ecuaciones Diferenciales",
+                "3010479": "Topografía",
+                "3010448": "Mecánica Básica",
+                "3010651": "Estadística I",
+                "3010449": "Mecánica de Materiales",
+                "3010487": "Geomática Digital",
+                "3010460": "Geología Aplicada",
+                "3010408": "Fundamentos de Proyectos en Ingeniería",
+                "3006960": "Mecánica de Fluidos",
+                "3010450": "Mecánica Estructural",
+                "3010447": "Mecánica de Suelos",
+                "3010435": "Fundamentos de Programación",
+                "3007383": "Hidráulica",
+                "3007405": "Diseño Estructural Básico",
+                "3010488": "Ingeniería de Tránsito",
+                "3007416": "Pavimentos",
+                "3007407": "Diseño Estructural Avanzado",
+                "3007408": "Diseño Geométrico de Vías",
+                "3010407": "Estructuración y Evaluación de Proyectos en Ingeniería",
+                "3007385": "Hidrología",
+                "3007496": "Construcción de Infraestructura Vial",
+                "3010445": "Ingeniería Geotécnica",
+                "3007371": "Acueductos y Alcantarillados",
+                "3007375": "Diseño Básico de Estructuras de Acero",
+                "3007404": "Construcción de Edificaciones",
+                "3010439": "Proyecto Integrado en Ingeniería",
+                "3007440": "Trabajo de Grado",
+                "3010659": "Programación y Presupuestos",
+                "3010655": "Gerencia y Administración de Proyectos Civiles"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000004",
+                        "1000008",
+                        "3007500"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 6
+                    }
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000003",
+                        "1000005",
+                        "1000019"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 6
+                    }
+                },
+                "3": {
+                    "asignaturas": [
+                        "1000006",
+                        "1000007",
+                        "3010448",
+                        "3010479"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 4
+                    }
+                },
+                "4": {
+                    "asignaturas": [
+                        "3010408",
+                        "3010449",
+                        "3010460",
+                        "3010487",
+                        "3010651"
+                    ],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [
+                        "3006960",
+                        "3010435",
+                        "3010447",
+                        "3010450",
+                        "3010488"
+                    ],
+                    "creditos": {}
+                },
+                "6": {
+                    "asignaturas": [
+                        "3007383",
+                        "3007405",
+                        "3007408",
+                        "3007416",
+                        "3010407"
+                    ],
+                    "creditos": {}
+                },
+                "7": {
+                    "asignaturas": [
+                        "3007385",
+                        "3007407",
+                        "3007496",
+                        "3010445"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 6
+                    }
+                },
+                "8": {
+                    "asignaturas": [
+                        "3007371",
+                        "3007375",
+                        "3007404"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 6,
+                        "libre_eleccion": 3
+                    }
+                },
+                "9": {
+                    "asignaturas": [
+                        "3010439"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 6,
+                        "libre_eleccion": 9
+                    }
+                },
+                "10": {
+                    "asignaturas": [
+                        "3007440",
+                        "3010655",
+                        "3010659"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 6
+                    }
+                }
+            },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
+            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
+            "creditos_totales": 180,
+            "malla_verificada": true,
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3068",
+            "facultad_nombre": "3068 FACULTAD DE MINAS",
+            "valor_sede": "6",
+            "valor_facultad": "6",
+            "valor_plan": "5",
+            "clave": "1102:3068:3530"
+        },
+        "3531": {
+            "codigo": "3531",
+            "nombre": "Ingeniería de Control",
+            "nombres_asignaturas": {
+                "1000004": "Cálculo Diferencial",
+                "1000008": "Geometría Vectorial y Analítica",
+                "3006829": "Química General",
+                "3009530": "Introducción a la Ingeniería de Control",
+                "1000005": "Cálculo Integral",
+                "1000003": "Álgebra Lineal",
+                "1000019": "Física Mecánica",
+                "3010481": "Análisis de Circuitos Eléctricos I",
+                "1000006": "Cálculo en Varias Variables",
+                "1000007": "Ecuaciones Diferenciales",
+                "1000017": "Física de Electricidad y Magnetismo",
+                "3010478": "Termodinámica General",
+                "3006905": "Matemáticas Especiales",
+                "3006907": "Métodos Numéricos",
+                "3010496": "Análisis de Circuitos Eléctricos II",
+                "3010408": "Fundamentos de Proyectos en Ingeniería",
+                "3010421": "Señales y Sistemas Lineales",
+                "3010418": "Modelamiento: Electromecánica",
+                "3010458": "Electrónica Análoga I",
+                "3007756": "Laboratorio de Circuitos Eléctricos",
+                "3010407": "Estructuración y Evaluación de Proyectos en Ingeniería",
+                "3010402": "Control: Entrada - Salida",
+                "3007354": "Identificación de Sistemas",
+                "3010457": "Electrónica Análoga II",
+                "3010483": "Electrónica Digital",
+                "3007344": "Control: Análisis en Variables de Estado",
+                "3007357": "Modelamiento: Procesos",
+                "3010505": "Automatización de Procesos",
+                "3010494": "Telecomunicaciones",
+                "3010400": "Control: Estructuras SISO",
+                "3010412": "Instrumentación",
+                "3010506": "Automatización Integrada",
+                "3010491": "Procesadores",
+                "3010439": "Proyecto Integrado en Ingeniería",
+                "3010651": "Estadística I",
+                "3010435": "Fundamentos de Programación",
+                "3007366": "Trabajo de Grado"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000004",
+                        "1000008",
+                        "3006829",
+                        "3009530"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000003",
+                        "1000005",
+                        "1000019",
+                        "3010481"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "3": {
+                    "asignaturas": [
+                        "1000006",
+                        "1000007",
+                        "1000017",
+                        "3010435",
+                        "3010478"
+                    ],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [
+                        "3006905",
+                        "3006907",
+                        "3007756",
+                        "3010408",
+                        "3010496",
+                        "3010651"
+                    ],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [
+                        "3010418",
+                        "3010421",
+                        "3010458"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 3,
+                        "libre_eleccion": 6
+                    }
+                },
+                "6": {
+                    "asignaturas": [
+                        "3007354",
+                        "3010402",
+                        "3010407",
+                        "3010457",
+                        "3010483"
+                    ],
+                    "creditos": {}
+                },
+                "7": {
+                    "asignaturas": [
+                        "3007344",
+                        "3007357",
+                        "3010494",
+                        "3010505"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 3
+                    }
+                },
+                "8": {
+                    "asignaturas": [
+                        "3010400",
+                        "3010412",
+                        "3010491",
+                        "3010506"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3
+                    }
+                },
+                "9": {
+                    "asignaturas": [
+                        "3010439"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 6,
+                        "libre_eleccion": 9
+                    }
+                },
+                "10": {
+                    "asignaturas": [
+                        "3007366"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 10
+                    }
+                }
+            },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
+            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
+            "creditos_totales": 171,
+            "malla_verificada": true,
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3068",
+            "facultad_nombre": "3068 FACULTAD DE MINAS",
+            "valor_sede": "6",
+            "valor_facultad": "6",
+            "valor_plan": "7",
+            "clave": "1102:3068:3531"
+        },
+        "3532": {
+            "codigo": "3532",
+            "nombre": "Ingeniería de Minas y Metalurgia",
+            "nombres_asignaturas": {
+                "1000004": "Cálculo Diferencial",
+                "1000008": "Geometría Vectorial y Analítica",
+                "3006829": "Química General",
+                "3007000": "Geología Física",
+                "3007476": "Introducción a la Ingeniería de Minas y Metalurgia",
+                "1000005": "Cálculo Integral",
+                "1000003": "Álgebra Lineal",
+                "1000019": "Física Mecánica",
+                "3007714": "Mineralogía",
+                "3007401": "Topografía",
+                "3010651": "Estadística I",
+                "3007767": "Elementos de Geología Estructural",
+                "3007455": "Mecánica Aplicada",
+                "3010435": "Fundamentos de Programación",
+                "3007456": "Geomecánica",
+                "3010431": "Yacimientos Minerales",
+                "3010478": "Termodinámica General",
+                "3007716": "Perforación y Fragmentación de Roca",
+                "3007722": "Práctica de Campo I",
+                "3007720": "Sostenimiento de Minas",
+                "3009302": "Mineralurgia",
+                "3010428": "Transporte Minero",
+                "3006960": "Mecánica de Fluidos",
+                "3007713": "Minería Subterranea",
+                "3010690": "Metalurgia Extractiva",
+                "3007712": "Minería de Superficie",
+                "3010408": "Fundamentos de Proyectos en Ingeniería",
+                "3010407": "Estructuración y Evaluación de Proyectos de Ingeniería",
+                "3007700": "Ambientes Mineros",
+                "3009301": "Geología de Minas",
+                "3008748": "Planeamiento Minero",
+                "3007717": "Práctica de Campo II",
+                "3010439": "Proyecto Integrado de Ingeniería",
+                "3007480": "Trabajo de Grado"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000004",
+                        "1000008",
+                        "3006829",
+                        "3007000",
+                        "3007476"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000003",
+                        "1000005",
+                        "1000019",
+                        "3007401",
+                        "3007714"
+                    ],
+                    "creditos": {}
+                },
+                "3": {
+                    "asignaturas": [
+                        "3007455",
+                        "3007767",
+                        "3010651"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 8
+                    }
+                },
+                "4": {
+                    "asignaturas": [
+                        "3007456",
+                        "3010408",
+                        "3010431",
+                        "3010435"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 4,
+                        "libre_eleccion": 3
+                    }
+                },
+                "5": {
+                    "asignaturas": [
+                        "3007716",
+                        "3007722",
+                        "3010478"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 4,
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 3
+                    }
+                },
+                "6": {
+                    "asignaturas": [
+                        "3006960",
+                        "3007720",
+                        "3009302",
+                        "3010428"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 3
+                    }
+                },
+                "7": {
+                    "asignaturas": [
+                        "3007712",
+                        "3007713",
+                        "3010407",
+                        "3010690"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 3
+                    }
+                },
+                "8": {
+                    "asignaturas": [
+                        "3007700",
+                        "3009301"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 6,
+                        "libre_eleccion": 6
+                    }
+                },
+                "9": {
+                    "asignaturas": [
+                        "3007717",
+                        "3008748",
+                        "3010439"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 6,
+                        "libre_eleccion": 3
+                    }
+                },
+                "10": {
+                    "asignaturas": [
+                        "3007480"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 12
+                    }
+                }
+            },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
+            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3068",
+            "facultad_nombre": "3068 FACULTAD DE MINAS",
+            "valor_sede": "6",
+            "valor_facultad": "6",
+            "valor_plan": "9",
+            "clave": "1102:3068:3532"
+        },
+        "3533": {
+            "codigo": "3533",
+            "nombre": "Ingeniería de Petróleos",
+            "nombres_asignaturas": {
+                "1000004": "Cálculo Diferencial",
+                "1000008": "Geometría Vectorial y Analítica",
+                "3009822": "Introducción a la Ingeniería de Petróleos",
+                "3006829": "Química General",
+                "3007000": "Geología Física",
+                "1000005": "Cálculo Integral",
+                "1000003": "Álgebra Lineal",
+                "1000019": "Física Mecánica",
+                "3010469": "Procesos Sedimentarios y Geología de Yacimientos",
+                "1000006": "Cálculo en Varias Variables",
+                "1000007": "Ecuaciones Diferenciales",
+                "1000017": "Física, Electricidad y Magnetismo",
+                "3010478": "Termodinámica General",
+                "3007309": "Ciencia de los Materiales",
+                "3010651": "Estadística I",
+                "1000020": "Física de Oscilaciones, Ondas y Óptica",
+                "3007814": "Fenómenos de Transporte",
+                "3010435": "Fundamentos de Programación",
+                "3007733": "Perforación I",
+                "3007428": "Fluidos de Yacimiento",
+                "3007419": "Perforación II",
+                "3010408": "Fundamentos de Proyectos en Ingeniería",
+                "3007734": "Propiedades de la Roca Yacimiento",
+                "3010407": "Estructuración y Evaluación de Proyectos de Ingeniería",
+                "3007426": "Manejo de Producción de Petróleo y Gas",
+                "3007601": "Producción por Flujo Natural",
+                "3007430": "Pruebas de Presión y Balance de Materiales",
+                "3007732": "Perfilaje de Pozos",
+                "3007730": "Levantamiento Artificial",
+                "3007736": "Simulación de Yacimientos",
+                "3010439": "Proyecto Integrado de Ingeniería",
+                "3010465": "Inyección de Agua",
+                "3007427": "Operaciones de Campo",
+                "3007486": "Trabajo de Grado"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000004",
+                        "1000008",
+                        "3006829",
+                        "3007000",
+                        "3009822"
+                    ],
+                    "creditos": {}
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000003",
+                        "1000005",
+                        "1000019",
+                        "3010469"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 2
+                    }
+                },
+                "3": {
+                    "asignaturas": [
+                        "1000006",
+                        "1000007",
+                        "1000017",
+                        "3007309",
+                        "3010478"
+                    ],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [
+                        "1000020",
+                        "3007733",
+                        "3007814",
+                        "3010435",
+                        "3010651"
+                    ],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [
+                        "3007419",
+                        "3007428",
+                        "3010408"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 4,
+                        "optativa_disciplinar": 6
+                    }
+                },
+                "6": {
+                    "asignaturas": [
+                        "3007734",
+                        "3010407"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 6
+                    }
+                },
+                "7": {
+                    "asignaturas": [
+                        "3007426",
+                        "3007601",
+                        "3007430",
+                        "3007732"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 6
+                    }
+                },
+                "8": {
+                    "asignaturas": [
+                        "3007730",
+                        "3007736"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 6
+                    }
+                },
+                "9": {
+                    "asignaturas": [
+                        "3010439",
+                        "3010465",
+                        "3007427"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 7
+                    }
+                },
+                "10": {
+                    "asignaturas": [
+                        "3007486"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 10
+                    }
+                }
+            },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
+            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
+            "creditos_totales": 172,
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3068",
+            "facultad_nombre": "3068 FACULTAD DE MINAS",
+            "valor_sede": "6",
+            "valor_facultad": "6",
+            "valor_plan": "11",
+            "clave": "1102:3068:3533"
+        },
+        "3535": {
+            "codigo": "3535",
+            "nombre": "Ingeniería Eléctrica",
+            "nombres_asignaturas": {
+                "1000004": "Cálculo Diferencial",
+                "1000008": "Geometría Analítica y Vectorial",
+                "1000005": "Cálculo Integral",
+                "1000003": "Álgebra Lineal",
+                "1000019": "Física Mecánica",
+                "1000007": "Ecuaciones Diferenciales",
+                "1000006": "Cálculo en Varias Variables",
+                "1000017": "Física, Electricidad y Magnetismo",
+                "3007756": "Laboratorio de Circuitos I",
+                "3006905": "Matemáticas Especiales",
+                "3007424": "Trabajo de Grado",
+                "3009531": "Introducción a la Ingeniería Eléctrica",
+                "3010478": "Termodinámica General",
+                "3010435": "Fundamentos de Programación",
+                "3010408": "Fundamentos de Proyectos en Ingeniería",
+                "3010651": "Estadística I",
+                "3010496": "Análisis de Circuitos Eléctricos II",
+                "3006907": "Métodos Numéricos",
+                "3010421": "Señales y Sistemas Lineales",
+                "3010520": "Teoría Electromagnética",
+                "3010458": "Electrónica Análoga I",
+                "3010490": "Modelado de Líneas de Transmisión",
+                "3010402": "Control: Entrada - Salida",
+                "3010661": "Máquinas Eléctricas I",
+                "3010457": "Electrónica Análoga II",
+                "3010483": "Electrónica Digital",
+                "3010407": "Estructuración y Evaluación de Proyectos de Ingeniería",
+                "3010658": "Instalaciones Eléctricas Indus. Y Residenciales",
+                "3010662": "Máquinas Eléctricas II",
+                "3010494": "Telecomunicaciones",
+                "3010538": "Laboratorio de Máquinas Eléctricas",
+                "3010529": "Sistemas de Generación de Energía Eléctrica",
+                "3010497": "Análisis de Sistemas de Potencia",
+                "3010398": "Automatización de Sistemas Eléctricos",
+                "3010482": "Diseño de Redes de Transmisión y Distribución",
+                "3010492": "Sistemas de Protecciones Eléctricas",
+                "3010439": "Proyecto Integrado de Ingeniería",
+                "3010481": "Análisis de Circuitos Eléctricos I"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000004",
+                        "1000008",
+                        "3009531"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 6
+                    }
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000003",
+                        "1000005",
+                        "1000019",
+                        "3010481"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "3": {
+                    "asignaturas": [
+                        "1000006",
+                        "1000007",
+                        "1000017",
+                        "3010435",
+                        "3010478"
+                    ],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [
+                        "3006905",
+                        "3006907",
+                        "3007756",
+                        "3010408",
+                        "3010496",
+                        "3010651"
+                    ],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [
+                        "3010421",
+                        "3010458",
+                        "3010520"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 3,
+                        "libre_eleccion": 6
+                    }
+                },
+                "6": {
+                    "asignaturas": [
+                        "3010402",
+                        "3010407",
+                        "3010457",
+                        "3010483",
+                        "3010490",
+                        "3010661"
+                    ],
+                    "creditos": {}
+                },
+                "7": {
+                    "asignaturas": [
+                        "3010494",
+                        "3010658",
+                        "3010662"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 6
+                    }
+                },
+                "8": {
+                    "asignaturas": [
+                        "3010398",
+                        "3010439",
+                        "3010497",
+                        "3010529",
+                        "3010538"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "9": {
+                    "asignaturas": [
+                        "3010482",
+                        "3010492"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 6
+                    }
+                },
+                "10": {
+                    "asignaturas": [
+                        "3007424"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 10
+                    }
+                }
+            },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
+            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
+            "malla_verificada": true,
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3068",
+            "facultad_nombre": "3068 FACULTAD DE MINAS",
+            "valor_sede": "6",
+            "valor_facultad": "6",
+            "valor_plan": "15",
+            "clave": "1102:3068:3535"
+        },
+        "3534": {
+            "codigo": "3534",
+            "nombre": "Ingeniería en Sistemas e Informática",
+            "nombres_asignaturas": {
+                "1000003": "Álgebra Lineal",
+                "1000005": "Cálculo Integral",
+                "1000019": "Física Mecánica",
+                "3006906": "Matemáticas Discretas",
+                "3007324": "Investigación de Operaciones I",
+                "3007331": "Simulación de Sistemas",
+                "3007741": "Estructura de Datos",
+                "3007744": "Programación Orientada a Objetos",
+                "3007847": "Bases de Datos I",
+                "3007852": "Ingeniería de Requisitos",
+                "3007853": "Ingeniería de Software",
+                "3007865": "Redes y Telecomunicaciones I",
+                "3007867": "Sistemas Operativos",
+                "3007868": "Trabajo de Grado",
+                "3010407": "Estructuración y Evaluación de Proyectos de Ingeniería",
+                "3010408": "Fundamentos de Proyectos en Ingeniería",
+                "3010415": "Introducción al Análisis de Decisiones",
+                "3010426": "Teoría de Lenguajes de Programación",
+                "3010435": "Fundamentos de Programación",
+                "3010438": "Introducción a la Ingeniería de Sistemas e Informática",
+                "3010439": "Proyecto Integrado de Ingeniería",
+                "3010440": "Calidad de Software",
+                "3010476": "Introducción a la Inteligencia Artificial",
+                "3010651": "Estadística I",
+                "3011020": "Fundamentos de Analítica",
+                "1000008": "Geometría Vectorial y Analítica",
+                "1000004": "Cálculo Diferencial"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000008",
+                        "3006906",
+                        "3010438"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 6
+                    }
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000003",
+                        "1000004",
+                        "3010435"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 2,
+                        "libre_eleccion": 3
+                    }
+                },
+                "3": {
+                    "asignaturas": [
+                        "1000005",
+                        "1000019",
+                        "3007744",
+                        "3010426"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3
+                    }
+                },
+                "4": {
+                    "asignaturas": [
+                        "3007324",
+                        "3007741",
+                        "3007853",
+                        "3007867",
+                        "3010651"
+                    ],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [
+                        "3007331",
+                        "3007847",
+                        "3007852",
+                        "3007865"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 4
+                    }
+                },
+                "6": {
+                    "asignaturas": [
+                        "3010415",
+                        "3010440",
+                        "3010476",
+                        "3011020"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 4
+                    }
+                },
+                "7": {
+                    "asignaturas": [],
+                    "creditos": {
+                        "fundamentacion_optativa": 8,
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 6
+                    }
+                },
+                "8": {
+                    "asignaturas": [
+                        "3010408"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 6,
+                        "libre_eleccion": 6
+                    }
+                },
+                "9": {
+                    "asignaturas": [
+                        "3010407"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 6,
+                        "libre_eleccion": 6
+                    }
+                },
+                "10": {
+                    "asignaturas": [
+                        "3007868",
+                        "3010439"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 5
+                    }
+                }
+            },
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3068",
+            "facultad_nombre": "3068 FACULTAD DE MINAS",
+            "valor_sede": "6",
+            "valor_facultad": "6",
+            "valor_plan": "13",
+            "clave": "1102:3068:3534"
+        },
+        "3536": {
+            "codigo": "3536",
+            "nombre": "Ingeniería Geológica",
+            "nombres_asignaturas": {
+                "1000004": "Cálculo Diferencial",
+                "1000008": "Geometría Vectorial y Analítica",
+                "3006829": "Química General",
+                "3007000": "Geología Física",
+                "3010437": "Introducción a la Ingeniería Geológica",
+                "1000005": "Cálculo Integral",
+                "1000003": "Álgebra Lineal",
+                "1000019": "Física Mecánica",
+                "3007714": "Mineralogía",
+                "3007767": "Elementos de Geología Estructural",
+                "3010435": "Fundamentos de Programación",
+                "3007473": "Mineralogía Óptica",
+                "3010651": "Estadística I",
+                "3007773": "Petrología Ígnea",
+                "3010478": "Termodinámica General",
+                "3007431": "Petrología Sedimentaria",
+                "3010408": "Fundamentos de Proyectos en Ingeniería",
+                "3007709": "Geomorfología",
+                "3007781": "Geología de Campo I",
+                "3007772": "Petrología Metamórfica",
+                "3006988": "Fundamentos de Sistemas de Información Geográfica",
+                "3007456": "Geomecánica",
+                "3007768": "Estratigrafía",
+                "3010447": "Mecánica de Suelos",
+                "3007711": "Geotecnia",
+                "3007769": "Geología de Campo II",
+                "3007707": "Geofísica",
+                "3010407": "Estructuración y Evaluación de Proyectos de Ingeniería",
+                "3007448": "Recursos Energéticos",
+                "3007461": "Geología de Campo III",
+                "3010439": "Proyecto Integrado de Ingeniería",
+                "3007718": "Rocas y Minerales en la Industria",
+                "3007442": "Trabajo de Grado",
+                "3007779": "Depositos Minerales y Metalogenia",
+                "3007471": "Sensores Remotos"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000004",
+                        "1000008",
+                        "3006829",
+                        "3007000",
+                        "3010437"
+                    ],
+                    "creditos": {}
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000003",
+                        "1000005",
+                        "1000019",
+                        "3007714",
+                        "3007767"
+                    ],
+                    "creditos": {}
+                },
+                "3": {
+                    "asignaturas": [
+                        "3007473",
+                        "3010435",
+                        "3010478"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 8
+                    }
+                },
+                "4": {
+                    "asignaturas": [
+                        "3007431",
+                        "3007773",
+                        "3010408",
+                        "3010447",
+                        "3010651"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 4
+                    }
+                },
+                "5": {
+                    "asignaturas": [
+                        "3006988",
+                        "3007456",
+                        "3007709",
+                        "3007772",
+                        "3007781"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3
+                    }
+                },
+                "6": {
+                    "asignaturas": [
+                        "3007471",
+                        "3007768",
+                        "3007779"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 6,
+                        "libre_eleccion": 3
+                    }
+                },
+                "7": {
+                    "asignaturas": [
+                        "3007707",
+                        "3007711",
+                        "3007769",
+                        "3010407"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 3
+                    }
+                },
+                "8": {
+                    "asignaturas": [
+                        "3007448",
+                        "3007461",
+                        "3010439"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 9
+                    }
+                },
+                "9": {
+                    "asignaturas": [
+                        "3007718"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 4,
+                        "libre_eleccion": 12
+                    }
+                },
+                "10": {
+                    "asignaturas": [
+                        "3007442"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 9
+                    }
+                }
+            },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
+            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
+            "creditos_totales": 180,
+            "malla_verificada": true,
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3068",
+            "facultad_nombre": "3068 FACULTAD DE MINAS",
+            "valor_sede": "6",
+            "valor_facultad": "6",
+            "valor_plan": "17",
+            "clave": "1102:3068:3536"
+        },
+        "3537": {
+            "codigo": "3537",
+            "nombre": "Ingeniería Industrial",
+            "nombres_asignaturas": {
+                "1000004": "Cálculo Diferencial",
+                "1000008": "Geometría Vectorial y Analítica",
+                "3010503": "Introducción a la Ingeniería Industrial",
+                "1000005": "Cálculo Integral",
+                "1000003": "Álgebra Lineal",
+                "1000019": "Física Mecánica",
+                "3007202": "Fundamentos de Economía",
+                "3010651": "Estadística I",
+                "1000007": "Ecuaciones Diferenciales",
+                "1000017": "Física, Electricidad y Magnetismo",
+                "3010425": "Teoría Administrativa y Organizacional",
+                "3006915": "Estadística II",
+                "3010478": "Termodinámica General",
+                "3010435": "Fundamentos de Programación",
+                "3007309": "Ciencia de los Materiales",
+                "3009137": "Estadística III",
+                "3010419": "Procesos de Manufactura I",
+                "3007324": "Investigación de Operaciones I",
+                "3010507": "Contabilidad General y de Costos",
+                "3010673": "Ergonomía",
+                "3010502": "Ingeniería de Producción",
+                "3007325": "Investigación de Operaciones II",
+                "3010657": "Higiene y Seguridad Industrial",
+                "3010408": "Fundamentos de Proyectos en Ingeniería",
+                "3007308": "Administración de la Producción",
+                "3010521": "Administración Financiera",
+                "3010500": "Gestión del Talento Humano",
+                "3010508": "Control Estadístico de la Calidad",
+                "3010504": "Sistemas Logísticos",
+                "3007331": "Simulación de Sistemas",
+                "3010510": "Derecho Laboral",
+                "3010423": "Sistemas de Compensación",
+                "3010407": "Estructuración y Evaluación de Proyectos de Ingeniería",
+                "3010672": "Diseño de Plantas",
+                "3010411": "Innovación y Gestión Tecnológica",
+                "3010439": "Proyecto Integrado de Ingeniería",
+                "3011166": "Fundamentos de Sistemas de Información e Inteligencia de Negocios",
+                "3007335": "Trabajo de Grado"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000004",
+                        "1000008",
+                        "3010503"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 9
+                    }
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000003",
+                        "1000005",
+                        "1000019",
+                        "3007202"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "3": {
+                    "asignaturas": [
+                        "1000007",
+                        "1000017",
+                        "3010425",
+                        "3010651"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 4
+                    }
+                },
+                "4": {
+                    "asignaturas": [
+                        "3006915",
+                        "3007309",
+                        "3010435",
+                        "3010478"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 6
+                    }
+                },
+                "5": {
+                    "asignaturas": [
+                        "3007324",
+                        "3009137",
+                        "3010408",
+                        "3010419",
+                        "3010507"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "6": {
+                    "asignaturas": [
+                        "3007325",
+                        "3010502",
+                        "3010657",
+                        "3010673",
+                        "3011166"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "7": {
+                    "asignaturas": [
+                        "3007308",
+                        "3010407",
+                        "3010500",
+                        "3010521"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 4
+                    }
+                },
+                "8": {
+                    "asignaturas": [
+                        "3007331",
+                        "3010423",
+                        "3010504",
+                        "3010508",
+                        "3010510"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3
+                    }
+                },
+                "9": {
+                    "asignaturas": [
+                        "3010411",
+                        "3010439",
+                        "3010672"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3
+                    }
+                },
+                "10": {
+                    "asignaturas": [
+                        "3007335"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 7
+                    }
+                }
+            },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
+            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
+            "creditos_totales": 174,
+            "malla_verificada": true,
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3068",
+            "facultad_nombre": "3068 FACULTAD DE MINAS",
+            "valor_sede": "6",
+            "valor_facultad": "6",
+            "valor_plan": "19",
+            "clave": "1102:3068:3537"
+        },
+        "3538": {
+            "codigo": "3538",
+            "nombre": "Ingeniería Mecánica",
+            "nombres_asignaturas": {
+                "1000004": "Cálculo Diferencial",
+                "1000008": "Geometría Vectorial y Analítica",
+                "3006829": "Química General",
+                "3007796": "Introducción a la Ingeniería Mecánica",
+                "3010441": "Dibujo Mecánico",
+                "1000005": "Cálculo Integral",
+                "1000003": "Álgebra Lineal",
+                "1000019": "Física Mecánica",
+                "3007309": "Ciencia de Materiales",
+                "1000006": "Cálculo en Varias Variables",
+                "1000007": "Ecuaciones Diferenciales",
+                "1000017": "Física, Electricidad y Magnetismo",
+                "3010435": "Fundamentos de Programación",
+                "3010478": "Termodinámica General",
+                "3010434": "Estática",
+                "3010651": "Estadística I",
+                "3010442": "Dinámica",
+                "3010417": "Mecánica de Sólidos",
+                "3010409": "Fundamentos de Termofluidos",
+                "3010475": "Electrónica Básica",
+                "3010408": "Fundamentos de Proyectos en Ingeniería",
+                "3010427": "Transferencia de Calor",
+                "3010474": "Conversión de Energía en Sistemas Termofluídicos",
+                "3010433": "Elementos de Máquinas",
+                "3010470": "Selección de Materiales",
+                "3010466": "Laboratorio de Materiales",
+                "3007753": "Fundamentos de Control",
+                "3010443": "Diseño Mecánico Básico",
+                "3010419": "Procesos de Manufactura I",
+                "3010467": "Laboratorio de Ciencias Térmicas",
+                "3010407": "Estructuración y Evaluación de Proyectos de Ingeniería",
+                "3010653": "Diseño Mecánico Computacional",
+                "3010654": "Diseño Mecánico Conceptual",
+                "3010420": "Procesos de Manufactura II",
+                "3010416": "Laboratorio de Fabricación",
+                "3010439": "Proyecto Integrado en Ingeniería",
+                "3010456": "Diseño Mecatrónico",
+                "3010432": "Diseño Mecánico Integrado",
+                "3007435": "Modelamiento: Electromecánica",
+                "3007440": "Trabajo de Grado",
+                "3010418": "Modelamiento: Electromecánica",
+                "3011065": "Diseño Mecánico Básico"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000004",
+                        "1000008",
+                        "3006829",
+                        "3007796",
+                        "3010441"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000003",
+                        "1000005",
+                        "1000019",
+                        "3007309"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "3": {
+                    "asignaturas": [
+                        "1000006",
+                        "1000007",
+                        "1000017",
+                        "3010434",
+                        "3010435",
+                        "3010478"
+                    ],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [
+                        "3010408",
+                        "3010409",
+                        "3010417",
+                        "3010442",
+                        "3010475",
+                        "3010651"
+                    ],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [
+                        "3010427",
+                        "3010433",
+                        "3010466",
+                        "3010470",
+                        "3010474"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 4
+                    }
+                },
+                "6": {
+                    "asignaturas": [
+                        "3010407",
+                        "3010418",
+                        "3010419",
+                        "3010467",
+                        "3011065"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3
+                    }
+                },
+                "7": {
+                    "asignaturas": [
+                        "3010416",
+                        "3010420",
+                        "3010653",
+                        "3010654"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "8": {
+                    "asignaturas": [
+                        "3007753",
+                        "3010432",
+                        "3010439",
+                        "3010456"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 6
+                    }
+                },
+                "9": {
+                    "asignaturas": [],
+                    "creditos": {
+                        "optativa_disciplinar": 6,
+                        "libre_eleccion": 12
+                    }
+                },
+                "10": {
+                    "asignaturas": [
+                        "3007440"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 9
+                    }
+                }
+            },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
+            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
+            "malla_verificada": true,
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3068",
+            "facultad_nombre": "3068 FACULTAD DE MINAS",
+            "valor_sede": "6",
+            "valor_facultad": "6",
+            "valor_plan": "21",
+            "clave": "1102:3068:3538"
+        },
+        "3539": {
+            "codigo": "3539",
+            "nombre": "Ingeniería Química",
+            "nombres_asignaturas": {
+                "1000004": "Cálculo Diferencial",
+                "1000008": "Geometría Vectorial y Analítica",
+                "3010511": "Introducción a la Ingeniería Química",
+                "3006829": "Química General",
+                "1000005": "Cálculo Integral",
+                "1000003": "Álgebra Lineal",
+                "1000019": "Física Mecánica",
+                "1000034": "Química Orgánica",
+                "1000006": "Cálculo en Varias Variables",
+                "1000007": "Ecuaciones Diferenciales",
+                "3010478": "Termodinámica General",
+                "3010651": "Estadística I",
+                "3010435": "Fundamentos de Programación",
+                "3007811": "Balances de Materia y Energía",
+                "3010485": "Fundamentos de Biotecnología",
+                "3009352": "Introducción al Control de Procesos",
+                "3007814": "Fenómenos de Transporte",
+                "3010530": "Termodinámica del Equilibrio de Fases para Sistemas Multicomponentes",
+                "3007821": "Operaciones de Transferencia de Cantidad de Movimiento",
+                "3007820": "Operaciones de Transferencia de Calor",
+                "3010463": "Equilibrios en Sistemas Reactivos y Fenómenos de Superficie",
+                "3007822": "Operaciones de Transferencia de Masa",
+                "3010407": "Estructuración y Evaluación de Proyectos de Ingeniería",
+                "3010514": "Laboratorio I de Ingeniería Química, Termodinámica",
+                "3007817": "Ingeniería de los Reactores Químicos",
+                "3010515": "Laboratorio II de Ingeniería Química, Operaciones de Transferencia y Control de Procesos",
+                "3007816": "Ingeniería de Procesos",
+                "3010439": "Proyecto Integrado de Ingeniería",
+                "3007440": "Trabajo de Grado"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000004",
+                        "1000008",
+                        "3006829",
+                        "3010511"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000003",
+                        "1000005",
+                        "1000019",
+                        "1000034"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 3
+                    }
+                },
+                "3": {
+                    "asignaturas": [
+                        "1000006",
+                        "1000007",
+                        "3010478"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 2
+                    }
+                },
+                "4": {
+                    "asignaturas": [
+                        "3007811",
+                        "3010435",
+                        "3010651"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 4,
+                        "libre_eleccion": 3
+                    }
+                },
+                "5": {
+                    "asignaturas": [
+                        "3007814",
+                        "3009352",
+                        "3010485"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 7
+                    }
+                },
+                "6": {
+                    "asignaturas": [
+                        "3007820",
+                        "3007821",
+                        "3010530"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 4,
+                        "libre_eleccion": 3
+                    }
+                },
+                "7": {
+                    "asignaturas": [
+                        "3007822",
+                        "3010407",
+                        "3010463"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 3,
+                        "libre_eleccion": 6
+                    }
+                },
+                "8": {
+                    "asignaturas": [
+                        "3007817",
+                        "3010514"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 6,
+                        "libre_eleccion": 6
+                    }
+                },
+                "9": {
+                    "asignaturas": [
+                        "3007816",
+                        "3010439",
+                        "3010515"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 4,
+                        "libre_eleccion": 3
+                    }
+                },
+                "10": {
+                    "asignaturas": [
+                        "3007440"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 12
+                    }
+                }
+            },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
+            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3068",
+            "facultad_nombre": "3068 FACULTAD DE MINAS",
+            "valor_sede": "6",
+            "valor_facultad": "6",
+            "valor_plan": "23",
+            "clave": "1102:3068:3539"
+        }
+    }
+}

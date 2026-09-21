@@ -1,0 +1,118 @@
+{
+    "niveles_estudio": [
+        {
+            "value": "0",
+            "nombre": "Pregrado",
+            "sedes": [
+                {
+                    "value": "6",
+                    "nombre": "1102 SEDE MEDELLÍN",
+                    "codigo": "1102",
+                    "facultades": [
+                        {
+                            "value": "6",
+                            "nombre": "3068 FACULTAD DE MINAS",
+                            "codigo": "3068",
+                            "planes_estudio": [
+                                {
+                                    "value": "1",
+                                    "nombre": "3528 INGENIERÍA ADMINISTRATIVA",
+                                    "codigo": "3528"
+                                },
+                                {
+                                    "value": "3",
+                                    "nombre": "3529 INGENIERÍA AMBIENTAL",
+                                    "codigo": "3529"
+                                },
+                                {
+                                    "value": "5",
+                                    "nombre": "3530 INGENIERÍA CIVIL",
+                                    "codigo": "3530"
+                                },
+                                {
+                                    "value": "7",
+                                    "nombre": "3531 INGENIERÍA DE CONTROL",
+                                    "codigo": "3531"
+                                },
+                                {
+                                    "value": "9",
+                                    "nombre": "3532 INGENIERÍA DE MINAS Y METALURGIA",
+                                    "codigo": "3532"
+                                },
+                                {
+                                    "value": "11",
+                                    "nombre": "3533 INGENIERÍA DE PETRÓLEOS",
+                                    "codigo": "3533"
+                                },
+                                {
+                                    "value": "13",
+                                    "nombre": "3534 INGENIERÍA DE SISTEMAS E INFORMÁTICA",
+                                    "codigo": "3534"
+                                },
+                                {
+                                    "value": "15",
+                                    "nombre": "3535 INGENIERÍA ELÉCTRICA",
+                                    "codigo": "3535"
+                                },
+                                {
+                                    "value": "17",
+                                    "nombre": "3536 INGENIERÍA GEOLÓGICA",
+                                    "codigo": "3536"
+                                },
+                                {
+                                    "value": "19",
+                                    "nombre": "3537 INGENIERÍA INDUSTRIAL",
+                                    "codigo": "3537"
+                                },
+                                {
+                                    "value": "21",
+                                    "nombre": "3538 INGENIERÍA MECÁNICA",
+                                    "codigo": "3538"
+                                },
+                                {
+                                    "value": "23",
+                                    "nombre": "3539 INGENIERÍA QUÍMICA",
+                                    "codigo": "3539"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "tipologias": [
+        {
+            "value": "0",
+            "nombre": "TODAS MENOS  LIBRE ELECCIÓN"
+        },
+        {
+            "value": "1",
+            "nombre": "DISCIPLINAR OBLIGATORIA"
+        },
+        {
+            "value": "2",
+            "nombre": "NIVELACIÓN"
+        },
+        {
+            "value": "3",
+            "nombre": "TRABAJO DE GRADO"
+        },
+        {
+            "value": "4",
+            "nombre": "FUND. OBLIGATORIA"
+        },
+        {
+            "value": "5",
+            "nombre": "DISCIPLINAR OPTATIVA"
+        },
+        {
+            "value": "6",
+            "nombre": "FUND. OPTATIVA"
+        },
+        {
+            "value": "7",
+            "nombre": "LIBRE ELECCIÓN"
+        }
+    ]
+}

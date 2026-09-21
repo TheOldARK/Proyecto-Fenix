@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv*/
+build/
+dist/
+*.pfx
+*.p12
+*.key
+*.pem
+*.log
+datos/*
+!datos/catalogo_sia.json
+!datos/configuracion_libre_eleccion.json
+!datos/planes_estudio.json

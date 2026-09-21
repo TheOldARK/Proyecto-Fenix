@@ -1,0 +1,103 @@
+{
+    "1102": {
+        "sede": "1102 SEDE MEDELLÍN",
+        "planes": {
+            "3068:3528": {
+                "facultad": "3068 FACULTAD DE MINAS",
+                "plan": "3528 INGENIERÍA ADMINISTRATIVA",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3068 FACULTAD DE MINAS"
+                ]
+            },
+            "3068:3529": {
+                "facultad": "3068 FACULTAD DE MINAS",
+                "plan": "3529 INGENIERÍA AMBIENTAL",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3068 FACULTAD DE MINAS"
+                ]
+            },
+            "3068:3530": {
+                "facultad": "3068 FACULTAD DE MINAS",
+                "plan": "3530 INGENIERÍA CIVIL",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3068 FACULTAD DE MINAS"
+                ]
+            },
+            "3068:3531": {
+                "facultad": "3068 FACULTAD DE MINAS",
+                "plan": "3531 INGENIERÍA DE CONTROL",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3068 FACULTAD DE MINAS"
+                ]
+            },
+            "3068:3532": {
+                "facultad": "3068 FACULTAD DE MINAS",
+                "plan": "3532 INGENIERÍA DE MINAS Y METALURGIA",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3068 FACULTAD DE MINAS"
+                ]
+            },
+            "3068:3533": {
+                "facultad": "3068 FACULTAD DE MINAS",
+                "plan": "3533 INGENIERÍA DE PETRÓLEOS",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3068 FACULTAD DE MINAS"
+                ]
+            },
+            "3068:3534": {
+                "facultad": "3068 FACULTAD DE MINAS",
+                "plan": "3534 INGENIERÍA DE SISTEMAS E INFORMÁTICA",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3068 FACULTAD DE MINAS"
+                ]
+            },
+            "3068:3535": {
+                "facultad": "3068 FACULTAD DE MINAS",
+                "plan": "3535 INGENIERÍA ELÉCTRICA",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3068 FACULTAD DE MINAS"
+                ]
+            },
+            "3068:3536": {
+                "facultad": "3068 FACULTAD DE MINAS",
+                "plan": "3536 INGENIERÍA GEOLÓGICA",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3068 FACULTAD DE MINAS"
+                ]
+            },
+            "3068:3537": {
+                "facultad": "3068 FACULTAD DE MINAS",
+                "plan": "3537 INGENIERÍA INDUSTRIAL",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3068 FACULTAD DE MINAS"
+                ]
+            },
+            "3068:3538": {
+                "facultad": "3068 FACULTAD DE MINAS",
+                "plan": "3538 INGENIERÍA MECÁNICA",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3068 FACULTAD DE MINAS"
+                ]
+            },
+            "3068:3539": {
+                "facultad": "3068 FACULTAD DE MINAS",
+                "plan": "3539 INGENIERÍA QUÍMICA",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3068 FACULTAD DE MINAS"
+                ]
+            }
+        }
+    }
+}

@@ -1,0 +1,13 @@
+PUBLICAR
+========
+aplicacion/ | dominio/ | infraestructura/ | servicios/
+recursos/ | datos/ (solo catálogos base públicos)
+configuracion.py | main.py | Fenix.spec
+construir_windows.ps1 | requirements.txt | requirements-build.txt
+README.md | LICENSE | LEEME_BETA.txt
+
+EXCLUIR
+=======
+dist/ | build/ | .venv-distribucion/ | __pycache__/ | *.pyc
+estudiante.json | materias.json | oferta.json | libres_eleccion.json
+estado_actualizacion.json | cancelacion_actualizacion.json | logs/
