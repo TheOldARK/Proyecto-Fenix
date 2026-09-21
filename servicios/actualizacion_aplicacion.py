@@ -151,6 +151,9 @@ def aplicar_actualizacion(paquete: str, instalacion: str, pid: str) -> int:
             except OSError:
                 break
             time.sleep(0.5)
+        # Windows puede tardar unos instantes adicionales en liberar los
+        # manejadores del proceso que acaba de cerrarse.
+        time.sleep(1.5)
     destino = Path(instalacion).resolve()
     temporal = Path(tempfile.mkdtemp(prefix="fenix-update-"))
     respaldo = Path(tempfile.mkdtemp(prefix="fenix-rollback-"))
@@ -168,7 +171,20 @@ def aplicar_actualizacion(paquete: str, instalacion: str, pid: str) -> int:
             if actual.is_dir():
                 shutil.copytree(actual, copia)
             else:
-                shutil.copy2(actual, copia)
+                # Antivirus y Windows Defender pueden mantener un archivo
+                # abierto brevemente al cerrar la aplicación. Reintentamos
+                # la copia antes de abortar la actualización.
+                ultimo_error = None
+                for intento in range(20):
+                    try:
+                        shutil.copy2(actual, copia)
+                        ultimo_error = None
+                        break
+                    except PermissionError as error:
+                        ultimo_error = error
+                        time.sleep(0.5)
+                if ultimo_error is not None:
+                    raise ultimo_error
         for origen in raiz.iterdir():
             destino_origen = destino / origen.name
             if origen.is_dir() and destino_origen.exists():
