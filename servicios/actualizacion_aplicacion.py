@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -21,9 +22,21 @@ from zipfile import ZipFile
 
 from configuracion import BASE_DIR, VERSION
 
+try:
+    import certifi
+except ImportError:  # pragma: no cover - el ejecutable siempre lo incluye
+    certifi = None
+
 REPOSITORIO_GITHUB = "TheOldARK/Proyecto-Fenix"
 API_RELEASES = f"https://api.github.com/repos/{REPOSITORIO_GITHUB}/releases"
 PREFIJO_ASSET = "Fenix-"
+
+
+def _contexto_tls():
+    """Usa una CA empaquetada para no depender del Python del equipo."""
+    if certifi is not None:
+        return ssl.create_default_context(cafile=certifi.where())
+    return ssl.create_default_context()
 
 
 def _version(valor: str) -> tuple[int, ...]:
@@ -40,7 +53,7 @@ def consultar_ultima_version(timeout: int = 15) -> dict:
         API_RELEASES,
         headers={"Accept": "application/vnd.github+json", "User-Agent": "Proyecto-Fenix"},
     )
-    with urlopen(solicitud, timeout=timeout) as respuesta:
+        with urlopen(solicitud, timeout=timeout, context=_contexto_tls()) as respuesta:
         datos = json.loads(respuesta.read().decode("utf-8"))
     if not isinstance(datos, list) or not datos:
         raise ValueError("El repositorio no tiene Releases publicadas.")
@@ -74,7 +87,7 @@ def descargar_release(release: dict, destino: Path | None = None, timeout: int =
     destino = destino or Path(tempfile.gettempdir()) / f"fenix-{release['version']}.zip"
     temporal = destino.with_suffix(destino.suffix + ".partial")
     solicitud = Request(release["url"], headers={"User-Agent": "Proyecto-Fenix"})
-    with urlopen(solicitud, timeout=timeout) as respuesta, temporal.open("wb") as archivo:
+    with urlopen(solicitud, timeout=timeout, context=_contexto_tls()) as respuesta, temporal.open("wb") as archivo:
         shutil.copyfileobj(respuesta, archivo)
     if destino.exists():
         destino.unlink()

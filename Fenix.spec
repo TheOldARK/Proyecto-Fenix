@@ -37,7 +37,7 @@ if licencia_python.is_file():
 for nombre in ("catalogo_sia.json", "planes_estudio.json", "configuracion_libre_eleccion.json"):
     datos.append((str(raiz / "datos" / nombre), "datos"))
 for paquete in ("PySide6-Essentials", "shiboken6", "playwright",
-                "beautifulsoup4", "soupsieve", "pyee", "greenlet", "typing-extensions"):
+                "beautifulsoup4", "soupsieve", "pyee", "greenlet", "typing-extensions", "certifi"):
     datos.extend(copy_metadata(paquete))
 
 version_windows = VSVersionInfo(
