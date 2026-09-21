@@ -3036,7 +3036,23 @@ class VentanaPrincipal(QMainWindow):
         dialogo.setWindowTitle("Editar materias y grupos")
         dialogo.setMinimumWidth(620)
         dialogo.setStyleSheet(
-            f"QDialog {{ background-color: {COLOR_SUPERFICIE}; }} QLabel {{ color: {COLOR_TEXTO}; }}"
+            f"""
+            QDialog {{ background-color: {COLOR_SUPERFICIE}; }}
+            QLabel {{ color: {COLOR_TEXTO}; }}
+            QComboBox {{
+                background-color: {COLOR_SUPERFICIE_CLARA};
+                color: {COLOR_TEXTO};
+                border: 1px solid {COLOR_LINEA};
+                border-radius: 5px;
+                padding: 4px 8px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {COLOR_SUPERFICIE_CLARA};
+                color: {COLOR_TEXTO};
+                selection-background-color: {COLOR_VERDE};
+                selection-color: #ffffff;
+            }}
+            """
         )
         principal = QVBoxLayout(dialogo)
         principal.setContentsMargins(20, 18, 20, 18)
