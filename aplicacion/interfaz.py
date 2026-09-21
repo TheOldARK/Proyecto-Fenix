@@ -3351,6 +3351,7 @@ class VentanaPrincipal(QMainWindow):
             if respuesta != QMessageBox.StandardButton.Yes:
                 return
             paquete = descargar_release(release)
+            self.detener_actualizacion()
             iniciar_reemplazo(paquete, os.getpid())
             QApplication.quit()
         except Exception as error:
@@ -3382,6 +3383,7 @@ class VentanaPrincipal(QMainWindow):
                     from servicios.actualizacion_aplicacion import descargar_release, iniciar_reemplazo
 
                     paquete = descargar_release(release)
+                    self.detener_actualizacion()
                     iniciar_reemplazo(paquete, os.getpid())
                     QApplication.quit()
         except Exception as error:
