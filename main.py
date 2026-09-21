@@ -167,6 +167,15 @@ def main():
     preparar_entorno()
     print("Iniciando Fénix...", flush=True)
 
+    if "--aplicar-actualizacion" in sys.argv:
+        from servicios.actualizacion_aplicacion import aplicar_actualizacion
+
+        indice = sys.argv.index("--aplicar-actualizacion")
+        argumentos = sys.argv[indice + 1 : indice + 4]
+        if len(argumentos) != 3:
+            raise ValueError("Uso: --aplicar-actualizacion ZIP INSTALACION PID")
+        return aplicar_actualizacion(*argumentos)
+
     if "--diagnostico" in sys.argv:
         from aplicacion.diagnostico import comprobar_instalacion
 

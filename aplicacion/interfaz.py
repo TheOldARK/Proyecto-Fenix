@@ -5,6 +5,7 @@ barra lateral. El estado de la actualización se comparte mediante un JSON.
 """
 
 import subprocess
+import os
 import re
 import sys
 import time
@@ -1040,6 +1041,8 @@ class BarraTitulo(QFrame):
         menu_archivo.addSeparator()
         menu_archivo.addAction("Exportar estado (.fnx)", ventana.exportar_estado_fnx)
         menu_archivo.addAction("Importar estado (.fnx)", ventana.importar_estado_fnx)
+        menu_archivo.addSeparator()
+        menu_archivo.addAction("Buscar actualización de Fénix", ventana.buscar_actualizacion_aplicacion)
         menu_archivo.addSeparator()
         menu_archivo.addAction("Tomar captura al horario", ventana.tomar_captura_horario)
         boton_archivo.setMenu(menu_archivo)
@@ -3289,6 +3292,38 @@ class VentanaPrincipal(QMainWindow):
         except OSError as error:
             guardar_estado("error", f"No se pudo iniciar la actualización: {error}", None)
         self.revisar_actualizacion()
+
+    def buscar_actualizacion_aplicacion(self):
+        """Consulta GitHub y ofrece reiniciar Fénix con la nueva versión."""
+        from servicios.actualizacion_aplicacion import (
+            descargar_release,
+            hay_actualizacion,
+            iniciar_reemplazo,
+            consultar_ultima_version,
+        )
+
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            release = consultar_ultima_version()
+            if not hay_actualizacion(release):
+                QMessageBox.information(self, "Fénix actualizado", f"Ya tienes Fénix {VERSION}.")
+                return
+            respuesta = QMessageBox.question(
+                self,
+                "Actualización disponible",
+                f"Está disponible Fénix {release['version']}. ¿Descargarla y reiniciar ahora?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+            if respuesta != QMessageBox.StandardButton.Yes:
+                return
+            paquete = descargar_release(release)
+            iniciar_reemplazo(paquete, os.getpid())
+            QApplication.quit()
+        except Exception as error:
+            QMessageBox.critical(self, "No se pudo actualizar Fénix", str(error))
+        finally:
+            QApplication.restoreOverrideCursor()
 
     def preguntar_actualizacion_guardada(self):
         """Solicita confirmación antes de reemplazar información persistida."""
