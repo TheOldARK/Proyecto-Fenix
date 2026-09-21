@@ -120,7 +120,7 @@ def iniciar_reemplazo(paquete: Path, pid: int, instalacion: Path | None = None) 
 
 
 def aplicar_actualizacion(paquete: str, instalacion: str, pid: str) -> int:
-    """Espera al proceso anterior y reemplaza la instalación completa."""
+    """Reemplaza la instalación con copia de seguridad y rollback automático."""
     if int(pid) != os.getpid():
         for _ in range(120):
             try:
@@ -130,12 +130,22 @@ def aplicar_actualizacion(paquete: str, instalacion: str, pid: str) -> int:
             time.sleep(0.5)
     destino = Path(instalacion).resolve()
     temporal = Path(tempfile.mkdtemp(prefix="fenix-update-"))
+    respaldo = Path(tempfile.mkdtemp(prefix="fenix-rollback-"))
+    reemplazados = []
     try:
         with ZipFile(paquete) as archivo:
             archivo.extractall(temporal)
         raiz = temporal / "Fenix"
         if not raiz.is_dir():
             raiz = temporal
+        # La copia se hace antes de tocar la instalación. Así un fallo por
+        # permisos, antivirus o un archivo bloqueado no deja Fénix incompleto.
+        for actual in destino.iterdir():
+            copia = respaldo / actual.name
+            if actual.is_dir():
+                shutil.copytree(actual, copia)
+            else:
+                shutil.copy2(actual, copia)
         for origen in raiz.iterdir():
             destino_origen = destino / origen.name
             if origen.is_dir() and destino_origen.exists():
@@ -143,10 +153,27 @@ def aplicar_actualizacion(paquete: str, instalacion: str, pid: str) -> int:
             elif destino_origen.exists():
                 destino_origen.unlink()
             shutil.move(str(origen), str(destino_origen))
+            reemplazados.append(destino_origen)
         ejecutable = destino / "Fenix.exe"
         if ejecutable.exists():
             subprocess.Popen([str(ejecutable)], cwd=str(destino))
         return 0
+    except Exception:
+        # Restaurar primero los elementos que la actualización eliminó y luego
+        # devolver cualquier archivo que faltara en el destino original.
+        for elemento in reemplazados:
+            if elemento.is_dir():
+                shutil.rmtree(elemento, ignore_errors=True)
+            else:
+                elemento.unlink(missing_ok=True)
+        for copia in respaldo.iterdir():
+            destino_copia = destino / copia.name
+            if copia.is_dir():
+                shutil.copytree(copia, destino_copia, dirs_exist_ok=True)
+            else:
+                shutil.copy2(copia, destino_copia)
+        raise
     finally:
         shutil.rmtree(temporal, ignore_errors=True)
+        shutil.rmtree(respaldo, ignore_errors=True)
         Path(paquete).unlink(missing_ok=True)
