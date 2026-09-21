@@ -22,7 +22,7 @@ from zipfile import ZipFile
 from configuracion import BASE_DIR, VERSION
 
 REPOSITORIO_GITHUB = "TheOldARK/Proyecto-Fenix"
-API_RELEASES = f"https://api.github.com/repos/{REPOSITORIO_GITHUB}/releases/latest"
+API_RELEASES = f"https://api.github.com/repos/{REPOSITORIO_GITHUB}/releases"
 PREFIJO_ASSET = "Fenix-"
 
 
@@ -42,6 +42,9 @@ def consultar_ultima_version(timeout: int = 15) -> dict:
     )
     with urlopen(solicitud, timeout=timeout) as respuesta:
         datos = json.loads(respuesta.read().decode("utf-8"))
+    if not isinstance(datos, list) or not datos:
+        raise ValueError("El repositorio no tiene Releases publicadas.")
+    datos = next((release for release in datos if not release.get("draft")), datos[0])
     etiqueta = str(datos.get("tag_name") or datos.get("name") or "").lstrip("v")
     assets = datos.get("assets") or []
     nombre_asset = f"{PREFIJO_ASSET}{etiqueta}-windows-x64.zip"

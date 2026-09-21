@@ -41,7 +41,7 @@ for paquete in ("PySide6-Essentials", "shiboken6", "playwright",
     datos.extend(copy_metadata(paquete))
 
 version_windows = VSVersionInfo(
-    ffi=FixedFileInfo(filevers=(0, 1, 0, 6), prodvers=(0, 1, 0, 6),
+    ffi=FixedFileInfo(filevers=(0, 1, 0, 7), prodvers=(0, 1, 0, 7),
                      mask=0x3F, flags=0x2, OS=0x40004, fileType=0x1, subtype=0, date=(0, 0)),
     kids=[StringFileInfo([StringTable("040904B0", [
         StringStruct("CompanyName", "Proyecto Fénix"),
