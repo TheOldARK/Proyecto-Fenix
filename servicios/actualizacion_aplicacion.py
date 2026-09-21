@@ -118,11 +118,24 @@ def _extraer_seguro(archivo: ZipFile, destino: Path) -> None:
 def iniciar_reemplazo(paquete: Path, pid: int, instalacion: Path | None = None) -> None:
     """Inicia el auxiliar y devuelve el control para que la interfaz cierre."""
     instalacion = instalacion or Path(sys.executable).resolve().parent
-    from aplicacion.arranque import comando_fenix
+    if getattr(sys, "frozen", False):
+        # El ejecutable en uso no puede borrarse en Windows. Se copia junto a
+        # _internal y el auxiliar se ejecuta desde esta carpeta temporal.
+        auxiliar = Path(tempfile.mkdtemp(prefix="fenix-updater-"))
+        shutil.copy2(Path(sys.executable), auxiliar / "Fenix.exe")
+        internos = instalacion / "_internal"
+        if internos.is_dir():
+            shutil.copytree(internos, auxiliar / "_internal")
+        comando = [
+            str(auxiliar / "Fenix.exe"),
+            "--aplicar-actualizacion", str(paquete), str(instalacion), str(pid),
+        ]
+    else:
+        from aplicacion.arranque import comando_fenix
 
-    comando = comando_fenix(
-        "--aplicar-actualizacion", str(paquete), str(instalacion), str(pid)
-    )
+        comando = comando_fenix(
+            "--aplicar-actualizacion", str(paquete), str(instalacion), str(pid)
+        )
     opciones = {"cwd": str(BASE_DIR)}
     if sys.platform == "win32":
         opciones["creationflags"] = subprocess.CREATE_NO_WINDOW
