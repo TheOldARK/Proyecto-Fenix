@@ -53,7 +53,7 @@ def consultar_ultima_version(timeout: int = 15) -> dict:
         API_RELEASES,
         headers={"Accept": "application/vnd.github+json", "User-Agent": "Proyecto-Fenix"},
     )
-        with urlopen(solicitud, timeout=timeout, context=_contexto_tls()) as respuesta:
+    with urlopen(solicitud, timeout=timeout, context=_contexto_tls()) as respuesta:
         datos = json.loads(respuesta.read().decode("utf-8"))
     if not isinstance(datos, list) or not datos:
         raise ValueError("El repositorio no tiene Releases publicadas.")
