@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 from urllib.request import Request, urlopen
 from zipfile import ZipFile
 
@@ -115,6 +116,19 @@ def _extraer_seguro(archivo: ZipFile, destino: Path) -> None:
     archivo.extractall(destino)
 
 
+def _copiar_auxiliar(origen: Path, destino: Path) -> None:
+    """Copia el runtime del auxiliar, esperando cierres tardíos de Chromium."""
+    for intento in range(20):
+        try:
+            shutil.copytree(origen, destino)
+            return
+        except (FileNotFoundError, PermissionError):
+            shutil.rmtree(destino, ignore_errors=True)
+            if intento == 19:
+                raise
+            time.sleep(0.5)
+
+
 def iniciar_reemplazo(paquete: Path, pid: int, instalacion: Path | None = None) -> None:
     """Inicia el auxiliar y devuelve el control para que la interfaz cierre."""
     instalacion = instalacion or Path(sys.executable).resolve().parent
@@ -125,7 +139,7 @@ def iniciar_reemplazo(paquete: Path, pid: int, instalacion: Path | None = None) 
         shutil.copy2(Path(sys.executable), auxiliar / "Fenix.exe")
         internos = instalacion / "_internal"
         if internos.is_dir():
-            shutil.copytree(internos, auxiliar / "_internal")
+            _copiar_auxiliar(internos, auxiliar / "_internal")
         comando = [
             str(auxiliar / "Fenix.exe"),
             "--aplicar-actualizacion", str(paquete), str(instalacion), str(pid),
@@ -169,61 +183,63 @@ def _esperar_cierre(pid: int) -> None:
 
 
 def _mover_con_reintentos(origen: Path, destino: Path) -> None:
-    for intento in range(60):
+    """Mueve una carpeta completa sin recorrer sus archivos internos."""
+    for intento in range(180):
         try:
             origen.rename(destino)
             return
         except OSError as error:
-            if getattr(error, "winerror", None) not in (5, 32, 33) or intento == 59:
+            # Playwright puede cerrar Chromium unos segundos después de que el
+            # worker terminó. Reintentar el directorio completo evita tocar
+            # archivos individuales mientras Windows los libera.
+            if getattr(error, "winerror", None) not in (2, 3, 5, 32, 33) or intento == 179:
                 raise
             time.sleep(0.5)
 
 
 def aplicar_actualizacion(paquete: str, instalacion: str, pid: str) -> int:
-    """Instala desde fuera del destino y conserva el respaldo ante cualquier fallo."""
+    """Instala con intercambio atómico de directorios y rollback seguro."""
     destino = Path(instalacion).resolve()
     if getattr(sys, "frozen", False) and destino in Path(sys.executable).resolve().parents:
         raise RuntimeError("El auxiliar debe ejecutarse fuera de la instalación.")
     _esperar_cierre(int(pid))
+    if not destino.is_dir():
+        raise RuntimeError("No se encontró la carpeta de instalación de Fénix.")
     trabajo = Path(tempfile.mkdtemp(prefix=".fenix-update-", dir=destino.parent))
-    nuevo = trabajo / "nuevo"
-    respaldo = trabajo / "respaldo"
-    nuevo.mkdir()
-    respaldo.mkdir()
-    movimientos = []
+    extraido = trabajo / "extraido"
+    extraido.mkdir()
+    nuevo = destino.parent / f".{destino.name}.nuevo-{uuid.uuid4().hex}"
+    respaldo = destino.parent / f".{destino.name}.respaldo-{uuid.uuid4().hex}"
+    intercambio_iniciado = False
     try:
         with ZipFile(paquete) as archivo:
-            _extraer_seguro(archivo, nuevo)
-        raiz = nuevo / "Fenix" if (nuevo / "Fenix").is_dir() else nuevo
+            _extraer_seguro(archivo, extraido)
+        raiz = extraido / "Fenix" if (extraido / "Fenix").is_dir() else extraido
         if not (raiz / "Fenix.exe").is_file() or not (raiz / "_internal").is_dir():
             raise ValueError("Paquete incompleto: faltan Fenix.exe o _internal.")
-        for origen in raiz.iterdir():
-            actual = destino / origen.name
-            copia = respaldo / origen.name
-            tenia_anterior = actual.exists()
-            if tenia_anterior:
-                _mover_con_reintentos(actual, copia)
-            movimientos.append((actual, copia, tenia_anterior))
-            _mover_con_reintentos(origen, actual)
+        _mover_con_reintentos(raiz, nuevo)
+        _mover_con_reintentos(destino, respaldo)
+        intercambio_iniciado = True
+        _mover_con_reintentos(nuevo, destino)
         entorno = os.environ.copy()
         entorno["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
         subprocess.Popen([str(destino / "Fenix.exe")], cwd=str(destino), env=entorno)
     except Exception as error:
         errores = []
-        for actual, copia, tenia_anterior in reversed(movimientos):
+        if intercambio_iniciado and respaldo.exists():
             try:
-                if actual.exists():
-                    _mover_con_reintentos(actual, trabajo / (actual.name + ".fallido"))
-                if tenia_anterior:
-                    _mover_con_reintentos(copia, actual)
+                if destino.exists():
+                    _mover_con_reintentos(destino, trabajo / "instalacion-fallida")
+                _mover_con_reintentos(respaldo, destino)
             except OSError as restauracion:
                 errores.append(str(restauracion))
-        mensaje = f"No se pudo actualizar: {error}\nRespaldo: {trabajo}\n" + "\n".join(errores)
+        mensaje = f"No se pudo actualizar: {error}\nRespaldo: {respaldo}\n" + "\n".join(errores)
         (trabajo / "error.txt").write_text(mensaje, encoding="utf-8")
         if sys.platform == "win32":
             import ctypes
             ctypes.windll.user32.MessageBoxW(None, mensaje, "Actualización de Fénix", 0x10)
         return 1
     shutil.rmtree(trabajo, ignore_errors=True)
+    shutil.rmtree(respaldo, ignore_errors=True)
+    Path(paquete).unlink(missing_ok=True)
     return 0
-

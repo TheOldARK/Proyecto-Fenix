@@ -3615,7 +3615,14 @@ class VentanaPrincipal(QMainWindow):
                 QApplication.processEvents()
                 time.sleep(0.05)
             if proceso.poll() is None:
-                proceso.kill()
+                if sys.platform == "win32":
+                    subprocess.run(
+                        ["taskkill", "/PID", str(proceso.pid), "/T", "/F"],
+                        capture_output=True,
+                        check=False,
+                    )
+                else:
+                    proceso.kill()
                 try:
                     proceso.wait(timeout=5)
                 except subprocess.TimeoutExpired as error:
