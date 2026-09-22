@@ -46,6 +46,8 @@ def ejecutar(viejo, nuevo, escenario):
     servidor = ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Handler, directory=str(nuevo.parent)))
     threading.Thread(target=servidor.serve_forever, daemon=True).start()
     config = {'api': f'http://127.0.0.1:{servidor.server_port}/releases', 'job': str(base / 'job.json')}
+    if escenario == 'github':
+        config['api'] = 'https://api.github.com/repos/TheOldARK/Proyecto-Fenix/releases'
     if escenario == 'worker-activo':
         chromium = next(ruta_larga(instalacion).rglob('chrome-headless-shell.exe'))
         # Playwright/Node recibe la ruta normal; el prefijo extendido es para E/S del instalador.
