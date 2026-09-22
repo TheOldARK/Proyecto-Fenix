@@ -202,9 +202,30 @@ def aplicar_actualizacion(paquete: str, instalacion: str, pid: str) -> int:
     destino = Path(instalacion).resolve()
     if getattr(sys, "frozen", False) and destino in Path(sys.executable).resolve().parents:
         raise RuntimeError("El auxiliar debe ejecutarse fuera de la instalación.")
-    _esperar_cierre(int(pid))
+    bloqueo = destino.parent / f".{destino.name}.actualizacion-en-curso"
+    try:
+        bloqueo.mkdir()
+    except FileExistsError:
+        # Otro auxiliar ya está haciendo el intercambio. No iniciar un
+        # segundo rollback sobre la misma carpeta.
+        return 0
+    try:
+        _esperar_cierre(int(pid))
+    except Exception:
+        shutil.rmtree(bloqueo, ignore_errors=True)
+        raise
+    # Durante un intercambio anterior la carpeta puede estar ausente durante
+    # unos milisegundos. Esperar evita convertir esa ventana en un traceback.
+    for _ in range(40):
+        if destino.is_dir():
+            break
+        time.sleep(0.5)
     if not destino.is_dir():
-        raise RuntimeError("No se encontró la carpeta de instalación de Fénix.")
+        shutil.rmtree(bloqueo, ignore_errors=True)
+        raise RuntimeError(
+            "No se encontró la carpeta de instalación de Fénix. "
+            "Puede que otra actualización ya esté en curso."
+        )
     trabajo = Path(tempfile.mkdtemp(prefix=".fenix-update-", dir=destino.parent))
     extraido = trabajo / "extraido"
     extraido.mkdir()
@@ -238,8 +259,10 @@ def aplicar_actualizacion(paquete: str, instalacion: str, pid: str) -> int:
         if sys.platform == "win32":
             import ctypes
             ctypes.windll.user32.MessageBoxW(None, mensaje, "Actualización de Fénix", 0x10)
+        shutil.rmtree(bloqueo, ignore_errors=True)
         return 1
     shutil.rmtree(trabajo, ignore_errors=True)
     shutil.rmtree(respaldo, ignore_errors=True)
+    shutil.rmtree(bloqueo, ignore_errors=True)
     Path(paquete).unlink(missing_ok=True)
     return 0
