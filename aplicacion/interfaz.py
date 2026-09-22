@@ -1528,6 +1528,7 @@ class VentanaPrincipal(QMainWindow):
         self.proceso_actualizacion = None
         self.cambiando_estudiante = False
         self.comprobacion_version_pendiente = False
+        self.arranque_autorizado = False
 
         self.configurar_ventana()
         self.crear_interfaz()
@@ -1535,10 +1536,6 @@ class VentanaPrincipal(QMainWindow):
         self.temporizador_estado.timeout.connect(self.revisar_actualizacion)
         self.temporizador_estado.start(1000)
         self.revisar_actualizacion()
-        # La consulta de GitHub se retrasa para no competir con el arranque
-        # del catálogo SIA. El usuario solo verá un diálogo si hay una versión
-        # nueva; cuando no hay cambios no se interrumpe la sesión.
-        QTimer.singleShot(5000, self.buscar_actualizacion_automatica)
         if self.datos_disponibles:
             self.activar_planificador()
         else:
@@ -3359,14 +3356,12 @@ class VentanaPrincipal(QMainWindow):
         finally:
             QApplication.restoreOverrideCursor()
 
-    def buscar_actualizacion_automatica(self):
-        """Comprueba GitHub al iniciar y solo interrumpe si hay una versión nueva."""
-        if self.cambiando_estudiante or self.comprobacion_version_pendiente:
-            return
-        if self.estado_actualizacion == "actualizando":
-            QTimer.singleShot(10000, self.buscar_actualizacion_automatica)
+    def comprobar_version_antes_de_workers(self):
+        """Autoriza el arranque solo después de revisar la versión de Fénix."""
+        if self.arranque_autorizado or self.comprobacion_version_pendiente:
             return
         self.comprobacion_version_pendiente = True
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             from servicios.actualizacion_aplicacion import consultar_ultima_version, hay_actualizacion
 
@@ -3383,14 +3378,50 @@ class VentanaPrincipal(QMainWindow):
                     from servicios.actualizacion_aplicacion import descargar_release, iniciar_reemplazo
 
                     paquete = descargar_release(release)
-                    self.detener_actualizacion()
                     iniciar_reemplazo(paquete, os.getpid())
                     QApplication.quit()
+                    return
+            self.continuar_arranque()
         except Exception as error:
-            # Una consulta fallida no debe impedir abrir el planificador.
             logging.getLogger("fenix").warning("No se pudo comprobar Fénix en GitHub: %s", error)
+            respuesta = QMessageBox.question(
+                self,
+                "No se pudo verificar Fénix",
+                "No fue posible comprobar si hay una versión nueva. "
+                "¿Quieres continuar sin verificar e iniciar la actualización de datos?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if respuesta == QMessageBox.StandardButton.Yes:
+                self.continuar_arranque()
+            else:
+                QApplication.quit()
         finally:
+            QApplication.restoreOverrideCursor()
             self.comprobacion_version_pendiente = False
+
+    def buscar_actualizacion_automatica(self):
+        """Compatibilidad con llamadas anteriores al control de arranque."""
+        self.comprobar_version_antes_de_workers()
+
+    def continuar_arranque(self):
+        """Solicita el perfil e inicia workers tras confirmar la versión."""
+        if self.arranque_autorizado:
+            return
+        self.arranque_autorizado = True
+        if self.debe_solicitar_perfil_inicial:
+            self.debe_solicitar_perfil_inicial = False
+            if not self.solicitar_perfil_inicial():
+                QTimer.singleShot(0, QApplication.instance().quit)
+                return
+            self.iniciar_actualizacion_manual()
+        elif self.tiene_perfil_guardado():
+            self.iniciar_actualizacion_manual()
+        if not self.datos_disponibles:
+            self.inicio_primera_actualizacion = time.monotonic()
+            self.dialogo_espera = DialogoEsperaActualizacion(self)
+            self.dialogo_espera.show()
+            self.revisar_actualizacion()
 
     def preguntar_actualizacion_guardada(self):
         """Solicita confirmación antes de reemplazar información persistida."""
@@ -3616,17 +3647,6 @@ class VentanaPrincipal(QMainWindow):
         return pantalla.availableGeometry() if pantalla is not None else None
 
     def mostrar(self):
-        if self.debe_solicitar_perfil_inicial:
-            self.debe_solicitar_perfil_inicial = False
-            # El formulario aparece antes que la ventana principal: durante el
-            # primer escaneo el estudiante no llega a ver ni usar el horario.
-            if not self.solicitar_perfil_inicial():
-                QTimer.singleShot(0, QApplication.instance().quit)
-                return
-            # El perfil ya existe: el mismo ejecutable inicia el actualizador.
-            self.iniciar_actualizacion_manual()
-        elif self.tiene_perfil_guardado():
-            self.iniciar_actualizacion_manual()
         area = self.obtener_area_trabajo()
         if area is not None:
             self.setGeometry(area)
@@ -3634,11 +3654,7 @@ class VentanaPrincipal(QMainWindow):
         self.show()
         self.raise_()
         self.activateWindow()
-        if not self.datos_disponibles:
-            self.inicio_primera_actualizacion = time.monotonic()
-            self.dialogo_espera = DialogoEsperaActualizacion(self)
-            self.dialogo_espera.show()
-            self.revisar_actualizacion()
+        QTimer.singleShot(0, self.comprobar_version_antes_de_workers)
 
     def alternar_maximizacion(self):
         area = self.obtener_area_trabajo()
