@@ -129,6 +129,37 @@ def _copiar_auxiliar(origen: Path, destino: Path) -> None:
             time.sleep(0.5)
 
 
+def _reparar_archivos_faltantes(raiz_nueva: Path, instalacion_actual: Path) -> list[str]:
+    """Restaura archivos del runtime que no llegaron a extraerse.
+
+    Algunas instalaciones de Windows pueden omitir temporalmente archivos del
+    runtime de Playwright durante la extracción. Solo se reutiliza un archivo
+    si existe en la instalación anterior con exactamente la misma ruta
+    relativa dentro de ``_internal``; así no se mezclan versiones distintas.
+    """
+    internos_nuevos = raiz_nueva / "_internal"
+    internos_actuales = instalacion_actual / "_internal"
+    if not internos_nuevos.is_dir() or not internos_actuales.is_dir():
+        return []
+    restaurados: list[str] = []
+    for origen in internos_actuales.rglob("*"):
+        if not origen.is_file():
+            continue
+        relativo = origen.relative_to(internos_actuales)
+        destino = internos_nuevos / relativo
+        if destino.exists():
+            continue
+        # Limitar la reparación a recursos del runtime de Playwright. El resto
+        # de la aplicación debe provenir siempre del paquete nuevo.
+        partes = {parte.lower() for parte in relativo.parts}
+        if "playwright" not in partes or ".local-browsers" not in partes:
+            continue
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(origen, destino)
+        restaurados.append(str(relativo))
+    return restaurados
+
+
 def iniciar_reemplazo(paquete: Path, pid: int, instalacion: Path | None = None) -> None:
     """Inicia el auxiliar y devuelve el control para que la interfaz cierre."""
     instalacion = instalacion or Path(sys.executable).resolve().parent
@@ -238,6 +269,7 @@ def aplicar_actualizacion(paquete: str, instalacion: str, pid: str) -> int:
         raiz = extraido / "Fenix" if (extraido / "Fenix").is_dir() else extraido
         if not (raiz / "Fenix.exe").is_file() or not (raiz / "_internal").is_dir():
             raise ValueError("Paquete incompleto: faltan Fenix.exe o _internal.")
+        _reparar_archivos_faltantes(raiz, destino)
         _mover_con_reintentos(raiz, nuevo)
         _mover_con_reintentos(destino, respaldo)
         intercambio_iniciado = True
