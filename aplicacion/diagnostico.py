@@ -70,7 +70,7 @@ def comprobar_instalacion(consultar_sia=False):
             planes = cargar_planes()
             if not planes:
                 raise RuntimeError("El paquete no contiene planes de estudio.")
-            for nombre in ("logo.png", "qr_donaciones.png", "gracias.png"):
+            for nombre in ("logo.png", "qr_donaciones.png", "gracias2.png"):
                 if QPixmap(str(CARPETA_RECURSOS / nombre)).isNull():
                     raise RuntimeError(f"No se pudo cargar el recurso {nombre}.")
             dialogo = DialogoPlan(planes, {}, {}, {}, materias_libres=[])

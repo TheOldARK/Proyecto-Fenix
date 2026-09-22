@@ -54,7 +54,7 @@ from servicios.tipos_materia import clasificar_tipo_materia
 
 RUTA_LOGO = BASE_DIR / "recursos" / "logo.png"
 RUTA_QR_DONACIONES = BASE_DIR / "recursos" / "qr_donaciones.png"
-RUTA_GRACIAS = BASE_DIR / "recursos" / "gracias.png"
+RUTA_GRACIAS = BASE_DIR / "recursos" / "gracias2.png"
 CORREO_CONTACTO = "mialvarezr@unal.edu.co"
 URL_DONACIONES = "https://example.com/donaciones"
 URL_PROFESORES_RECOMENDADOS = (
