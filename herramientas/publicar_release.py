@@ -39,8 +39,16 @@ def main():
             raise
         notas = ('Dummy funcionalmente equivalente a 1.0.8 para comprobar la actualización automática.' if args.version.endswith('.1') else
                  'Instalador independiente, soporte de rutas largas de Windows, verificación SHA-256 de todos los archivos, recuperación compatible y rollback con diagnóstico real de Qt y Chromium. Instalar esta versión manualmente una vez para sustituir el actualizador antiguo.')
-        release = request(api, {'tag_name': 'v' + args.version, 'target_commitish': args.commit,
-                               'name': 'Fénix ' + args.version, 'body': notas, 'draft': True, 'prerelease': False})
+        try:
+            release = request(api, {'tag_name': 'v' + args.version, 'target_commitish': args.commit,
+                                   'name': 'Fénix ' + args.version, 'body': notas, 'draft': True, 'prerelease': False})
+        except urllib.error.HTTPError as error:
+            # Una etiqueta puede existir aunque la Release siga en borrador o
+            # haya quedado huérfana tras un intento anterior.
+            releases = request(api)
+            release = next((r for r in releases if r.get('tag_name') == 'v' + args.version), None)
+            if release is None:
+                raise error
     nombre = f'Fenix-{args.version}-windows-x64.zip'
     digest = sha256(args.zip)
     asset = next((a for a in release.get('assets', []) if a['name'] == nombre), None)
