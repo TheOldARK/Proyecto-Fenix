@@ -3335,7 +3335,9 @@ class VentanaPrincipal(QMainWindow):
             consultar_ultima_version,
         )
 
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        cursor_propietario = QApplication.overrideCursor() is None
+        if cursor_propietario:
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             release = consultar_ultima_version()
             if not hay_actualizacion(release):
@@ -3357,7 +3359,8 @@ class VentanaPrincipal(QMainWindow):
         except Exception as error:
             QMessageBox.critical(self, "No se pudo actualizar Fénix", str(error))
         finally:
-            QApplication.restoreOverrideCursor()
+            if cursor_propietario and QApplication.overrideCursor() is not None:
+                QApplication.restoreOverrideCursor()
             self.instalando_version = False
 
     def comprobar_version_antes_de_workers(self):
@@ -3365,7 +3368,9 @@ class VentanaPrincipal(QMainWindow):
         if self.arranque_autorizado or self.comprobacion_version_pendiente or getattr(self, "instalando_version", False):
             return
         self.comprobacion_version_pendiente = True
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        cursor_propietario = QApplication.overrideCursor() is None
+        if cursor_propietario:
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             from servicios.actualizacion_aplicacion import consultar_ultima_version, hay_actualizacion
 
@@ -3401,7 +3406,8 @@ class VentanaPrincipal(QMainWindow):
             else:
                 QApplication.quit()
         finally:
-            QApplication.restoreOverrideCursor()
+            if cursor_propietario and QApplication.overrideCursor() is not None:
+                QApplication.restoreOverrideCursor()
             self.comprobacion_version_pendiente = False
 
     def buscar_actualizacion_automatica(self):
@@ -3658,6 +3664,10 @@ class VentanaPrincipal(QMainWindow):
         return pantalla.availableGeometry() if pantalla is not None else None
 
     def mostrar(self):
+        # Recupera el estado visual si una versión anterior dejó un cursor
+        # global instalado antes de cerrar o durante una excepción.
+        while QApplication.overrideCursor() is not None:
+            QApplication.restoreOverrideCursor()
         area = self.obtener_area_trabajo()
         if area is not None:
             self.setGeometry(area)
