@@ -2033,77 +2033,32 @@ class VentanaPrincipal(QMainWindow):
         dialogo.exec()
 
     def abrir_dialogo_donaciones(self):
-        """Muestra el mensaje de apoyo y el QR para realizar una transferencia."""
+        """Muestra la tarjeta gráfica de apoyo a Fénix."""
         dialogo = QDialog(self)
         dialogo.setWindowTitle("Invítame a un café · Apoya a Fénix")
-        # El QR ocupa aproximadamente la mitad del ancho disponible; su altura
-        # crece proporcionalmente para conservar la relación 768 × 1369.
-        dialogo.setMinimumWidth(900)
         dialogo.setStyleSheet(
             f"QDialog {{ background-color: {COLOR_SUPERFICIE}; }} "
-            f"QLabel {{ color: {COLOR_TEXTO}; }} "
             f"QPushButton {{ background-color: {COLOR_VERDE_FONDO}; color: {COLOR_TEXTO}; "
             f"border: 1px solid {COLOR_VERDE}; border-radius: 6px; padding: 7px 12px; }} "
             f"QPushButton:hover {{ background-color: {COLOR_SUPERFICIE_CLARA}; }}"
         )
         layout = QVBoxLayout(dialogo)
-        layout.setContentsMargins(24, 20, 24, 20)
-        layout.setSpacing(10)
+        layout.setContentsMargins(18, 18, 18, 12)
+        layout.setSpacing(12)
 
-        columnas = QHBoxLayout()
-        columnas.setSpacing(18)
-        columna_texto = QVBoxLayout()
-        columna_texto.setContentsMargins(8, 0, 8, 0)
-        columna_texto.setSpacing(10)
-        titulo = QLabel("Gracias por apoyar a Fénix")
-        titulo.setStyleSheet(f"color: {COLOR_TEXTO}; font-size: 27px; font-weight: 700;")
-        columna_texto.addWidget(titulo)
-
-        texto = QLabel(
-            "¡Hola! Soy Miguel, estudiante de Ingeniería de Sistemas de la Sede Medellín, "
-            "y diseñé Fénix porque también he vivido lo tedioso que puede ser elegir "
-            "las materias semestre a semestre. Por eso decidí crear "
-            "esta herramienta de manera voluntaria para hacer ese proceso más sencillo.\n\n"
-            "Si Fénix te ha resultado útil y deseas apoyarme, agradecería mucho tu aporte. "
-            "Este proyecto me ha tomado tiempo y esfuerzo. ¡Muchas gracias por descargarlo "
-            "y por ayudarme a seguir mejorándolo!"
-        )
-        texto.setWordWrap(True)
-        texto.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 17px;")
-        columna_texto.addWidget(texto)
-
-        gracias = QLabel()
-        gracias.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        pixmap_gracias = QPixmap(str(RUTA_GRACIAS))
-        if not pixmap_gracias.isNull():
-            # La imagen original es horizontal (1000 × 500); se ajusta sin deformarla.
-            gracias.setPixmap(
-                pixmap_gracias.scaled(
-                    420, 210,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-            )
-        columna_texto.addStretch(1)
-        columna_texto.addWidget(gracias)
-        columna_texto.addStretch(1)
-        columnas.addLayout(columna_texto, 1)
-
-        columna_qr = QVBoxLayout()
-        columna_qr.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        qr = QLabel()
-        qr.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        pixmap = QPixmap(str(RUTA_QR_DONACIONES))
-        if not pixmap.isNull():
-            # Conserva la proporción vertical original (768 × 1369) y evita deformar el QR.
-            qr.setPixmap(pixmap.scaled(420, 748, Qt.AspectRatioMode.KeepAspectRatio,
-                                       Qt.TransformationMode.FastTransformation))
+        tarjeta = QLabel()
+        tarjeta.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        pixmap = QPixmap(str(RUTA_GRACIAS))
+        if pixmap.isNull():
+            tarjeta.setText("No se encontró la imagen de donaciones.")
+            tarjeta.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; padding: 30px;")
         else:
-            qr.setText("No se encontró el código QR de donaciones.")
-            qr.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; padding: 30px;")
-        columna_qr.addWidget(qr)
-        columnas.addLayout(columna_qr)
-        layout.addLayout(columnas, 1)
+            tarjeta.setPixmap(pixmap.scaled(
+                1000, 500,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            ))
+        layout.addWidget(tarjeta)
 
         botones = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         botones.rejected.connect(dialogo.reject)
