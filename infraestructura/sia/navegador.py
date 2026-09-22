@@ -111,9 +111,10 @@ class NavegadorSIA:
             )
 
         # Iniciar el proceso de Chromium.
+        from infraestructura.sia.runtime_navegador import ejecutable_integrado
         self.browser = (
             await self.playwright.chromium.launch(
-                headless=self.headless
+                headless=self.headless, executable_path=ejecutable_integrado()
             )
         )
 

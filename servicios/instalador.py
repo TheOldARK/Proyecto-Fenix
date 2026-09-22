@@ -1,0 +1,282 @@
+"""Instalador independiente: no importa Qt, Playwright ni datos del estudiante."""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path, PureWindowsPath
+import shutil
+import subprocess
+import sys
+import time
+import traceback
+from zipfile import ZipFile
+
+MANIFIESTO = "fenix-manifest.json"
+
+
+def ruta_larga(ruta):
+    texto = os.path.abspath(ruta)
+    if os.name == "nt" and not texto.startswith("\\\\?\\"):
+        texto = "\\\\?\\UNC\\" + texto[2:] if texto.startswith("\\\\") else "\\\\?\\" + texto
+    return Path(texto)
+
+
+def sha256(ruta):
+    with ruta_larga(ruta).open("rb") as archivo:
+        return hashlib.file_digest(archivo, "sha256").hexdigest()
+
+
+def nombre_seguro(nombre):
+    nombre = nombre.replace("\\", "/")
+    partes = nombre.split("/")
+    if (PureWindowsPath(nombre).drive or nombre.startswith("/") or
+            any(p in ("", ".", "..") or ":" in p or p.rstrip(" .") != p for p in partes)):
+        raise ValueError(f"Ruta no permitida en el paquete: {nombre}")
+    if any(PureWindowsPath(p).is_reserved() for p in partes):
+        raise ValueError(f"Nombre reservado en el paquete: {nombre}")
+    return nombre
+
+
+def leer_paquete(archivo):
+    miembros = {}
+    vistos = set()
+    for info in archivo.infolist():
+        nombre = nombre_seguro(info.filename.rstrip("/\\"))
+        if nombre.casefold() in vistos:
+            raise ValueError("El ZIP contiene rutas duplicadas.")
+        vistos.add(nombre.casefold())
+        if (info.external_attr >> 16) & 0o170000 == 0o120000:
+            raise ValueError("El ZIP contiene enlaces simbólicos.")
+        if not info.is_dir() and not info.filename.endswith("\\"):
+            miembros[nombre] = info
+    prefijo = "Fenix/"
+    if prefijo + MANIFIESTO not in miembros:
+        raise ValueError("El paquete no contiene el manifiesto de integridad de Fénix.")
+    manifiesto = json.loads(archivo.read(miembros[prefijo + MANIFIESTO]))
+    if manifiesto.get("schema") != 1 or not manifiesto.get("version"):
+        raise ValueError("Manifiesto incompatible.")
+    esperados = manifiesto["files"]
+    if not isinstance(esperados, dict) or not esperados:
+        raise ValueError("Manifiesto vacío.")
+    for nombre, datos in esperados.items():
+        if nombre_seguro(nombre) != nombre or len(datos["sha256"]) != 64 or datos["size"] < 0:
+            raise ValueError("Entrada de manifiesto inválida.")
+        info = miembros.get(prefijo + nombre)
+        if info is None or info.file_size != datos["size"]:
+            raise ValueError(f"Paquete incompleto: {nombre}")
+    if set(miembros) != {prefijo + n for n in esperados} | {prefijo + MANIFIESTO}:
+        raise ValueError("El ZIP y el manifiesto no contienen los mismos archivos.")
+    for requerido in ("Fenix.exe", "updater/FenixUpdater.exe"):
+        if requerido not in esperados:
+            raise ValueError(f"Falta {requerido}")
+    if not any(n.startswith("_internal/") for n in esperados):
+        raise ValueError("Falta el runtime de Fénix.")
+    return manifiesto, miembros
+
+
+def coincide(ruta, esperado):
+    try:
+        return ruta_larga(ruta).stat().st_size == esperado["size"] and sha256(ruta) == esperado["sha256"]
+    except OSError:
+        return False
+
+
+def extraer_verificado(paquete, nuevo, anterior, registrar=print):
+    nuevo, anterior = ruta_larga(nuevo), ruta_larga(anterior)
+    with ZipFile(ruta_larga(paquete)) as archivo:
+        manifiesto, miembros = leer_paquete(archivo)
+        necesarios = sum(d["size"] for d in manifiesto["files"].values()) + 64 * 1024**2
+        if shutil.disk_usage(nuevo.parent).free < necesarios:
+            raise OSError("No hay espacio suficiente para preparar la actualización.")
+        nuevo.mkdir(parents=True, exist_ok=True)
+        for nombre, esperado in manifiesto["files"].items():
+            salida = nuevo / nombre
+            salida.parent.mkdir(parents=True, exist_ok=True)
+            error = None
+            for intento in range(3):
+                try:
+                    with archivo.open(miembros["Fenix/" + nombre]) as origen, salida.open("wb") as destino:
+                        shutil.copyfileobj(origen, destino, 1024 * 1024)
+                    if not coincide(salida, esperado):
+                        raise ValueError(f"Contenido incorrecto: {nombre}")
+                    error = None
+                    break
+                except (OSError, ValueError) as fallo:
+                    error = fallo
+                    time.sleep(0.2)
+            if error is not None:
+                origen = anterior / nombre
+                # Reutilizar únicamente bytes idénticos a los publicados.
+                if coincide(origen, esperado):
+                    shutil.copyfile(origen, salida)
+                    registrar(f"Recuperado de la instalación anterior: {nombre}")
+                if not coincide(salida, esperado):
+                    raise OSError(f"No se pudo recuperar {nombre}: {error}") from error
+        (nuevo / MANIFIESTO).write_text(json.dumps(manifiesto), encoding="utf-8")
+    verificar_instalacion(nuevo, manifiesto)
+    return manifiesto
+
+
+def verificar_instalacion(raiz, manifiesto):
+    for nombre, esperado in manifiesto["files"].items():
+        if not coincide(ruta_larga(raiz) / nombre, esperado):
+            raise ValueError(f"Verificación de integridad fallida: {nombre}")
+
+
+def esperar_cierre(pid, timeout=120000):
+    if pid == os.getpid():
+        raise RuntimeError("El instalador no puede actualizarse a sí mismo.")
+    if os.name != "nt":
+        return
+    import ctypes
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    handle = kernel.OpenProcess(0x00100000, False, pid)
+    if not handle:
+        if ctypes.get_last_error() == 87:
+            return
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        if kernel.WaitForSingleObject(handle, timeout) != 0:
+            raise RuntimeError("Fénix sigue abierto; cierra todas sus ventanas y vuelve a intentar.")
+    finally:
+        kernel.CloseHandle(handle)
+
+
+def mover(origen, destino):
+    for intento in range(60):
+        try:
+            ruta_larga(origen).rename(ruta_larga(destino))
+            return
+        except OSError as error:
+            if getattr(error, "winerror", None) not in (5, 32, 33) or intento == 59:
+                raise
+            time.sleep(0.5)
+
+
+def guardar(ruta, valor):
+    ruta = ruta_larga(ruta)
+    temporal = ruta.with_suffix(".tmp")
+    temporal.write_text(json.dumps(valor, ensure_ascii=False), encoding="utf-8")
+    temporal.replace(ruta)
+
+
+def diagnosticar(destino, datos):
+    entorno = os.environ.copy()
+    entorno["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    entorno["FENIX_DATA_DIR"] = str(datos)
+    proceso = subprocess.Popen([str(destino / "Fenix.exe"), "--diagnostico"],
+                               cwd=str(destino.parent), env=entorno)
+    try:
+        codigo = proceso.wait(timeout=90)
+    except subprocess.TimeoutExpired:
+        subprocess.run(["taskkill", "/PID", str(proceso.pid), "/T", "/F"], capture_output=True)
+        proceso.wait(timeout=10)
+        raise RuntimeError("La nueva versión no terminó su diagnóstico.")
+    if codigo:
+        raise RuntimeError(f"La nueva versión falló su diagnóstico ({codigo}).")
+
+
+def instalar(job):
+    destino = Path(job["instalacion"]).resolve()
+    if destino.parent == destino or not destino.name:
+        raise ValueError("Carpeta de instalación inválida.")
+    identidad = hashlib.sha256(str(destino).casefold().encode()).hexdigest()[:12]
+    trabajo = destino.parent / (".fx-" + identidad)
+    ruta_larga(trabajo).mkdir(exist_ok=True)
+    nuevo, respaldo = trabajo / "nuevo", trabajo / "anterior"
+    estado = trabajo / "estado.json"
+    registro = trabajo / "actualizacion.log"
+
+    def registrar(texto):
+        with ruta_larga(registro).open("a", encoding="utf-8") as salida:
+            salida.write(time.strftime("%Y-%m-%d %H:%M:%S ") + texto + "\n")
+
+    # El bloqueo lo libera Windows incluso si el instalador se interrumpe.
+    lock = ruta_larga(trabajo / "lock").open("a+b")
+    adquirido = False
+    try:
+        if os.name == "nt":
+            import msvcrt
+            lock.write(b"0")
+            lock.flush()
+            lock.seek(0)
+            msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+        adquirido = True
+        guardar(job["ready"], {"pid": os.getpid()})
+        registrar("Esperando cierre de Fénix")
+        esperar_cierre(int(job["pid"]))
+        previo = json.loads(ruta_larga(estado).read_text(encoding="utf-8")) if ruta_larga(estado).exists() else {}
+        if ruta_larga(respaldo).exists():
+            if previo.get("fase") == "completada":
+                shutil.rmtree(ruta_larga(respaldo))
+            else:
+                if ruta_larga(destino).exists():
+                    fallida = trabajo / ("interrumpida-" + str(time.time_ns()))
+                    mover(destino, fallida)
+                mover(respaldo, destino)
+                registrar("Instalación anterior restaurada tras interrupción")
+        if not ruta_larga(destino / "Fenix.exe").is_file():
+            raise ValueError("No se encontró Fenix.exe en la instalación original.")
+        if ruta_larga(nuevo).exists():
+            shutil.rmtree(ruta_larga(nuevo))
+        guardar(estado, {"fase": "preparando"})
+        registrar("Extrayendo y verificando todos los archivos")
+        manifiesto = extraer_verificado(job["paquete"], nuevo, destino, registrar)
+        guardar(estado, {"fase": "intercambiando", "version": manifiesto["version"]})
+        mover(destino, respaldo)
+        try:
+            mover(nuevo, destino)
+            verificar_instalacion(destino, manifiesto)
+            registrar("Comprobando Qt y Chromium desde la instalación final")
+            diagnosticar(destino, trabajo / "diagnostico")
+            entorno = os.environ.copy()
+            entorno["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+            proceso = subprocess.Popen([str(destino / "Fenix.exe")], cwd=str(destino.parent), env=entorno)
+        except Exception:
+            if ruta_larga(destino).exists():
+                mover(destino, trabajo / ("fallida-" + str(time.time_ns())))
+            mover(respaldo, destino)
+            registrar("Se restauró la versión anterior")
+            raise
+        guardar(estado, {"fase": "completada", "version": manifiesto["version"]})
+        guardar(job["resultado"], {"ok": True, "version": manifiesto["version"], "pid": proceso.pid, "log": str(registro)})
+        registrar("Actualización completada; nueva interfaz iniciada")
+        try:
+            shutil.rmtree(ruta_larga(respaldo))
+        except OSError as error:
+            registrar(f"Respaldo conservado: {error}")
+        return 0
+    except Exception as error:
+        registrar(traceback.format_exc())
+        guardar(job["resultado"], {"ok": False, "error": str(error), "log": str(registro)})
+        return 1
+    finally:
+        if adquirido and os.name == "nt":
+            lock.seek(0)
+            msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+        lock.close()
+
+
+def main():
+    job = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    try:
+        codigo = instalar(job)
+    except Exception as error:
+        guardar(job["resultado"], {"ok": False, "error": str(error)})
+        codigo = 1
+    if codigo and os.name == "nt" and not job.get("prueba"):
+        import ctypes
+        detalle = json.loads(Path(job["resultado"]).read_text(encoding="utf-8"))
+        ctypes.windll.user32.MessageBoxW(None, "No se pudo completar la actualización.\n" + detalle["error"] +
+                                       "\nRegistro: " + detalle.get("log", job["resultado"]), "Fénix", 0x10)
+    return codigo
+
+
+if __name__ == "__main__":
+    sys.exit(main())

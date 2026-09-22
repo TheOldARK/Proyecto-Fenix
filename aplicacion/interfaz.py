@@ -3325,6 +3325,9 @@ class VentanaPrincipal(QMainWindow):
 
     def buscar_actualizacion_aplicacion(self):
         """Consulta GitHub y ofrece reiniciar Fénix con la nueva versión."""
+        if getattr(self, "instalando_version", False):
+            return
+        self.instalando_version = True
         from servicios.actualizacion_aplicacion import (
             descargar_release,
             hay_actualizacion,
@@ -3355,10 +3358,11 @@ class VentanaPrincipal(QMainWindow):
             QMessageBox.critical(self, "No se pudo actualizar Fénix", str(error))
         finally:
             QApplication.restoreOverrideCursor()
+            self.instalando_version = False
 
     def comprobar_version_antes_de_workers(self):
         """Autoriza el arranque solo después de revisar la versión de Fénix."""
-        if self.arranque_autorizado or self.comprobacion_version_pendiente:
+        if self.arranque_autorizado or self.comprobacion_version_pendiente or getattr(self, "instalando_version", False):
             return
         self.comprobacion_version_pendiente = True
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)

@@ -15,6 +15,7 @@ from infraestructura.almacenamiento.json_atomico import guardar_json_atomico
 
 async def comprobar_navegador(consultar_sia):
     from playwright.async_api import async_playwright
+    from infraestructura.sia.runtime_navegador import ejecutable_integrado
 
     async with async_playwright() as playwright:
         carpeta_navegadores = (
@@ -26,10 +27,13 @@ async def comprobar_navegador(consultar_sia):
                 "chromium_headless_shell-*/chrome-headless-shell-win64/chrome-headless-shell.exe"
             )
         )
+        integrado = ejecutable_integrado()
+        if integrado:
+            ejecutables = [Path(integrado)] if Path(integrado).is_file() else []
         if len(ejecutables) != 1:
             raise FileNotFoundError("No se encontró una única copia del Chromium integrado.")
         ejecutable = ejecutables[0]
-        navegador = await playwright.chromium.launch(headless=True)
+        navegador = await playwright.chromium.launch(headless=True, executable_path=integrado)
         try:
             pagina = await navegador.new_page()
             await pagina.set_content("<title>Fenix</title><h1>Navegador disponible</h1>")

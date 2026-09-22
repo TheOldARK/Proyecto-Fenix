@@ -26,7 +26,7 @@
 import os
 from pathlib import Path
 
-VERSION = "1.0.7b"
+VERSION = "1.0.8"
 
 
 # =============================================================

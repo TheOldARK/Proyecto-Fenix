@@ -54,6 +54,12 @@ try {
     & $pythonFenix -m PyInstaller --clean --noconfirm --distpath $Salida --workpath (Join-Path $Entorno 'build') (Join-Path $PSScriptRoot 'Fenix.spec')
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo construir Fenix.exe.' }
     $carpetaFenix = Join-Path $Salida 'Fenix'
+    $shellsFenix = @($shellChromium)
+    if ($shellsFenix.Count -ne 1) { throw 'Debe existir una única versión de Chromium.' }
+    Copy-Item -LiteralPath $shellsFenix[0].Directory.FullName -Destination (Join-Path $carpetaFenix 'browser') -Recurse
+    & $pythonFenix -m PyInstaller --clean --noconfirm --distpath $Salida --workpath (Join-Path $Entorno 'build-updater') (Join-Path $PSScriptRoot 'Updater.spec')
+    if ($LASTEXITCODE -ne 0) { throw 'No se pudo construir el instalador independiente.' }
+    Copy-Item -LiteralPath (Join-Path $Salida 'FenixUpdater') -Destination (Join-Path $carpetaFenix 'updater') -Recurse
     $env:FENIX_DATA_DIR = Join-Path $Entorno ('diagnostico-' + [guid]::NewGuid().ToString('N'))
     $diagnosticoFenix = Start-Process -FilePath (Join-Path $carpetaFenix 'Fenix.exe') -ArgumentList '--diagnostico' -WindowStyle Hidden -PassThru
     if (-not $diagnosticoFenix.WaitForExit(60000)) {
@@ -83,7 +89,8 @@ try {
     try { $versionFenix = & $pythonFenix -c "from configuracion import VERSION; print(VERSION)" }
     finally { Pop-Location }
     $zipFenix = Join-Path $Salida "Fenix-$versionFenix-windows-x64.zip"
-    Compress-Archive -LiteralPath $carpetaFenix -DestinationPath $zipFenix -Force
+    & $pythonFenix (Join-Path $PSScriptRoot 'herramientas\empaquetar.py') $carpetaFenix
+    if ($LASTEXITCODE -ne 0) { throw 'El paquete no pasó la verificación de integridad.' }
     Get-FileHash -LiteralPath $zipFenix -Algorithm SHA256
     Write-Host "Beta generada: $zipFenix"
 } finally {

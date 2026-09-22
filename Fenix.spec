@@ -41,7 +41,7 @@ for paquete in ("PySide6-Essentials", "shiboken6", "playwright",
     datos.extend(copy_metadata(paquete))
 
 version_windows = VSVersionInfo(
-    ffi=FixedFileInfo(filevers=(1, 0, 7, 1), prodvers=(1, 0, 7, 1),
+    ffi=FixedFileInfo(filevers=tuple((list(map(int, VERSION.split('.'))) + [0]*4)[:4]), prodvers=tuple((list(map(int, VERSION.split('.'))) + [0]*4)[:4]),
                      mask=0x3F, flags=0x2, OS=0x40004, fileType=0x1, subtype=0, date=(0, 0)),
     kids=[StringFileInfo([StringTable("040904B0", [
         StringStruct("CompanyName", "Proyecto Fénix"),
@@ -55,6 +55,9 @@ version_windows = VSVersionInfo(
 
 a = Analysis([str(raiz / "main.py")], pathex=[str(raiz)], binaries=[], datas=datos,
              hiddenimports=[], hookspath=[], runtime_hooks=[], excludes=[], noarchive=False)
+# Chromium se copia en browser/ al lado del EXE para evitar MAX_PATH.
+a.datas = [entrada for entrada in a.datas if '/.local-browsers/' not in entrada[0].replace('\\', '/')]
+a.binaries = [entrada for entrada in a.binaries if '/.local-browsers/' not in entrada[0].replace('\\', '/')]
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="Fenix", debug=False,
           strip=False, upx=False, console=False, version=version_windows,
