@@ -10,7 +10,7 @@ Fénix, pero no los ejecutables generados ni los datos personales de usuarios.
 - `recursos/` y `datos/` únicamente con catálogos base públicos
 - `main.py`, `configuracion.py`, `Fenix.spec`
 - `construir_windows.ps1`, `requirements.txt`, `requirements-build.txt`
-- `README.md`, `LICENSE` y `LEEME_BETA.txt`
+- `README.md`, `LICENSE` y `LEEME.txt`
 
 ## No debe publicarse
 
@@ -22,6 +22,5 @@ Los datos personales se guardan fuera de la instalación, en
 `%LOCALAPPDATA%\Fenix`.
 
 Cada versión debe publicarse como un GitHub Release con un ZIP completo,
-por ejemplo `Fenix-0.1.0-beta.5-windows-x64.zip`, que incluya `Fenix.exe` y
+por ejemplo `Fenix-1.1.2-windows-x64.zip`, que incluya `Fenix.exe` y
 su carpeta `_internal`.
-

@@ -28,7 +28,7 @@ if not list(navegadores.glob("chromium_headless_shell-*")):
 datos = [
     (str(raiz / "recursos"), "recursos"),
     (str(raiz / "LICENSE"), "."),
-    (str(raiz / "LEEME_BETA.txt"), "."),
+    (str(raiz / "LEEME.txt"), "."),
     (str(navegadores), "playwright/driver/package/.local-browsers"),
 ]
 licencia_python = Path(sys.base_prefix) / "LICENSE.txt"

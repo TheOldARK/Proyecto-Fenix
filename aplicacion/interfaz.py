@@ -75,6 +75,8 @@ COLOR_ROJO = "#EF6670"
 COLOR_ROJO_FONDO = "#3A2024"
 COLOR_AMARILLO = "#F2C14E"
 COLOR_AMARILLO_FONDO = "#493C1C"
+COLOR_PREVISUALIZACION = "#4A4A4A"
+COLOR_PREVISUALIZACION_TEXTO = "#E0E0E0"
 
 ANCHO_VENTANA = 1280
 ALTO_VENTANA = 720
@@ -1402,9 +1404,12 @@ class TarjetaHorario(QFrame):
         )
         etiqueta.setWordWrap(True)
         etiqueta.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        borde_tarjeta = (
+            COLOR_LINEA if color_fondo == COLOR_PREVISUALIZACION else COLOR_VERDE
+        )
         etiqueta.setStyleSheet(
             f"background-color: {color_fondo}; color: {color_texto}; border: none; "
-            f"border-left: 3px solid {COLOR_VERDE}; border-radius: 4px; font-size: 10px; "
+            f"border-left: 3px solid {borde_tarjeta}; border-radius: 4px; font-size: 10px; "
             "font-weight: 700; padding: 5px;"
         )
         contenido.addWidget(etiqueta)
@@ -1457,8 +1462,10 @@ class CuadriculaHorario(QFrame):
         self.cuadricula.setContentsMargins(8, 8, 8, 8)
         self.cuadricula.setSpacing(6)
 
-    def actualizar(self, grupos):
+    def actualizar(self, grupos, grupos_previsualizados=None):
+        """Redibuja el horario, distinguiendo grupos reales de previsualizaciones."""
         limpiar_layout(self.cuadricula)
+        grupos_previsualizados = grupos_previsualizados or ()
         limites_traslado = {}
         for adyacencia in detectar_adyacencias(grupos):
             if not adyacencia.get("sedes_diferentes"):
@@ -1494,7 +1501,17 @@ class CuadriculaHorario(QFrame):
                 sesiones = []
                 for indice, (materia, grupo) in enumerate(grupos):
                     if grupo_ocupa_bloque(grupo, dia, hora, duracion):
-                        fondo, texto = COLORES_MATERIAS[indice % len(COLORES_MATERIAS)]
+                        es_previsualizado = any(
+                            materia is materia_preview and grupo is grupo_preview
+                            for materia_preview, grupo_preview in grupos_previsualizados
+                        )
+                        if es_previsualizado:
+                            fondo, texto = (
+                                COLOR_PREVISUALIZACION,
+                                COLOR_PREVISUALIZACION_TEXTO,
+                            )
+                        else:
+                            fondo, texto = COLORES_MATERIAS[indice % len(COLORES_MATERIAS)]
                         sesiones.append((materia, grupo, fondo, texto))
                 inicio_minutos = hora * 60
                 fin_minutos = fin * 60
@@ -2906,14 +2923,17 @@ class VentanaPrincipal(QMainWindow):
             return
         self.grupo_previsualizado = (materia, grupo)
         actuales = self.grupos_actuales()
-        self.cuadricula.actualizar(actuales + [self.grupo_previsualizado])
+        self.cuadricula.actualizar(
+            actuales + [self.grupo_previsualizado],
+            grupos_previsualizados=[self.grupo_previsualizado],
+        )
         self.resumen.setText(
             "PREVISUALIZACIÓN · " + " | ".join(conflictos) +
             " · El grupo no se añadió al horario."
         )
         if dialogo is not None:
             dialogo.accept()
-        QTimer.singleShot(4500, self.limpiar_previsualizacion)
+        QTimer.singleShot(3000, self.limpiar_previsualizacion)
 
     def limpiar_previsualizacion(self):
         if self.grupo_previsualizado is None:

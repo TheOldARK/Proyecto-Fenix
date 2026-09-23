@@ -4,7 +4,7 @@ aplicacion/ | dominio/ | infraestructura/ | servicios/
 recursos/ | datos/ (solo catálogos base públicos)
 configuracion.py | main.py | Fenix.spec
 construir_windows.ps1 | requirements.txt | requirements-build.txt
-README.md | LICENSE | LEEME_BETA.txt
+README.md | LICENSE | LEEME.txt
 
 EXCLUIR
 =======

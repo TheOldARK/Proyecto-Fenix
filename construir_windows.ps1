@@ -83,7 +83,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'No se pudo firmar Fenix.exe.' }
         Write-Host 'Fenix.exe firmado con Authenticode (SHA-256).'
     }
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'LEEME_BETA.txt') -Destination $carpetaFenix
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'LEEME.txt') -Destination $carpetaFenix
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'LICENSE') -Destination $carpetaFenix
     Push-Location $PSScriptRoot
     try { $versionFenix = & $pythonFenix -c "from configuracion import VERSION; print(VERSION)" }
@@ -92,7 +92,7 @@ try {
     & $pythonFenix (Join-Path $PSScriptRoot 'herramientas\empaquetar.py') $carpetaFenix
     if ($LASTEXITCODE -ne 0) { throw 'El paquete no pasó la verificación de integridad.' }
     Get-FileHash -LiteralPath $zipFenix -Algorithm SHA256
-    Write-Host "Beta generada: $zipFenix"
+    Write-Host "Versión generada: $zipFenix"
 } finally {
     $env:PLAYWRIGHT_BROWSERS_PATH = $rutaNavegadoresAnterior
     $env:PYTHONDONTWRITEBYTECODE = $bytecodeAnterior

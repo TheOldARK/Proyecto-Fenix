@@ -1,0 +1,25 @@
+FÉNIX 1.1.3 - Windows x64
+
+1. Extrae TODO el ZIP en una carpeta de tu equipo.
+2. Abre Fenix.exe y conserva la carpeta _internal junto al ejecutable.
+3. En el primer inicio, elige tu plan de estudios y registra las materias aprobadas.
+4. Mantén la conexión a Internet mientras Fénix consulta el catálogo del SIA.
+
+El paquete incluye Python, PySide6 y Chromium. No necesitas instalarlos aparte.
+Está destinado a Windows 10/11 de 64 bits.
+
+Tu perfil, horario y descargas se guardan en:
+%LOCALAPPDATA%\Fenix
+
+Fénix comprueba las actualizaciones disponibles al abrirse y permite instalarlas
+desde el menú correspondiente. Los datos del estudiante se conservan. También
+puedes exportar un respaldo .fnx desde el menú Archivo antes de actualizar o
+cambiar de estudiante.
+
+Si encuentras un problema, indica esta versión y los pasos para reproducirlo.
+Los registros están en %LOCALAPPDATA%\Fenix\logs. Revísalos antes de compartirlos.
+Contacto: mialvarezr@unal.edu.co
+
+La distribución no incluye el editor de planes, pruebas automatizadas ni
+información de estudiantes. El archivo LICENSE corresponde a Fénix; los
+componentes incluidos conservan sus propias licencias en _internal.

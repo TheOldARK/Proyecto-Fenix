@@ -21,8 +21,8 @@ La aplicación permite seleccionar materias y grupos, detectar cruces de horario
 
 ## Instalación
 
-Para desarrollar se requiere Python 3.11 o posterior. La construcción de la beta
-usa Python 3.12 de 64 bits en Windows. Las dependencias principales son PySide6,
+Para desarrollar se requiere Python 3.11 o posterior. La construcción para
+Windows usa Python 3.12 de 64 bits. Las dependencias principales son PySide6,
 Playwright y BeautifulSoup4. Los usuarios del ZIP no necesitan instalar Python.
 
 ```bash
@@ -113,7 +113,7 @@ Esta versión no incluye las pruebas automatizadas ni el editor administrativo d
 planes. En el paquete Windows se abre `Fenix.exe`; para ejecutar el código fuente
 se requieren Python y las dependencias de la sección Instalación.
 
-## Generar la beta para Windows
+## Generar una versión para Windows
 
 Desde PowerShell, en esta carpeta y con Python 3.12 x64 instalado:
 
@@ -126,11 +126,13 @@ El script crea `.venv-distribucion`, instala las versiones fijadas en
 `Fenix.spec`. Puede indicarse otro intérprete mediante `-Python "C:\ruta\python.exe"`.
 Se necesita Internet y espacio para el entorno, el navegador y el ZIP.
 
-El resultado es `dist\Fenix\Fenix.exe` y `dist\Fenix-0.1.0-beta.5-windows-x64.zip`.
+El resultado es `dist\Fenix\Fenix.exe` y un ZIP con el número de versión actual,
+por ejemplo `dist\Fenix-1.1.2-windows-x64.zip`.
 Se comparte el ZIP completo; el destinatario debe extraerlo antes de abrir el
 ejecutable y conservar `_internal`. El paquete incluye Python, Qt, Chromium,
 recursos y solo las tres plantillas base. No incluye perfiles ni descargas aunque
-existan en el equipo de desarrollo. La salida no lleva firma digital.
+existan en el equipo de desarrollo. La salida puede firmarse digitalmente mediante
+el parámetro `-Certificado`; sin certificado, el ejecutable no lleva firma digital.
 
 Para revisar una instalación sin descargar la oferta académica:
 
