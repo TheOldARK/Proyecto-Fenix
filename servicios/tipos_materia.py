@@ -12,4 +12,4 @@ def clasificar_tipo_materia(materia, codigo, codigos_plan):
         return "Nivelación"
     if "optativ" in texto or "electiv" in texto:
         return "Optativas"
-    return "Normales" if codigo in codigos_plan else "Otros"
+    return "Obligatorias" if codigo in codigos_plan else "Otros"

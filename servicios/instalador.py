@@ -8,6 +8,7 @@ from pathlib import Path, PureWindowsPath
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import traceback
 from zipfile import ZipFile
@@ -182,6 +183,141 @@ def diagnosticar(destino, datos):
         raise RuntimeError(f"La nueva versión falló su diagnóstico ({codigo}).")
 
 
+class VentanaProgresoWindows:
+    """Pequeña ventana nativa que mantiene visible el trabajo del updater.
+
+    El actualizador se ejecuta después de cerrar Fénix y no puede reutilizar
+    Qt porque debe seguir siendo un ejecutable pequeño e independiente. Esta
+    ventana usa únicamente User32 y anima un indicador mientras se extraen,
+    verifican e intercambian los archivos.
+    """
+
+    def __init__(self):
+        self._texto = "Preparando la actualización…"
+        self._indice = 0
+        self._frames = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
+        self._bloqueo = threading.Lock()
+        self._detener = threading.Event()
+        self._listo = threading.Event()
+        self._hwnd = None
+        self._hilo = threading.Thread(target=self._ejecutar, daemon=True)
+        self._hilo.start()
+        self._listo.wait(2)
+
+    def actualizar(self, texto):
+        with self._bloqueo:
+            self._texto = str(texto)
+
+    def cerrar(self):
+        self._detener.set()
+        if self._hwnd:
+            try:
+                import ctypes
+                ctypes.windll.user32.PostMessageW(self._hwnd, 0x0010, 0, 0)
+            except OSError:
+                pass
+        self._hilo.join(timeout=2)
+
+    def _ejecutar(self):
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            user32 = ctypes.windll.user32
+            kernel32 = ctypes.windll.kernel32
+            user32.CreateWindowExW.restype = wintypes.HWND
+            user32.CreateWindowExW.argtypes = [
+                wintypes.DWORD, wintypes.LPCWSTR, wintypes.LPCWSTR,
+                wintypes.DWORD, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                ctypes.c_int, wintypes.HWND, wintypes.HMENU, wintypes.HINSTANCE,
+                wintypes.LPVOID,
+            ]
+            user32.DefWindowProcW.restype = ctypes.c_ssize_t
+            user32.DefWindowProcW.argtypes = [
+                wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM,
+            ]
+            user32.SetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPCWSTR]
+            user32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+            kernel32.GetModuleHandleW.restype = wintypes.HINSTANCE
+            WNDPROC = ctypes.WINFUNCTYPE(
+                ctypes.c_ssize_t, wintypes.HWND, wintypes.UINT,
+                wintypes.WPARAM, wintypes.LPARAM,
+            )
+
+            class WNDCLASSW(ctypes.Structure):
+                _fields_ = [
+                    ("style", wintypes.UINT),
+                    ("lpfnWndProc", WNDPROC),
+                    ("cbClsExtra", ctypes.c_int),
+                    ("cbWndExtra", ctypes.c_int),
+                    ("hInstance", wintypes.HINSTANCE),
+                    ("hIcon", wintypes.HICON),
+                    ("hCursor", wintypes.HANDLE),
+                    ("hbrBackground", wintypes.HBRUSH),
+                    ("lpszMenuName", wintypes.LPCWSTR),
+                    ("lpszClassName", wintypes.LPCWSTR),
+                ]
+
+            clase = "FenixUpdaterProgress"
+            instancia = kernel32.GetModuleHandleW(None)
+            control = {"hwnd": None}
+
+            @WNDPROC
+            def procedimiento(hwnd, mensaje, wparam, lparam):
+                if mensaje == 0x0113:  # WM_TIMER
+                    with self._bloqueo:
+                        texto = self._texto
+                        frame = self._frames[self._indice]
+                        self._indice = (self._indice + 1) % len(self._frames)
+                    if control["hwnd"]:
+                        user32.SetWindowTextW(
+                            control["hwnd"], f"{frame}  {texto}"
+                        )
+                    return 0
+                if mensaje == 0x0010:  # WM_CLOSE
+                    user32.DestroyWindow(hwnd)
+                    return 0
+                if mensaje == 0x0002:  # WM_DESTROY
+                    user32.PostQuitMessage(0)
+                    return 0
+                return user32.DefWindowProcW(hwnd, mensaje, wparam, lparam)
+
+            clase_info = WNDCLASSW()
+            clase_info.lpfnWndProc = procedimiento
+            clase_info.hInstance = instancia
+            clase_info.lpszClassName = clase
+            clase_info.hbrBackground = wintypes.HBRUSH(6)
+            user32.RegisterClassW(ctypes.byref(clase_info))
+            hwnd = user32.CreateWindowExW(
+                0, clase, "Fénix · Actualizando", 0x00CF0000,
+                0x80000000, 0x80000000, 420, 150,
+                None, None, instancia, None,
+            )
+            if not hwnd:
+                return
+            self._hwnd = hwnd
+            control["hwnd"] = user32.CreateWindowExW(
+                0, "STATIC", "Preparando la actualización…", 0x50000001,
+                18, 38, 384, 55, hwnd, None, instancia, None,
+            )
+            user32.ShowWindow(hwnd, 1)
+            user32.UpdateWindow(hwnd)
+            user32.SetTimer(hwnd, 1, 120, None)
+            self._listo.set()
+            mensaje = wintypes.MSG()
+            while not self._detener.is_set():
+                resultado = user32.GetMessageW(ctypes.byref(mensaje), None, 0, 0)
+                if resultado <= 0:
+                    break
+                user32.TranslateMessage(ctypes.byref(mensaje))
+                user32.DispatchMessageW(ctypes.byref(mensaje))
+        except Exception:
+            # La interfaz es auxiliar: nunca debe impedir una actualización.
+            self._listo.set()
+        finally:
+            self._hwnd = None
+
+
 def instalar(job):
     destino = Path(job["instalacion"]).resolve()
     if destino.parent == destino or not destino.name:
@@ -200,6 +336,7 @@ def instalar(job):
     # El bloqueo lo libera Windows incluso si el instalador se interrumpe.
     lock = ruta_larga(trabajo / "lock").open("a+b")
     adquirido = False
+    ventana = None
     try:
         if os.name == "nt":
             import msvcrt
@@ -208,8 +345,12 @@ def instalar(job):
             lock.seek(0)
             msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
         adquirido = True
+        if getattr(sys, "frozen", False) and os.name == "nt" and not job.get("prueba"):
+            ventana = VentanaProgresoWindows()
         guardar(job["ready"], {"pid": os.getpid()})
         registrar("Esperando cierre de Fénix")
+        if ventana:
+            ventana.actualizar("Esperando a que Fénix termine…")
         esperar_cierre(int(job["pid"]))
         previo = json.loads(ruta_larga(estado).read_text(encoding="utf-8")) if ruta_larga(estado).exists() else {}
         if ruta_larga(respaldo).exists():
@@ -227,6 +368,8 @@ def instalar(job):
             shutil.rmtree(ruta_larga(nuevo))
         guardar(estado, {"fase": "preparando"})
         registrar("Extrayendo y verificando todos los archivos")
+        if ventana:
+            ventana.actualizar("Extrayendo y verificando archivos…")
         manifiesto = extraer_verificado(job["paquete"], nuevo, destino, registrar)
         guardar(estado, {"fase": "intercambiando", "version": manifiesto["version"]})
         mover(destino, respaldo)
@@ -234,6 +377,8 @@ def instalar(job):
             mover(nuevo, destino)
             verificar_instalacion(destino, manifiesto)
             registrar("Comprobando Qt y Chromium desde la instalación final")
+            if ventana:
+                ventana.actualizar("Comprobando la nueva instalación…")
             diagnosticar(destino, trabajo / "diagnostico")
             entorno = os.environ.copy()
             entorno["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
@@ -257,6 +402,9 @@ def instalar(job):
         guardar(job["resultado"], {"ok": False, "error": str(error), "log": str(registro)})
         return 1
     finally:
+        if ventana:
+            ventana.actualizar("Fénix se reiniciará en un momento…")
+            ventana.cerrar()
         if adquirido and os.name == "nt":
             lock.seek(0)
             msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)

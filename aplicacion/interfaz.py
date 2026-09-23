@@ -61,7 +61,7 @@ URL_PROFESORES_RECOMENDADOS = (
     "https://www.instagram.com/unmedopina/"
 )
 
-# Paleta neutra: verde = permitido, rojo = no permitido.
+# Paleta neutra: verde = permitido, amarillo = advertencia y rojo = bloqueo.
 COLOR_FONDO = "#141414"
 COLOR_SUPERFICIE = "#1D1D1D"
 COLOR_SUPERFICIE_CLARA = "#272727"
@@ -73,6 +73,8 @@ COLOR_VERDE = "#49C77A"
 COLOR_VERDE_FONDO = "#1D3828"
 COLOR_ROJO = "#EF6670"
 COLOR_ROJO_FONDO = "#3A2024"
+COLOR_AMARILLO = "#F2C14E"
+COLOR_AMARILLO_FONDO = "#493C1C"
 
 ANCHO_VENTANA = 1280
 ALTO_VENTANA = 720
@@ -120,6 +122,22 @@ def clave_alfabetica(nombre):
     texto = unicodedata.normalize("NFD", str(nombre or ""))
     texto = "".join(caracter for caracter in texto if unicodedata.category(caracter) != "Mn")
     return texto.casefold()
+
+
+def subtipo_materia(materia):
+    """Devuelve la familia curricular usada en los submenús laterales."""
+    texto = unicodedata.normalize(
+        "NFD", f"{materia.get('tipologia', '')} {materia.get('nombre', '')}".casefold()
+    )
+    texto = "".join(
+        caracter for caracter in texto
+        if unicodedata.category(caracter) != "Mn"
+    )
+    return "FUNDAMENTACIÓN" if (
+        "fundament" in texto
+        or re.search(r"\bfund\.?\b", texto)
+        or "basica" in texto
+    ) else "DISCIPLINARES"
 
 
 def codigos_prerrequisitos(materia):
@@ -282,7 +300,7 @@ class DialogoPlan(QDialog):
             f"selection-background-color: {COLOR_VERDE}; selection-color: #FFFFFF;"
         )
         self.selector_tipo.addItems([
-            "Todos los tipos", "Normales", "Nivelación", "Optativas",
+            "Todos los tipos", "Obligatorias", "Nivelación", "Optativas",
             "Trabajo de grado (P)", "Otros"
         ])
         self.selector_tipo.setToolTip("Filtra las materias aprobadas por tipo académico.")
@@ -359,14 +377,7 @@ class DialogoPlan(QDialog):
         self.boton_quitar_materias.clicked.connect(self.quitar_materias)
         self.buscar_aprobadas.textChanged.connect(self.filtrar_materias)
         self.selector_tipo.currentIndexChanged.connect(self.actualizar_materias)
-        self.materias_disponibles.itemDoubleClicked.connect(
-            lambda item: (
-                self.mover_materias(
-                    self.materias_disponibles, self.materias_elegidas, [item]
-                ),
-                self._agregar_prerrequisitos_de_seleccionadas(),
-            )
-        )
+        self.materias_disponibles.itemDoubleClicked.connect(self.mover_materia_y_completar)
         self.materias_elegidas.itemDoubleClicked.connect(
             lambda item: self.mover_materias(
                 self.materias_elegidas, self.materias_disponibles, [item]
@@ -493,8 +504,16 @@ class DialogoPlan(QDialog):
         destino.sortItems()
 
     def agregar_materias(self):
-        self.mover_materias(self.materias_disponibles, self.materias_elegidas)
-        self._agregar_prerrequisitos_de_seleccionadas()
+        items = self.materias_disponibles.selectedItems()
+        codigos = [item.data(Qt.ItemDataRole.UserRole) for item in items]
+        self.mover_materias(self.materias_disponibles, self.materias_elegidas, items)
+        self._agregar_prerrequisitos_de_seleccionadas(codigos)
+
+    def mover_materia_y_completar(self, item):
+        """Mueve una materia doblemente pulsada y completa solo su cadena."""
+        codigo = item.data(Qt.ItemDataRole.UserRole)
+        self.mover_materias(self.materias_disponibles, self.materias_elegidas, [item])
+        self._agregar_prerrequisitos_de_seleccionadas([codigo])
 
     def quitar_materias(self):
         self.mover_materias(self.materias_elegidas, self.materias_disponibles)
@@ -559,12 +578,66 @@ class DialogoPlan(QDialog):
                     pendientes.append(requisito_codigo)
         return sorted(resultado)
 
-    def _agregar_prerrequisitos_de_seleccionadas(self):
-        seleccionadas = [
+    def expandir_relaciones_aprobadas(self, codigos):
+        """Incluye la cadena de prerrequisitos relacionada con una selección.
+
+        Durante la configuración inicial el usuario suele marcar materias en
+        cualquier orden. Se conserva la comodidad de completar la cadena
+        completa: si se marca una materia, aparecen también sus prerrequisitos
+        y las materias que dependen directamente de ella (por ejemplo,
+        Cálculo Diferencial/Cálculo Integral).
+        """
+        iniciales = {codigo_base(codigo) for codigo in codigos if codigo_base(codigo)}
+        resultado = set(self.expandir_prerrequisitos(iniciales))
+        indice = self._indice_materias_conocidas()
+        plan = self.planes.get(self.selector.currentData())
+        permitidos = set(indice)
+        if plan is not None:
+            permitidos.update(
+                codigo_base(codigo)
+                for semestre in plan.semestres
+                for codigo in semestre.asignaturas
+            )
+        # La dirección inversa se limita al siguiente semestre de cada
+        # selección. Así Cálculo Diferencial completa Cálculo Integral sin
+        # convertir una sola selección en toda la malla curricular aprobada.
+        semestre_por_codigo = {}
+        if plan is not None:
+            for semestre in plan.semestres:
+                for valor in semestre.asignaturas:
+                    semestre_por_codigo[codigo_base(valor)] = semestre.numero
+        dependientes_directos = set()
+        for inicial in iniciales:
+            # La dirección inversa solo completa el primer paso de una
+            # cadena; una materia que ya tiene prerrequisitos no dispara a
+            # sus propios dependientes posteriores.
+            if codigos_prerrequisitos(indice.get(inicial, {})):
+                continue
+            candidatos = [
+                codigo for codigo, materia in indice.items()
+                if codigo in permitidos
+                and inicial in set(codigos_prerrequisitos(materia))
+                and semestre_por_codigo.get(codigo, 10**6)
+                    > semestre_por_codigo.get(inicial, -1)
+            ]
+            if candidatos:
+                siguiente = min(
+                    semestre_por_codigo.get(codigo, 10**6) for codigo in candidatos
+                )
+                dependientes_directos.update(
+                    codigo for codigo in candidatos
+                    if semestre_por_codigo.get(codigo, 10**6) == siguiente
+                )
+        resultado.update(dependientes_directos)
+        resultado.update(self.expandir_prerrequisitos(resultado))
+        return sorted(resultado)
+
+    def _agregar_prerrequisitos_de_seleccionadas(self, codigos_nuevos=None):
+        seleccionadas = list(codigos_nuevos or [
             self.materias_elegidas.item(indice).data(Qt.ItemDataRole.UserRole)
             for indice in range(self.materias_elegidas.count())
-        ]
-        ampliadas = self.expandir_prerrequisitos(seleccionadas)
+        ])
+        ampliadas = self.expandir_relaciones_aprobadas(seleccionadas)
         nuevos = set(ampliadas) - {codigo_base(codigo) for codigo in seleccionadas}
         if not nuevos:
             return
@@ -1243,15 +1316,19 @@ class CeldaHorario(QFrame):
         self.contenido.setSpacing(3)
         self.mostrar_sesiones([])
 
-    def mostrar_sesiones(self, sesiones, linea_roja_superior=False, linea_roja_inferior=False):
+    def mostrar_sesiones(
+        self, sesiones, linea_roja_superior=False, linea_roja_inferior=False,
+        tooltip_traslado="",
+    ):
         limpiar_layout(self.contenido)
         self.tiene_sesiones = bool(sesiones)
         self.indicador_agregar = None
         self.setCursor(
             Qt.CursorShape.ArrowCursor if self.tiene_sesiones else Qt.CursorShape.PointingHandCursor
         )
-        borde_superior = f"2px solid {COLOR_ROJO}" if linea_roja_superior else f"1px solid {COLOR_LINEA}"
-        borde_inferior = f"2px solid {COLOR_ROJO}" if linea_roja_inferior else f"1px solid {COLOR_LINEA}"
+        borde_superior = f"2px solid {COLOR_AMARILLO}" if linea_roja_superior else f"1px solid {COLOR_LINEA}"
+        borde_inferior = f"2px solid {COLOR_AMARILLO}" if linea_roja_inferior else f"1px solid {COLOR_LINEA}"
+        self.setToolTip(tooltip_traslado)
         self.setStyleSheet(
             f"""
             QFrame {{ background-color: {COLOR_SUPERFICIE}; border-left: 1px solid {COLOR_LINEA};
@@ -1373,6 +1450,8 @@ class CuadriculaHorario(QFrame):
         super().__init__()
         self.setStyleSheet(
             f"background-color: {COLOR_SUPERFICIE}; border: 1px solid {COLOR_LINEA}; border-radius: 10px;"
+            f" QToolTip {{ color: {COLOR_TEXTO}; background-color: {COLOR_BARRA}; "
+            f"border: 1px solid {COLOR_AMARILLO}; padding: 5px; }}"
         )
         self.cuadricula = QGridLayout(self)
         self.cuadricula.setContentsMargins(8, 8, 8, 8)
@@ -1380,11 +1459,16 @@ class CuadriculaHorario(QFrame):
 
     def actualizar(self, grupos):
         limpiar_layout(self.cuadricula)
-        limites_traslado = {
-            (adyacencia["dia"], adyacencia["hora"])
-            for adyacencia in detectar_adyacencias(grupos)
-            if adyacencia.get("sedes_diferentes")
-        }
+        limites_traslado = {}
+        for adyacencia in detectar_adyacencias(grupos):
+            if not adyacencia.get("sedes_diferentes"):
+                continue
+            anterior = adyacencia["anterior"][4].get("sede", "campus anterior")
+            siguiente = adyacencia["siguiente"][4].get("sede", "campus siguiente")
+            limites_traslado[(adyacencia["dia"], adyacencia["hora"])] = (
+                "Traslado de campus: esta línea amarilla indica que debes "
+                f"desplazarte de {anterior} a {siguiente} entre clases."
+            )
         esquina = QLabel("BLOQUE")
         esquina.setAlignment(Qt.AlignCenter)
         esquina.setStyleSheet(self.estilo_encabezado())
@@ -1418,6 +1502,11 @@ class CuadriculaHorario(QFrame):
                     sesiones,
                     linea_roja_superior=(dia, inicio_minutos) in limites_traslado,
                     linea_roja_inferior=(dia, fin_minutos) in limites_traslado,
+                    tooltip_traslado=(
+                        limites_traslado.get((dia, inicio_minutos))
+                        or limites_traslado.get((dia, fin_minutos))
+                        or ""
+                    ),
                 )
                 if sesiones:
                     # La franja sigue siendo de dos horas. Si hay varias
@@ -1460,7 +1549,7 @@ class DialogoEsperaActualizacion(QDialog):
         titulo = QLabel("Preparando tu horario")
         titulo.setStyleSheet(f"font-size: 24px; font-weight: 800; color: {COLOR_TEXTO};")
         layout.addWidget(titulo)
-        self.mensaje = QLabel("Fénix está consultando las materias normales…")
+        self.mensaje = QLabel("Fénix está consultando las materias obligatorias…")
         self.mensaje.setWordWrap(True)
         self.mensaje.setStyleSheet(f"font-size: 14px; color: {COLOR_TEXTO_SECUNDARIO};")
         layout.addWidget(self.mensaje)
@@ -1527,6 +1616,8 @@ class VentanaPrincipal(QMainWindow):
         self.inicio_primera_actualizacion = None
         self.proceso_actualizacion = None
         self.cambiando_estudiante = False
+        self._indice_animacion_carga = 0
+        self._frames_animacion_carga = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
         self.comprobacion_version_pendiente = False
         self.arranque_autorizado = False
 
@@ -1535,6 +1626,9 @@ class VentanaPrincipal(QMainWindow):
         self.temporizador_estado = QTimer(self)
         self.temporizador_estado.timeout.connect(self.revisar_actualizacion)
         self.temporizador_estado.start(1000)
+        self.temporizador_animacion_carga = QTimer(self)
+        self.temporizador_animacion_carga.setInterval(120)
+        self.temporizador_animacion_carga.timeout.connect(self.animar_actualizacion)
         self.revisar_actualizacion()
         if self.datos_disponibles:
             self.activar_planificador()
@@ -1597,7 +1691,19 @@ class VentanaPrincipal(QMainWindow):
         self.etiqueta_estado.setFixedHeight(42)
         self.etiqueta_estado.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self.etiqueta_estado.setStyleSheet(f"color: {COLOR_TEXTO}; font-size: 11px;")
-        estado_layout.addWidget(self.etiqueta_estado)
+        estado_fila = QHBoxLayout()
+        estado_fila.setContentsMargins(0, 0, 0, 0)
+        estado_fila.setSpacing(6)
+        estado_fila.addWidget(self.etiqueta_estado, 1)
+        self.indicador_carga = QLabel("⟳")
+        self.indicador_carga.setFixedWidth(20)
+        self.indicador_carga.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.indicador_carga.setStyleSheet(
+            f"color: {COLOR_AMARILLO}; font-size: 17px; font-weight: 700;"
+        )
+        self.indicador_carga.hide()
+        estado_fila.addWidget(self.indicador_carga)
+        estado_layout.addLayout(estado_fila)
         self.barra_progreso = QProgressBar()
         self.barra_progreso.setRange(0, 100)
         self.barra_progreso.setTextVisible(True)
@@ -1693,11 +1799,11 @@ class VentanaPrincipal(QMainWindow):
         self.boton_fuera_horario.setCursor(Qt.PointingHandCursor)
         self.boton_fuera_horario.clicked.connect(self.mostrar_materias_fuera_horario)
         self.boton_fuera_horario.setStyleSheet(
-            f"QPushButton {{ background-color: {COLOR_ROJO_FONDO}; color: {COLOR_TEXTO}; "
-            f"border: 1px solid {COLOR_ROJO}; border-radius: 7px; padding: 8px; "
+            f"QPushButton {{ background-color: {COLOR_AMARILLO_FONDO}; color: {COLOR_TEXTO}; "
+            f"border: 1px solid {COLOR_AMARILLO}; border-radius: 7px; padding: 8px; "
             "text-align: left; font-size: 11px; font-weight: 700; } "
             f"QPushButton:hover {{ background-color: {COLOR_SUPERFICIE_CLARA}; "
-            f"border-color: {COLOR_VERDE}; }}"
+            f"border-color: {COLOR_AMARILLO}; }}"
         )
         self.boton_fuera_horario.hide()
         layout.addWidget(self.boton_fuera_horario)
@@ -2266,13 +2372,28 @@ class VentanaPrincipal(QMainWindow):
                 grupos_por_tipo.setdefault(tipo, []).append(materia)
 
             orden_tipos = (
-                "Normales",
+                "Obligatorias",
                 "Optativas",
                 "Nivelación",
                 "Trabajo de grado (P)",
                 "Otros",
             )
-            for tipo in orden_tipos:
+            for tipo in orden_tipos[:2]:
+                materias_tipo = grupos_por_tipo.get(tipo, [])
+                if not materias_tipo:
+                    continue
+                familias = {
+                    familia: [materia for materia in materias_tipo if subtipo_materia(materia) == familia]
+                    for familia in ("FUNDAMENTACIÓN", "DISCIPLINARES")
+                }
+                self.agregar_seccion_compuesta(
+                    contenedor,
+                    tipo.upper(),
+                    familias,
+                    "principal",
+                    recomendadas=self.codigos_recomendados,
+                )
+            for tipo in orden_tipos[2:]:
                 materias_tipo = grupos_por_tipo.get(tipo, [])
                 if not materias_tipo:
                     continue
@@ -2319,6 +2440,66 @@ class VentanaPrincipal(QMainWindow):
         self.filtrar_asignaturas(self.buscar_asignaturas.text())
         self._reconstruyendo_lista = False
 
+    def agregar_seccion_compuesta(
+        self, contenedor, titulo, familias, origen, recomendadas=None
+    ):
+        """Crea una sección principal con subdesplegables curriculares."""
+        if not any(familias.values()):
+            return
+        expandida = self.secciones_expandida.get(titulo, self.todas_secciones_expandidas)
+        # Conserva el estado inicial para que el filtro no interprete la
+        # sección como contraída hasta que el usuario la cambie manualmente.
+        self.secciones_expandida.setdefault(titulo, expandida)
+        encabezado = QPushButton(f"▾  {titulo}" if expandida else f"▸  {titulo}")
+        encabezado.setProperty("titulo_seccion", titulo)
+        encabezado.setCheckable(True)
+        encabezado.setChecked(expandida)
+        encabezado.setCursor(Qt.PointingHandCursor)
+        encabezado.setMinimumHeight(27)
+        fuente_encabezado = encabezado.font()
+        fuente_encabezado.setPointSize(10)
+        fuente_encabezado.setBold(True)
+        encabezado.setFont(fuente_encabezado)
+        encabezado.setStyleSheet(
+            f"QPushButton {{ background-color: transparent; color: {COLOR_TEXTO_SECUNDARIO}; "
+            f"border: none; border-radius: 5px; padding: 6px 8px; text-align: left; "
+            "}"
+            f"QPushButton:hover {{ background-color: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO}; }}"
+        )
+        contenedor.layout().addWidget(encabezado)
+        cuerpo = QWidget()
+        cuerpo.setStyleSheet("background: transparent;")
+        cuerpo_layout = QVBoxLayout(cuerpo)
+        cuerpo_layout.setContentsMargins(8, 0, 0, 3)
+        cuerpo_layout.setSpacing(3)
+        for familia in ("FUNDAMENTACIÓN", "DISCIPLINARES"):
+            materias = familias.get(familia, [])
+            if not materias:
+                continue
+            self.agregar_seccion_asignaturas(
+                cuerpo,
+                f"{titulo} · {familia}",
+                materias,
+                origen,
+                COLOR_VERDE if any(
+                    codigo_base(materia.get("codigo")) in self.codigos_recomendados
+                    for materia in materias
+                ) else None,
+                recomendadas=recomendadas,
+            )
+        contenedor.layout().addWidget(cuerpo)
+        # Añadir primero al árbol de widgets y ocultar después evita que Qt
+        # vuelva a mostrar el cuerpo al reparenterarlo en el layout.
+        cuerpo.setVisible(expandida)
+        self._secciones_asignaturas[titulo] = (encabezado, cuerpo)
+
+        def alternar(estado):
+            self.secciones_expandida[titulo] = bool(estado)
+            cuerpo.setVisible(bool(estado))
+            encabezado.setText(f"▾  {titulo}" if estado else f"▸  {titulo}")
+
+        encabezado.toggled.connect(alternar)
+
     def agregar_seccion_asignaturas(
         self, contenedor, titulo, materias, origen, color=None, recomendadas=None,
         origen_por_codigo=None,
@@ -2330,6 +2511,7 @@ class VentanaPrincipal(QMainWindow):
         expandida = self.secciones_expandida.get(
             clave, self.todas_secciones_expandidas
         )
+        self.secciones_expandida.setdefault(clave, expandida)
         encabezado = QPushButton()
         encabezado.setProperty("titulo_seccion", titulo)
         encabezado.setText(f"▾  {titulo}" if expandida else f"▸  {titulo}")
@@ -2360,8 +2542,10 @@ class VentanaPrincipal(QMainWindow):
                 codigo_base(materia.get("codigo")), origen
             )
             cuerpo_layout.addWidget(self.crear_boton_asignatura(materia, origen_materia))
-        cuerpo.setVisible(expandida)
         contenedor.layout().addWidget(cuerpo)
+        # El estado visual debe aplicarse después de insertarlo en el layout;
+        # de lo contrario Qt puede mostrarlo al cambiarle el padre.
+        cuerpo.setVisible(expandida)
         self._secciones_asignaturas[clave] = (encabezado, cuerpo)
 
         def alternar(estado):
@@ -2480,6 +2664,12 @@ class VentanaPrincipal(QMainWindow):
         if not hasattr(self, "lista_asignaturas"):
             return
         for clave, (encabezado, cuerpo) in self._secciones_asignaturas.items():
+            # Obligatorias y Optativas son contenedores: sus hijos son
+            # encabezados y cuerpos, no tarjetas de materias. Si se recorren
+            # aquí, el filtro vuelve a mostrar los cuerpos cerrados al tratar
+            # sus widgets internos como coincidencias.
+            if clave in ("OBLIGATORIAS", "OPTATIVAS"):
+                continue
             coincidencias = 0
             for indice in range(cuerpo.layout().count()):
                 widget = cuerpo.layout().itemAt(indice).widget()
@@ -2494,6 +2684,26 @@ class VentanaPrincipal(QMainWindow):
             cuerpo.setVisible(visible and (bool(consulta) or self.secciones_expandida.get(clave, False)))
             if consulta and visible:
                 encabezado.setChecked(True)
+        # Las secciones de Obligatorias y Optativas contienen otras dos
+        # secciones. Su visibilidad debe depender de esas subsecciones, no
+        # de los widgets de nivel intermedio que no tienen texto de búsqueda.
+        for clave in ("OBLIGATORIAS", "OPTATIVAS"):
+            entrada = self._secciones_asignaturas.get(clave)
+            if not entrada:
+                continue
+            encabezado, cuerpo = entrada
+            hijas = [
+                valor for nombre, valor in self._secciones_asignaturas.items()
+                if nombre.startswith(clave + " · ")
+            ]
+            # isVisible() también depende de que el cuerpo exterior esté
+            # expandido; para decidir si el encabezado debe existir usamos
+            # isHidden(), que refleja el resultado del filtro real.
+            visible = any(not hija[0].isHidden() for hija in hijas)
+            encabezado.setVisible(visible)
+            cuerpo.setVisible(
+                visible and (bool(consulta) or self.secciones_expandida.get(clave, False))
+            )
 
     def mostrar_menu_asignatura(self, materia, origen, posicion):
         menu = QMenu(self)
@@ -2660,8 +2870,8 @@ class VentanaPrincipal(QMainWindow):
         else:
             accion = "Estado: permitido" if solo_informacion else "Permitido: clic para añadir al horario"
         boton.setText(f"{texto}\n{accion}")
-        color_fondo = COLOR_ROJO_FONDO if motivo == "Sin cupos disponibles" else COLOR_VERDE_FONDO
-        color_borde = COLOR_ROJO if motivo == "Sin cupos disponibles" else COLOR_VERDE
+        color_fondo = COLOR_AMARILLO_FONDO if motivo == "Sin cupos disponibles" else COLOR_VERDE_FONDO
+        color_borde = COLOR_AMARILLO if motivo == "Sin cupos disponibles" else COLOR_VERDE
         boton.setStyleSheet(self.estilo_boton_grupo(color_fondo, color_borde))
         if not solo_informacion:
             if es_cambio:
@@ -3323,9 +3533,6 @@ class VentanaPrincipal(QMainWindow):
         if self.arranque_autorizado or self.comprobacion_version_pendiente or getattr(self, "instalando_version", False):
             return
         self.comprobacion_version_pendiente = True
-        cursor_propietario = QApplication.overrideCursor() is None
-        if cursor_propietario:
-            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             from servicios.actualizacion_aplicacion import consultar_ultima_version, hay_actualizacion
 
@@ -3361,8 +3568,6 @@ class VentanaPrincipal(QMainWindow):
             else:
                 QApplication.quit()
         finally:
-            if cursor_propietario and QApplication.overrideCursor() is not None:
-                QApplication.restoreOverrideCursor()
             self.comprobacion_version_pendiente = False
 
     def buscar_actualizacion_automatica(self):
@@ -3488,18 +3693,27 @@ class VentanaPrincipal(QMainWindow):
             valor = int(progreso) if isinstance(progreso, (int, float)) else 0
             self.barra_progreso.setValue(max(0, min(100, valor)))
             self.barra_progreso.setFormat(f"{valor}%")
+            self.indicador_carga.show()
+            if not self.temporizador_animacion_carga.isActive():
+                self.temporizador_animacion_carga.start()
         elif estado == "completada":
             color = COLOR_VERDE
             self.barra_progreso.setValue(100)
             self.barra_progreso.setFormat("100%")
+            self.indicador_carga.hide()
+            self.temporizador_animacion_carga.stop()
         elif estado == "error":
             color = COLOR_ROJO
             self.barra_progreso.setValue(0)
             self.barra_progreso.setFormat("Error")
+            self.indicador_carga.hide()
+            self.temporizador_animacion_carga.stop()
         else:
             color = COLOR_TEXTO_SECUNDARIO
             self.barra_progreso.setValue(0)
             self.barra_progreso.setFormat("Pendiente")
+            self.indicador_carga.hide()
+            self.temporizador_animacion_carga.stop()
         self.etiqueta_estado.setText(mensaje)
         self.etiqueta_estado.setStyleSheet(f"color: {color}; font-size: 11px;")
         self.barra_progreso.setStyleSheet(
@@ -3508,6 +3722,17 @@ class VentanaPrincipal(QMainWindow):
             QProgressBar::chunk {{ background-color: {color}; border-radius: 4px; }}"""
         )
         self.boton_actualizar.setEnabled(estado != "actualizando")
+
+    def animar_actualizacion(self):
+        """Anima un indicador pequeño sin poner el cursor global en espera."""
+        if not getattr(self, "indicador_carga", None) or self.estado_actualizacion != "actualizando":
+            return
+        self.indicador_carga.setText(
+            self._frames_animacion_carga[self._indice_animacion_carga]
+        )
+        self._indice_animacion_carga = (
+            self._indice_animacion_carga + 1
+        ) % len(self._frames_animacion_carga)
 
     def reiniciar_estudiante(self):
         respuesta = QMessageBox.question(
@@ -3682,6 +3907,12 @@ def mostrar_presentacion():
     app = QApplication(sys.argv)
     app.setApplicationName("Fenix")
     app.setApplicationVersion(VERSION)
+    # Los tooltips nativos pueden ignorar el estilo del widget que los emite.
+    # Declararlo a nivel de QApplication garantiza contraste en el tema oscuro.
+    app.setStyleSheet(
+        f"QToolTip {{ color: {COLOR_TEXTO}; background-color: {COLOR_BARRA}; "
+        f"border: 1px solid {COLOR_AMARILLO}; padding: 5px; }}"
+    )
     bloqueo = QLockFile(str(CARPETA_DATOS / "fenix.lock"))
     bloqueo.setStaleLockTime(0)
     if not bloqueo.tryLock(0):
