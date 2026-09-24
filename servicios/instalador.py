@@ -83,10 +83,12 @@ def coincide(ruta, esperado):
         return False
 
 
-def extraer_verificado(paquete, nuevo, anterior, registrar=print):
+def extraer_verificado(paquete, nuevo, anterior, registrar=print, progreso=None):
     nuevo, anterior = ruta_larga(nuevo), ruta_larga(anterior)
     with ZipFile(ruta_larga(paquete)) as archivo:
         manifiesto, miembros = leer_paquete(archivo)
+        total_bytes = sum(datos["size"] for datos in manifiesto["files"].values()) or 1
+        bytes_completados = 0
         necesarios = sum(d["size"] for d in manifiesto["files"].values()) + 64 * 1024**2
         if shutil.disk_usage(nuevo.parent).free < necesarios:
             raise OSError("No hay espacio suficiente para preparar la actualización.")
@@ -114,6 +116,10 @@ def extraer_verificado(paquete, nuevo, anterior, registrar=print):
                     registrar(f"Recuperado de la instalación anterior: {nombre}")
                 if not coincide(salida, esperado):
                     raise OSError(f"No se pudo recuperar {nombre}: {error}") from error
+            bytes_completados += esperado["size"]
+            if progreso is not None:
+                avance = 5 + int(bytes_completados * 73 / total_bytes)
+                progreso(f"Instalando archivos… {nombre}", avance)
         (nuevo / MANIFIESTO).write_text(json.dumps(manifiesto), encoding="utf-8")
     verificar_instalacion(nuevo, manifiesto)
     return manifiesto
@@ -195,18 +201,22 @@ class VentanaProgresoWindows:
     def __init__(self):
         self._texto = "Preparando la actualización…"
         self._indice = 0
+        self._progreso = 0
         self._frames = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
         self._bloqueo = threading.Lock()
         self._detener = threading.Event()
         self._listo = threading.Event()
         self._hwnd = None
+        self._error = None
         self._hilo = threading.Thread(target=self._ejecutar, daemon=True)
         self._hilo.start()
         self._listo.wait(2)
 
-    def actualizar(self, texto):
+    def actualizar(self, texto, progreso=None):
         with self._bloqueo:
             self._texto = str(texto)
+            if progreso is not None:
+                self._progreso = max(0, min(100, int(progreso)))
 
     def cerrar(self):
         self._detener.set()
@@ -238,6 +248,14 @@ class VentanaProgresoWindows:
             ]
             user32.SetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPCWSTR]
             user32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+            user32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+            user32.LoadCursorW.restype = wintypes.HANDLE
+            user32.GetSystemMetrics.restype = ctypes.c_int
+            gdi32 = ctypes.windll.gdi32
+            gdi32.CreateSolidBrush.restype = wintypes.HBRUSH
+            gdi32.SetTextColor.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            gdi32.SetBkMode.argtypes = [wintypes.HANDLE, ctypes.c_int]
+            gdi32.DeleteObject.argtypes = [wintypes.HANDLE]
             kernel32.GetModuleHandleW.restype = wintypes.HINSTANCE
             WNDPROC = ctypes.WINFUNCTYPE(
                 ctypes.c_ssize_t, wintypes.HWND, wintypes.UINT,
@@ -260,20 +278,30 @@ class VentanaProgresoWindows:
 
             clase = "FenixUpdaterProgress"
             instancia = kernel32.GetModuleHandleW(None)
-            control = {"hwnd": None}
+            fondo = gdi32.CreateSolidBrush(0x00202020)
+            control = {"estado": None, "progreso": None, "pie": None}
 
             @WNDPROC
             def procedimiento(hwnd, mensaje, wparam, lparam):
                 if mensaje == 0x0113:  # WM_TIMER
                     with self._bloqueo:
                         texto = self._texto
+                        porcentaje = self._progreso
                         frame = self._frames[self._indice]
                         self._indice = (self._indice + 1) % len(self._frames)
-                    if control["hwnd"]:
+                    if control["estado"]:
                         user32.SetWindowTextW(
-                            control["hwnd"], f"{frame}  {texto}"
+                            control["estado"], f"{frame}   {texto}"
                         )
+                    if control["progreso"]:
+                        user32.SendMessageW(control["progreso"], 0x0402, porcentaje, 0)
+                    if control["pie"]:
+                        user32.SetWindowTextW(control["pie"], f"{porcentaje}% completado")
                     return 0
+                if mensaje == 0x0138:  # WM_CTLCOLORSTATIC
+                    gdi32.SetTextColor(wintypes.HANDLE(wparam), 0x00F2F2F2)
+                    gdi32.SetBkMode(wintypes.HANDLE(wparam), 1)  # TRANSPARENT
+                    return fondo
                 if mensaje == 0x0010:  # WM_CLOSE
                     user32.DestroyWindow(hwnd)
                     return 0
@@ -285,21 +313,41 @@ class VentanaProgresoWindows:
             clase_info = WNDCLASSW()
             clase_info.lpfnWndProc = procedimiento
             clase_info.hInstance = instancia
+            clase_info.hCursor = user32.LoadCursorW(None, 32512)  # IDC_ARROW: el updater nunca activa cursor de espera
             clase_info.lpszClassName = clase
-            clase_info.hbrBackground = wintypes.HBRUSH(6)
+            clase_info.hbrBackground = fondo
             user32.RegisterClassW(ctypes.byref(clase_info))
+            ancho, alto = 520, 205
+            x = max(0, (user32.GetSystemMetrics(0) - ancho) // 2)
+            y = max(0, (user32.GetSystemMetrics(1) - alto) // 2)
             hwnd = user32.CreateWindowExW(
-                0, clase, "Fénix · Actualizando", 0x00CF0000,
-                0x80000000, 0x80000000, 420, 150,
+                0, clase, "Fénix · Actualizando", 0x00C80000,
+                x, y, ancho, alto,
                 None, None, instancia, None,
             )
             if not hwnd:
                 return
             self._hwnd = hwnd
-            control["hwnd"] = user32.CreateWindowExW(
-                0, "STATIC", "Preparando la actualización…", 0x50000001,
-                18, 38, 384, 55, hwnd, None, instancia, None,
+            control["estado"] = user32.CreateWindowExW(
+                0, "STATIC", "Preparando la actualización…", 0x50000000,
+                22, 24, 470, 42, hwnd, None, instancia, None,
             )
+            control["progreso"] = user32.CreateWindowExW(
+                0, "msctls_progress32", "", 0x50000001,
+                22, 83, 470, 20, hwnd, None, instancia, None,
+            )
+            control["pie"] = user32.CreateWindowExW(
+                0, "STATIC", "0% completado", 0x50000000,
+                22, 116, 470, 24, hwnd, None, instancia, None,
+            )
+            pie_info = user32.CreateWindowExW(
+                0, "STATIC", "Fénix volverá a abrirse al terminar.", 0x50000000,
+                22, 150, 470, 24, hwnd, None, instancia, None,
+            )
+            user32.SendMessageW(control["progreso"], 0x0401, 0, 100)  # PBM_SETRANGE32
+            fuente = ctypes.windll.gdi32.GetStockObject(17)  # DEFAULT_GUI_FONT
+            for control_texto in (control["estado"], control["pie"], pie_info):
+                user32.SendMessageW(control_texto, 0x0030, fuente, 1)  # WM_SETFONT
             user32.ShowWindow(hwnd, 1)
             user32.UpdateWindow(hwnd)
             user32.SetTimer(hwnd, 1, 120, None)
@@ -311,11 +359,14 @@ class VentanaProgresoWindows:
                     break
                 user32.TranslateMessage(ctypes.byref(mensaje))
                 user32.DispatchMessageW(ctypes.byref(mensaje))
-        except Exception:
+        except Exception as error:
             # La interfaz es auxiliar: nunca debe impedir una actualización.
+            self._error = repr(error)
             self._listo.set()
         finally:
             self._hwnd = None
+            if 'fondo' in locals() and fondo:
+                gdi32.DeleteObject(fondo)
 
 
 def instalar(job):
@@ -350,7 +401,7 @@ def instalar(job):
         guardar(job["ready"], {"pid": os.getpid()})
         registrar("Esperando cierre de Fénix")
         if ventana:
-            ventana.actualizar("Esperando a que Fénix termine…")
+            ventana.actualizar("Esperando a que Fénix termine…", 2)
         esperar_cierre(int(job["pid"]))
         previo = json.loads(ruta_larga(estado).read_text(encoding="utf-8")) if ruta_larga(estado).exists() else {}
         if ruta_larga(respaldo).exists():
@@ -369,16 +420,21 @@ def instalar(job):
         guardar(estado, {"fase": "preparando"})
         registrar("Extrayendo y verificando todos los archivos")
         if ventana:
-            ventana.actualizar("Extrayendo y verificando archivos…")
-        manifiesto = extraer_verificado(job["paquete"], nuevo, destino, registrar)
+            ventana.actualizar("Preparando archivos para instalar…", 4)
+        manifiesto = extraer_verificado(
+            job["paquete"], nuevo, destino, registrar,
+            progreso=ventana.actualizar if ventana else None,
+        )
         guardar(estado, {"fase": "intercambiando", "version": manifiesto["version"]})
+        if ventana:
+            ventana.actualizar("Verificando y activando la nueva versión…", 82)
         mover(destino, respaldo)
         try:
             mover(nuevo, destino)
             verificar_instalacion(destino, manifiesto)
             registrar("Comprobando Qt y Chromium desde la instalación final")
             if ventana:
-                ventana.actualizar("Comprobando la nueva instalación…")
+                ventana.actualizar("Comprobando Fénix y Chromium…", 90)
             diagnosticar(destino, trabajo / "diagnostico")
             entorno = os.environ.copy()
             entorno["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
@@ -392,6 +448,8 @@ def instalar(job):
         guardar(estado, {"fase": "completada", "version": manifiesto["version"]})
         guardar(job["resultado"], {"ok": True, "version": manifiesto["version"], "pid": proceso.pid, "log": str(registro)})
         registrar("Actualización completada; nueva interfaz iniciada")
+        if ventana:
+            ventana.actualizar("Actualización completada. Iniciando Fénix…", 100)
         try:
             shutil.rmtree(ruta_larga(respaldo))
         except OSError as error:
@@ -403,7 +461,7 @@ def instalar(job):
         return 1
     finally:
         if ventana:
-            ventana.actualizar("Fénix se reiniciará en un momento…")
+            ventana.actualizar("Fénix se reiniciará en un momento…", 100)
             ventana.cerrar()
         if adquirido and os.name == "nt":
             lock.seek(0)

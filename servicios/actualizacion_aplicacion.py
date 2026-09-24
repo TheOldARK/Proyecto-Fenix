@@ -60,13 +60,19 @@ def hay_actualizacion(release):
             release.get("asset") == f"Fenix-{release['version']}-windows-x64.zip")
 
 
-def descargar_release(release, destino=None, timeout=120):
+def descargar_release(release, destino=None, timeout=120, progreso=None):
     destino = Path(destino) if destino else Path(tempfile.mkdtemp(prefix="fx-download-")) / "paquete.zip"
     temporal = destino.with_suffix(".partial")
     try:
         solicitud = Request(release["url"], headers={"User-Agent": "Proyecto-Fenix"})
         with urlopen(solicitud, timeout=timeout, context=_contexto_tls()) as respuesta, temporal.open("wb") as archivo:
-            shutil.copyfileobj(respuesta, archivo, 1024 * 1024)
+            total = int(respuesta.headers.get("Content-Length") or release.get("tamano") or 0)
+            recibidos = 0
+            while bloque := respuesta.read(1024 * 1024):
+                archivo.write(bloque)
+                recibidos += len(bloque)
+                if progreso is not None:
+                    progreso(recibidos, total)
         if release.get("tamano") and temporal.stat().st_size != release["tamano"]:
             raise ValueError("La descarga está incompleta.")
         if release.get("sha256") and sha256(temporal) != release["sha256"].lower():

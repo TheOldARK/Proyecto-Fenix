@@ -24,6 +24,7 @@ import tempfile
 import sys
 import time
 import traceback
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from aplicacion.arranque import preparar_entorno
@@ -58,6 +59,22 @@ from dominio.grupo import Grupo
 from dominio.horario import Horario
 
 
+def formatear_hora_colombia(valor):
+    """Convierte la marca UTC de Cloudflare a hora fija de Colombia (UTC−5)."""
+    if not valor:
+        return "hora no disponible"
+    try:
+        fecha = datetime.fromisoformat(str(valor).strip().replace("Z", "+00:00"))
+        if fecha.tzinfo is None:
+            fecha = fecha.replace(tzinfo=timezone.utc)
+        fecha = fecha.astimezone(timezone(timedelta(hours=-5)))
+    except (TypeError, ValueError):
+        return str(valor)
+    hora = fecha.hour % 12 or 12
+    sufijo = "a. m." if fecha.hour < 12 else "p. m."
+    return f"{fecha.day:02d}/{fecha.month:02d}/{fecha.year} {hora:02d}:{fecha.minute:02d} {sufijo} (hora Colombia)"
+
+
 def ejecutar_actualizacion():
     try:
         estudiante = cargar_estudiante()
@@ -84,9 +101,10 @@ def ejecutar_actualizacion():
         try:
             guardar_estado("actualizando", "Comprobando datos publicados…", 0)
             manifiesto = actualizar_desde_cloudflare(codigo_plan=codigo_plan)
+            hora_publicacion = formatear_hora_colombia(manifiesto.get("version_datos"))
             guardar_estado(
                 "completada",
-                f"Datos académicos actualizados desde Cloudflare ({manifiesto.get('version_datos', 'actual')}).",
+                f"Datos académicos actualizados desde Cloudflare ({hora_publicacion}).",
                 100,
             )
             print(">>> Datos obtenidos desde Cloudflare; no se inician workers SIA.", flush=True)

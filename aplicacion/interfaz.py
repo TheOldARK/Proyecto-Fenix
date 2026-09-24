@@ -13,7 +13,7 @@ import time
 import unicodedata
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QPointF, Qt, QTimer, Signal, QUrl, QLockFile, qInstallMessageHandler
+from PySide6.QtCore import QPoint, QPointF, Qt, QTimer, Signal, QUrl, QLockFile, QThread, qInstallMessageHandler
 from PySide6.QtGui import QColor, QCursor, QDesktopServices, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QAbstractItemView, QComboBox, QDialog, QDialogButtonBox,
@@ -1597,6 +1597,80 @@ class DialogoEsperaActualizacion(QDialog):
         self.progreso.setValue(valor)
         self.progreso.setFormat(f"{valor}%")
         self.tiempo.setText(tiempo_restante)
+
+
+class DialogoProgresoVersion(QDialog):
+    """Da feedback del chequeo/descarga sin bloquear la ventana ni el cursor."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Fénix · Actualización")
+        self.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.setMinimumWidth(440)
+        self.setStyleSheet(
+            f"QDialog {{ background-color: {COLOR_SUPERFICIE}; }}"
+            f"QLabel {{ color: {COLOR_TEXTO}; }}"
+        )
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 22, 24, 22)
+        layout.setSpacing(12)
+        titulo = QLabel("Preparando actualización")
+        titulo.setStyleSheet(f"font-size: 19px; font-weight: 800; color: {COLOR_TEXTO};")
+        layout.addWidget(titulo)
+        self.mensaje = QLabel("Conectando con GitHub…")
+        self.mensaje.setWordWrap(True)
+        self.mensaje.setStyleSheet(f"font-size: 12px; color: {COLOR_TEXTO_SECUNDARIO};")
+        layout.addWidget(self.mensaje)
+        self.progreso = QProgressBar()
+        self.progreso.setRange(0, 0)
+        self.progreso.setTextVisible(False)
+        self.progreso.setFixedHeight(12)
+        self.progreso.setStyleSheet(
+            f"QProgressBar {{ background: {COLOR_BARRA}; border: 0; border-radius: 6px; }}"
+            f"QProgressBar::chunk {{ background: {COLOR_VERDE}; border-radius: 6px; }}"
+        )
+        layout.addWidget(self.progreso)
+        self.porcentaje = QLabel("")
+        self.porcentaje.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.porcentaje.setStyleSheet(f"font-size: 11px; color: {COLOR_TEXTO_SECUNDARIO};")
+        layout.addWidget(self.porcentaje)
+
+    def actualizar_descarga(self, recibidos, total):
+        if total and total > 0:
+            porcentaje = max(0, min(100, int(recibidos * 100 / total)))
+            self.progreso.setRange(0, 100)
+            self.progreso.setValue(porcentaje)
+            self.mensaje.setText("Descargando la nueva versión…")
+            self.porcentaje.setText(f"{porcentaje}% · {recibidos // (1024 * 1024)} de {total // (1024 * 1024)} MB")
+        else:
+            self.mensaje.setText("Descargando la nueva versión…")
+            self.porcentaje.setText(f"{recibidos // (1024 * 1024)} MB recibidos")
+
+
+class TrabajadorVersion(QThread):
+    consultada = Signal(object)
+    descargada = Signal(object)
+    progreso_descarga = Signal(int, int)
+    fallo = Signal(str)
+
+    def __init__(self, release=None, parent=None):
+        super().__init__(parent)
+        self.release = release
+
+    def run(self):
+        try:
+            from servicios.actualizacion_aplicacion import consultar_ultima_version, descargar_release
+
+            if self.release is None:
+                self.consultada.emit(consultar_ultima_version())
+                return
+            paquete = descargar_release(
+                self.release,
+                progreso=lambda recibidos, total: self.progreso_descarga.emit(recibidos, total),
+            )
+            self.descargada.emit(str(paquete))
+        except Exception as error:
+            self.fallo.emit(str(error))
 
 
 class VentanaPrincipal(QMainWindow):
@@ -3509,77 +3583,81 @@ class VentanaPrincipal(QMainWindow):
         self.revisar_actualizacion()
 
     def buscar_actualizacion_aplicacion(self):
-        """Consulta GitHub y ofrece reiniciar Fénix con la nueva versión."""
+        """Consulta y descarga en segundo plano sin cambiar el cursor global."""
+        self._iniciar_comprobacion_version(desde_arranque=False)
+
+    def _iniciar_comprobacion_version(self, desde_arranque):
         if getattr(self, "instalando_version", False):
             return
         self.instalando_version = True
-        from servicios.actualizacion_aplicacion import (
-            descargar_release,
-            hay_actualizacion,
-            iniciar_reemplazo,
-            consultar_ultima_version,
-        )
+        self.comprobacion_version_pendiente = desde_arranque
+        self.actualizacion_desde_arranque = desde_arranque
+        trabajador = TrabajadorVersion(parent=self)
+        self.trabajador_version = trabajador
+        trabajador.consultada.connect(self._version_consultada)
+        trabajador.fallo.connect(self._fallo_version)
+        trabajador.finished.connect(trabajador.deleteLater)
+        trabajador.start()
 
-        cursor_propietario = QApplication.overrideCursor() is None
-        if cursor_propietario:
-            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        try:
-            release = consultar_ultima_version()
-            if not hay_actualizacion(release):
+    def _version_consultada(self, release):
+        self.comprobacion_version_pendiente = False
+        from servicios.actualizacion_aplicacion import hay_actualizacion
+
+        if not hay_actualizacion(release):
+            self.instalando_version = False
+            if self.actualizacion_desde_arranque:
+                self.continuar_arranque()
+            else:
                 QMessageBox.information(self, "Fénix actualizado", f"Ya tienes Fénix {VERSION}.")
-                return
-            respuesta = QMessageBox.question(
-                self,
-                "Actualización disponible",
-                f"Está disponible Fénix {release['version']}. ¿Descargarla y reiniciar ahora?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes,
-            )
-            if respuesta != QMessageBox.StandardButton.Yes:
-                return
-            paquete = descargar_release(release)
+            return
+        respuesta = QMessageBox.question(
+            self,
+            "Actualización disponible",
+            f"Está disponible Fénix {release['version']}. ¿Descargarla y reiniciar ahora?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if respuesta != QMessageBox.StandardButton.Yes:
+            self.instalando_version = False
+            if self.actualizacion_desde_arranque:
+                self.continuar_arranque()
+            return
+        self.dialogo_progreso_version = DialogoProgresoVersion(self)
+        self.dialogo_progreso_version.show()
+        trabajador = TrabajadorVersion(release=release, parent=self)
+        self.trabajador_version = trabajador
+        trabajador.progreso_descarga.connect(self.dialogo_progreso_version.actualizar_descarga)
+        trabajador.descargada.connect(self._version_descargada)
+        trabajador.fallo.connect(self._fallo_version)
+        trabajador.finished.connect(trabajador.deleteLater)
+        trabajador.start()
+
+    def _version_descargada(self, paquete):
+        if getattr(self, "dialogo_progreso_version", None) is not None:
+            self.dialogo_progreso_version.close()
+            self.dialogo_progreso_version = None
+        try:
+            from servicios.actualizacion_aplicacion import iniciar_reemplazo
+
             self.detener_actualizacion()
             iniciar_reemplazo(paquete, os.getpid())
             QApplication.quit()
         except Exception as error:
-            QMessageBox.critical(self, "No se pudo actualizar Fénix", str(error))
-        finally:
-            if cursor_propietario and QApplication.overrideCursor() is not None:
-                QApplication.restoreOverrideCursor()
-            self.instalando_version = False
+            self._fallo_version(str(error))
 
-    def comprobar_version_antes_de_workers(self):
-        """Autoriza el arranque solo después de revisar la versión de Fénix."""
-        if self.arranque_autorizado or self.comprobacion_version_pendiente or getattr(self, "instalando_version", False):
-            return
-        self.comprobacion_version_pendiente = True
-        try:
-            from servicios.actualizacion_aplicacion import consultar_ultima_version, hay_actualizacion
-
-            release = consultar_ultima_version()
-            if hay_actualizacion(release):
-                respuesta = QMessageBox.question(
-                    self,
-                    "Actualización disponible",
-                    f"Está disponible Fénix {release['version']}. ¿Descargarla y reiniciar ahora?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.Yes,
-                )
-                if respuesta == QMessageBox.StandardButton.Yes:
-                    from servicios.actualizacion_aplicacion import descargar_release, iniciar_reemplazo
-
-                    paquete = descargar_release(release)
-                    iniciar_reemplazo(paquete, os.getpid())
-                    QApplication.quit()
-                    return
-            self.continuar_arranque()
-        except Exception as error:
-            logging.getLogger("fenix").warning("No se pudo comprobar Fénix en GitHub: %s", error)
+    def _fallo_version(self, mensaje):
+        if getattr(self, "dialogo_progreso_version", None) is not None:
+            self.dialogo_progreso_version.close()
+            self.dialogo_progreso_version = None
+        self.comprobacion_version_pendiente = False
+        self.instalando_version = False
+        if self.actualizacion_desde_arranque:
+            logging.getLogger("fenix").warning("No se pudo preparar la actualización: %s", mensaje)
             respuesta = QMessageBox.question(
                 self,
                 "No se pudo verificar Fénix",
-                "No fue posible comprobar si hay una versión nueva. "
-                "¿Quieres continuar sin verificar e iniciar la actualización de datos?",
+                "No fue posible comprobar o descargar una versión nueva. "
+                "¿Quieres continuar e iniciar la actualización de datos?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
@@ -3587,8 +3665,14 @@ class VentanaPrincipal(QMainWindow):
                 self.continuar_arranque()
             else:
                 QApplication.quit()
-        finally:
-            self.comprobacion_version_pendiente = False
+        else:
+            QMessageBox.critical(self, "No se pudo actualizar Fénix", mensaje)
+
+    def comprobar_version_antes_de_workers(self):
+        """Autoriza el arranque solo después de revisar la versión de Fénix."""
+        if self.arranque_autorizado or self.comprobacion_version_pendiente or getattr(self, "instalando_version", False):
+            return
+        self._iniciar_comprobacion_version(desde_arranque=True)
 
     def buscar_actualizacion_automatica(self):
         """Compatibilidad con llamadas anteriores al control de arranque."""
@@ -3864,10 +3948,6 @@ class VentanaPrincipal(QMainWindow):
         return pantalla.availableGeometry() if pantalla is not None else None
 
     def mostrar(self):
-        # Recupera el estado visual si una versión anterior dejó un cursor
-        # global instalado antes de cerrar o durante una excepción.
-        while QApplication.overrideCursor() is not None:
-            QApplication.restoreOverrideCursor()
         area = self.obtener_area_trabajo()
         if area is not None:
             self.setGeometry(area)
