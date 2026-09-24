@@ -124,12 +124,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\construir_windows.ps1
 El script crea `.venv-distribucion`, instala las versiones fijadas en
 `requirements-build.txt`, descarga Chromium y construye el programa usando
 `Fenix.spec`. Puede indicarse otro intérprete mediante `-Python "C:\ruta\python.exe"`.
-Se necesita Internet y espacio para el entorno, el navegador y el ZIP.
+Se necesita Internet y espacio para el entorno, el navegador y los paquetes.
 
-El resultado es `dist\Fenix\Fenix.exe` y un ZIP con el número de versión actual,
-por ejemplo `dist\Fenix-1.1.2-windows-x64.zip`.
-Se comparte el ZIP completo; el destinatario debe extraerlo antes de abrir el
-ejecutable y conservar `_internal`. El paquete incluye Python, Qt, Chromium,
+El resultado incluye `dist\Fenix\Fenix.exe`, un ZIP para actualizaciones y un
+instalador autocontenido:
+
+- `dist\Fenix-<versión>-windows-x64.zip` (actualizaciones de instalaciones existentes).
+- `dist\Fenix-<versión>-windows-x64-setup.exe` (instalador ligero para la primera instalación).
+
+El instalador no requiere Python: consulta la release estable de GitHub,
+descarga el ZIP y permite elegir una carpeta para copiar todos los archivos
+necesarios. El paquete instalado incluye Python, Qt, Chromium,
 recursos y solo las tres plantillas base. No incluye perfiles ni descargas aunque
 existan en el equipo de desarrollo. La salida puede firmarse digitalmente mediante
 el parámetro `-Certificado`; sin certificado, el ejecutable no lleva firma digital.

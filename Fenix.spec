@@ -54,7 +54,10 @@ version_windows = VSVersionInfo(
 )
 
 a = Analysis([str(raiz / "main.py")], pathex=[str(raiz)], binaries=[], datas=datos,
-             hiddenimports=[], hookspath=[], runtime_hooks=[], excludes=[], noarchive=False)
+             # El publicador se importa dinámicamente al pasar --publicador;
+             # PyInstaller no puede detectarlo recorriendo imports estáticos.
+             hiddenimports=["herramientas.publicador_main"], hookspath=[],
+             runtime_hooks=[], excludes=[], noarchive=False)
 # Chromium se copia en browser/ al lado del EXE para evitar MAX_PATH.
 a.datas = [entrada for entrada in a.datas if '/.local-browsers/' not in entrada[0].replace('\\', '/')]
 a.binaries = [entrada for entrada in a.binaries if '/.local-browsers/' not in entrada[0].replace('\\', '/')]

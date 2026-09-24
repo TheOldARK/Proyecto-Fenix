@@ -26,7 +26,8 @@
 import os
 from pathlib import Path
 
-VERSION = "1.1.3"
+VERSION = "2.0.1"
+URL_DATOS_CLOUDFLARE = "https://pub-c4af9a6ed2d249a290ff6c850b8dac15.r2.dev"
 
 
 # =============================================================
@@ -96,6 +97,11 @@ ARCHIVO_PLANES_ESTUDIO = (
 ARCHIVO_ESTADO_ACTUALIZACION = (
     CARPETA_DATOS / "estado_actualizacion.json"
 )
+ARCHIVO_DATOS_CLOUDFLARE = CARPETA_DATOS / "manifest_cloudflare.json"
+
+# Caché temporal del publicador. Evita repetir consultas cuando una materia
+# aparece en varios planes o si el publicador se reinicia durante un ciclo.
+ARCHIVO_CACHE_PUBLICADOR = CARPETA_DATOS / "cache_publicador.json"
 
 # Registro acumulativo de materias que no pudieron procesarse después
 # del reintento focalizado de una actualización.
@@ -142,9 +148,8 @@ URL_SIA = (
 # Estos valores corresponden a las opciones seleccionadas
 # dentro del catálogo público del SIA.
 #
-# La primera versión de Fénix está limitada a Pregrado en la
-# Facultad de Minas de la sede Medellín. El valor del plan se
-# obtiene desde catalogo_sia.json para cada plan incluido.
+# Los valores HTML de sede, facultad y plan se obtienen desde
+# catalogo_sia.json para cada ruta académica incluida.
 #
 # Los valores son los que espera directamente el SIA.
 # Por eso se mantienen como strings.
@@ -158,13 +163,6 @@ FACULTAD = "6"
 PLAN_ESTUDIOS = "13"
 
 TIPOLOGIA = "0"
-
-# Alcance académico de la primera versión. Estos códigos se usan
-# para validar y filtrar los datos locales, no para reemplazar el
-# valor específico del plan seleccionado en el formulario del SIA.
-SEDE_ACADEMICA = "1102"
-FACULTAD_ACADEMICA = "3068"
-
 
 # =============================================================
 # CONFIGURACIÓN DEL NAVEGADOR

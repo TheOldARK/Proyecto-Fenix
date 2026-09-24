@@ -6,8 +6,6 @@ from configuracion import (
     ARCHIVO_CATALOGO_SIA as RUTA_CATALOGO_SIA,
     ARCHIVO_CONFIGURACION_LIBRE_ELECCION as RUTA_CONFIGURACION_LIBRE_ELECCION,
     ARCHIVO_ESTUDIANTE as RUTA_ESTUDIANTE,
-    FACULTAD_ACADEMICA,
-    SEDE_ACADEMICA,
 )
 from infraestructura.sia.catalogo_local import clave_plan
 
@@ -236,16 +234,6 @@ class CatalogoSIA:
                 "No se encontró el plan de estudios "
                 f"'{self.plan_estudios}' en "
                 "catalogo_sia.json."
-            )
-
-        if (
-            str(resultado["sede"].get("codigo")) != SEDE_ACADEMICA
-            or str(resultado["facultad"].get("codigo"))
-            != FACULTAD_ACADEMICA
-        ):
-            raise ValueError(
-                "El plan solicitado está fuera del alcance de esta versión: "
-                "solo se admite la Facultad de Minas en Medellín."
             )
 
         self.datos_carrera = resultado

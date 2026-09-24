@@ -60,6 +60,12 @@ try {
     & $pythonFenix -m PyInstaller --clean --noconfirm --distpath $Salida --workpath (Join-Path $Entorno 'build-updater') (Join-Path $PSScriptRoot 'Updater.spec')
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo construir el instalador independiente.' }
     Copy-Item -LiteralPath (Join-Path $Salida 'FenixUpdater') -Destination (Join-Path $carpetaFenix 'updater') -Recurse
+    & $pythonFenix -m PyInstaller --clean --noconfirm --distpath $Salida --workpath (Join-Path $Entorno 'build-publisher') (Join-Path $PSScriptRoot 'Publicador.spec')
+    if ($LASTEXITCODE -ne 0) { throw 'No se pudo construir FenixPublicador.exe.' }
+    # El publicador comparte el runtime de Fénix. Esto evita duplicar Qt y,
+    # sobre todo, garantiza que use las mismas DLL nativas ya validadas por el
+    # diagnóstico de Fenix.exe.
+    Copy-Item -LiteralPath (Join-Path $Salida 'FenixPublicador.exe') -Destination (Join-Path $carpetaFenix 'FenixPublicador.exe') -Force
     $env:FENIX_DATA_DIR = Join-Path $Entorno ('diagnostico-' + [guid]::NewGuid().ToString('N'))
     $diagnosticoFenix = Start-Process -FilePath (Join-Path $carpetaFenix 'Fenix.exe') -ArgumentList '--diagnostico' -WindowStyle Hidden -PassThru
     if (-not $diagnosticoFenix.WaitForExit(60000)) {
@@ -85,6 +91,10 @@ try {
     }
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'LEEME.txt') -Destination $carpetaFenix
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'LICENSE') -Destination $carpetaFenix
+    # Además del ZIP que utiliza el actualizador interno, construir un
+    # instalador ligero que descarga la release estable para nuevas instalaciones.
+    & $pythonFenix -m PyInstaller --clean --noconfirm --distpath $Salida --workpath (Join-Path $Entorno 'build-installer') (Join-Path $PSScriptRoot 'Installer.spec')
+    if ($LASTEXITCODE -ne 0) { throw 'No se pudo construir el instalador de Windows.' }
     Push-Location $PSScriptRoot
     try { $versionFenix = & $pythonFenix -c "from configuracion import VERSION; print(VERSION)" }
     finally { Pop-Location }
@@ -92,7 +102,12 @@ try {
     & $pythonFenix (Join-Path $PSScriptRoot 'herramientas\empaquetar.py') $carpetaFenix
     if ($LASTEXITCODE -ne 0) { throw 'El paquete no pasó la verificación de integridad.' }
     Get-FileHash -LiteralPath $zipFenix -Algorithm SHA256
+    $instaladorFenix = Join-Path $Salida 'FenixSetup.exe'
+    $instaladorPublicado = Join-Path $Salida "Fenix-$versionFenix-windows-x64-setup.exe"
+    Move-Item -LiteralPath $instaladorFenix -Destination $instaladorPublicado -Force
+    Get-FileHash -LiteralPath $instaladorPublicado -Algorithm SHA256
     Write-Host "Versión generada: $zipFenix"
+    Write-Host "Instalador generado: $instaladorPublicado"
 } finally {
     $env:PLAYWRIGHT_BROWSERS_PATH = $rutaNavegadoresAnterior
     $env:PYTHONDONTWRITEBYTECODE = $bytecodeAnterior

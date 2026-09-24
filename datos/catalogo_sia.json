@@ -15,6 +15,160 @@
                             "codigo": "3068",
                             "planes_estudio": [
                                 {
+                                    "value": "14",
+                                    "nombre": "3534 Ingeniería en Sistemas e Informática",
+                                    "codigo": "3534"
+                                },
+                                {
+                                    "value": "2",
+                                    "nombre": "3528 Ingeniería Administrativa",
+                                    "codigo": "3528"
+                                },
+                                {
+                                    "value": "4",
+                                    "nombre": "3529 Ingeniería Ambiental",
+                                    "codigo": "3529"
+                                },
+                                {
+                                    "value": "6",
+                                    "nombre": "3530 Ingeniería Civil",
+                                    "codigo": "3530"
+                                },
+                                {
+                                    "value": "8",
+                                    "nombre": "3531 Ingeniería de Control",
+                                    "codigo": "3531"
+                                },
+                                {
+                                    "value": "10",
+                                    "nombre": "3532 Ingeniería de Minas y Metalurgia",
+                                    "codigo": "3532"
+                                },
+                                {
+                                    "value": "12",
+                                    "nombre": "3533 Ingeniería de Petróleos",
+                                    "codigo": "3533"
+                                },
+                                {
+                                    "value": "16",
+                                    "nombre": "3535 Ingeniería Eléctrica",
+                                    "codigo": "3535"
+                                },
+                                {
+                                    "value": "18",
+                                    "nombre": "3536 Ingeniería Geológica",
+                                    "codigo": "3536"
+                                },
+                                {
+                                    "value": "20",
+                                    "nombre": "3537 Ingeniería Industrial",
+                                    "codigo": "3537"
+                                },
+                                {
+                                    "value": "22",
+                                    "nombre": "3538 Ingeniería Mecánica",
+                                    "codigo": "3538"
+                                },
+                                {
+                                    "value": "24",
+                                    "nombre": "3539 Ingeniería Química",
+                                    "codigo": "3539"
+                                }
+                            ]
+                        },
+                        {
+                            "value": "1",
+                            "nombre": "3065 FACULTAD DE CIENCIAS",
+                            "codigo": "3065",
+                            "planes_estudio": [
+                                {
+                                    "value": "1",
+                                    "nombre": "3647 Ciencias de la Computación",
+                                    "codigo": "3647"
+                                },
+                                {
+                                    "value": "2",
+                                    "nombre": "3504 Estadística",
+                                    "codigo": "3504"
+                                },
+                                {
+                                    "value": "3",
+                                    "nombre": "3505 Ingeniería Biológica",
+                                    "codigo": "3505"
+                                },
+                                {
+                                    "value": "4",
+                                    "nombre": "3506 Ingeniería Física",
+                                    "codigo": "3506"
+                                },
+                                {
+                                    "value": "5",
+                                    "nombre": "3507 Matemáticas",
+                                    "codigo": "3507"
+                                },
+                                {
+                                    "value": "6",
+                                    "nombre": "3705 Química",
+                                    "codigo": "3705"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "value": "0",
+            "nombre": "Pregrado",
+            "sedes": [
+                {
+                    "value": "6",
+                    "nombre": "1102 SEDE MEDELLÍN",
+                    "codigo": "1102",
+                    "facultades": [
+                        {
+                            "value": "PENDIENTE_CONFIRMAR_EN_SIA",
+                            "nombre": "3065 FACULTAD DE CIENCIAS",
+                            "codigo": "3065",
+                            "planes_estudio": [
+                                {
+                                    "value": "PENDIENTE_CONFIRMAR_EN_SIA",
+                                    "nombre": "3505 INGENIERÍA BIOLÓGICA",
+                                    "codigo": "3505"
+                                },
+                                {
+                                    "value": "PENDIENTE_CONFIRMAR_EN_SIA",
+                                    "nombre": "3504 ESTADÍSTICA",
+                                    "codigo": "3504"
+                                },
+                                {
+                                    "value": "PENDIENTE_CONFIRMAR_EN_SIA",
+                                    "nombre": "3506 INGENIERÍA FÍSICA",
+                                    "codigo": "3506"
+                                },
+                                {
+                                    "value": "PENDIENTE_CONFIRMAR_EN_SIA",
+                                    "nombre": "3507 MATEMÁTICAS",
+                                    "codigo": "3507"
+                                },
+                                {
+                                    "value": "PENDIENTE_CONFIRMAR_EN_SIA",
+                                    "nombre": "3647 CIENCIAS DE LA COMPUTACIÓN",
+                                    "codigo": "3647"
+                                },
+                                {
+                                    "value": "PENDIENTE_CONFIRMAR_EN_SIA",
+                                    "nombre": "3705 QUÍMICA",
+                                    "codigo": "3705"
+                                }
+                            ]
+                        },
+                        {
+                            "value": "6",
+                            "nombre": "3068 FACULTAD DE MINAS",
+                            "codigo": "3068",
+                            "planes_estudio": [
+                                {
                                     "value": "1",
                                     "nombre": "3528 INGENIERÍA ADMINISTRATIVA",
                                     "codigo": "3528"
@@ -82,6 +236,38 @@
         }
     ],
     "tipologias": [
+        {
+            "value": "0",
+            "nombre": "TODAS MENOS  LIBRE ELECCIÓN"
+        },
+        {
+            "value": "1",
+            "nombre": "DISCIPLINAR OBLIGATORIA"
+        },
+        {
+            "value": "2",
+            "nombre": "NIVELACIÓN"
+        },
+        {
+            "value": "3",
+            "nombre": "TRABAJO DE GRADO"
+        },
+        {
+            "value": "4",
+            "nombre": "FUND. OBLIGATORIA"
+        },
+        {
+            "value": "5",
+            "nombre": "DISCIPLINAR OPTATIVA"
+        },
+        {
+            "value": "6",
+            "nombre": "FUND. OPTATIVA"
+        },
+        {
+            "value": "7",
+            "nombre": "LIBRE ELECCIÓN"
+        },
         {
             "value": "0",
             "nombre": "TODAS MENOS  LIBRE ELECCIÓN"

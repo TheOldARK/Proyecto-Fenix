@@ -38,6 +38,7 @@
 
 import asyncio
 import json
+from copy import deepcopy
 
 from configuracion import (
     URL_SIA,
@@ -94,6 +95,67 @@ from infraestructura.almacenamiento.cancelacion_actualizacion import (
 
 
 TOKEN_ACTUALIZACION = None
+CONTEXTO_PUBLICADOR = None
+
+
+def configurar_contexto_publicador(indice, total, nombre, modo="automatico"):
+    """Asocia el progreso local de actualización con el avance entre carreras."""
+    global CONTEXTO_PUBLICADOR
+    CONTEXTO_PUBLICADOR = {
+        "indice": max(1, int(indice)),
+        "total": max(1, int(total)),
+        "nombre": str(nombre or "Carrera"),
+        "modo": str(modo or "automatico"),
+    }
+
+
+def _detalles_progreso_publicador(progreso):
+    contexto = CONTEXTO_PUBLICADOR
+    if not contexto:
+        return {}
+    total = contexto["total"]
+    indice = contexto["indice"]
+    try:
+        local = max(0.0, min(100.0, float(progreso or 0)))
+    except (TypeError, ValueError):
+        local = 0.0
+    global_pct = ((indice - 1) + local / 100) * 100 / total
+    return {
+        "progreso_global": round(global_pct),
+        "carrera_actual": contexto["nombre"],
+        "carrera_indice": indice,
+        "carreras_total": total,
+        "carreras_restantes": max(0, total - indice),
+        "modo_publicador": contexto["modo"],
+    }
+
+
+def _codigo_materia(materia):
+    """Obtiene un código estable de un objeto o registro básico del SIA."""
+    if isinstance(materia, dict):
+        return str(materia.get("codigo", ""))
+    return str(getattr(materia, "codigo", ""))
+
+
+def _reutilizar_desde_cache(materia_basica, cache):
+    """Copia detalles compartidos conservando la tipología del plan actual."""
+    codigo = _codigo_materia(materia_basica)
+    guardada = cache.get(codigo) if cache is not None else None
+    if guardada is None:
+        return None
+    materia = deepcopy(guardada)
+    for atributo in ("nombre", "creditos", "tipologia"):
+        valor = (
+            materia_basica.get(atributo)
+            if isinstance(materia_basica, dict)
+            else getattr(materia_basica, atributo, None)
+        )
+        if valor not in (None, ""):
+            if isinstance(materia, dict):
+                materia[atributo] = valor
+            else:
+                setattr(materia, atributo, valor)
+    return materia
 
 
 class ActualizacionCancelada(asyncio.CancelledError):
@@ -155,7 +217,8 @@ def imprimir(
         guardar_estado(
             "actualizando",
             mensaje,
-            estado.get("progreso")
+            estado.get("progreso"),
+            **_detalles_progreso_publicador(estado.get("progreso")),
         )
 
 
@@ -201,7 +264,8 @@ def publicar_progreso(
     guardar_estado(
         "actualizando",
         mensaje,
-        progreso
+        progreso,
+        **_detalles_progreso_publicador(progreso),
     )
 
 
@@ -299,7 +363,8 @@ class ProgresoPorMaterias:
         publicar_progreso(
             (
                 f"{self.mensaje} "
-                f"({self.completadas}/{self.total})"
+                f"({self.completadas}/{self.total}; "
+                f"faltan {self.total - self.completadas})"
             ),
             avance
         )
@@ -1359,6 +1424,9 @@ async def procesar_materias(
     # Distribuye las materias entre los workers y espera a que
     # todos terminen.
 
+    if not materias_basicas:
+        return [], []
+
     grupos = dividir_materias(
         materias_basicas,
         CANTIDAD_WORKERS
@@ -1397,8 +1465,8 @@ async def procesar_materias(
             "horarios y prerrequisitos de materias normales"
         ),
         len(materias_basicas),
-        0,
-        100
+        5,
+        55
     )
 
     resultados = await asyncio.gather(
@@ -1899,6 +1967,9 @@ async def procesar_libres_eleccion(
     materias_basicas,
     codigo_plan=None
 ):
+    if not materias_basicas:
+        return [], []
+
     # Distribuye las materias de Libre Elección entre los
     # workers y espera a que todos terminen.
     #
@@ -1950,8 +2021,8 @@ async def procesar_libres_eleccion(
             "y horarios de materias de libre elección"
         ),
         len(materias_basicas),
-        0,
-        100
+        65,
+        95
     )
 
     resultados = await asyncio.gather(
@@ -2002,6 +2073,9 @@ async def actualizar_datos(
     playwright,
     nombre_plan=None,
     codigo_plan=None,
+    priorizar_estudiante=True,
+    cache_materias=None,
+    cache_libres=None,
 ):
     # Ejecuta la actualización completa del catálogo del SIA.
     #
@@ -2018,7 +2092,7 @@ async def actualizar_datos(
         obtener_codigo_plan_estudiante()
     )
 
-    if codigo_plan_estudiante:
+    if priorizar_estudiante and codigo_plan_estudiante:
         codigo_plan = (
             codigo_plan_estudiante
         )
@@ -2139,21 +2213,39 @@ async def actualizar_datos(
         # PROCESAR MATERIAS NORMALES
         # =====================================================
 
+        materias_reutilizadas = [
+            reutilizada
+            for materia_basica in materias_basicas
+            if (reutilizada := _reutilizar_desde_cache(
+                materia_basica,
+                cache_materias,
+            )) is not None
+        ]
+        materias_pendientes = [
+            materia_basica
+            for materia_basica in materias_basicas
+            if _codigo_materia(materia_basica) not in (cache_materias or {})
+        ]
+        imprimir(
+            f">>> Caché normal: {len(materias_reutilizadas)} reutilizada(s), "
+            f"{len(materias_pendientes)} por consultar."
+        )
         (
-            materias,
+            materias_nuevas,
             materias_normales_fallidas
         ) = await procesar_materias(
             navegador,
-            materias_basicas,
+            materias_pendientes,
             codigo_plan
         )
+        materias = combinar_materias(materias_reutilizadas, materias_nuevas)
 
         if materias_normales_fallidas:
             imprimir(
                 f">>> Reintentando {len(materias_normales_fallidas)} materia(s) normal(es) fallida(s)..."
             )
             segunda_basicas = datos_para_reintento(
-                materias_basicas,
+                materias_pendientes,
                 materias_normales_fallidas,
             )
             materias_segundo_intento, materias_normales_fallidas = await procesar_materias(
@@ -2167,6 +2259,10 @@ async def actualizar_datos(
                 materias_normales_fallidas,
                 codigo_plan,
             )
+
+        if cache_materias is not None:
+            for materia in materias:
+                cache_materias[_codigo_materia(materia)] = deepcopy(materia)
 
         publicar_progreso(
             (
@@ -2376,13 +2472,34 @@ async def actualizar_datos(
         # PROCESAR LIBRE ELECCIÓN
         # =====================================================
 
+        libres_reutilizadas = [
+            reutilizada
+            for materia_basica in libres_basicas
+            if (reutilizada := _reutilizar_desde_cache(
+                materia_basica,
+                cache_libres,
+            )) is not None
+        ]
+        libres_pendientes = [
+            materia_basica
+            for materia_basica in libres_basicas
+            if _codigo_materia(materia_basica) not in (cache_libres or {})
+        ]
+        imprimir(
+            f">>> Caché libre: {len(libres_reutilizadas)} reutilizada(s), "
+            f"{len(libres_pendientes)} por consultar."
+        )
         (
-            libres_eleccion,
+            libres_nuevas,
             libres_fallidas
         ) = await procesar_libres_eleccion(
             navegador,
-            libres_basicas,
+            libres_pendientes,
             codigo_plan
+        )
+        libres_eleccion = combinar_materias(
+            libres_reutilizadas,
+            libres_nuevas,
         )
 
         if libres_fallidas:
@@ -2390,7 +2507,7 @@ async def actualizar_datos(
                 f">>> Reintentando {len(libres_fallidas)} materia(s) de Libre Elección fallida(s)..."
             )
             segunda_libres_basicas = datos_para_reintento(
-                libres_basicas,
+                libres_pendientes,
                 libres_fallidas,
             )
             libres_segundo_intento, libres_fallidas = await procesar_libres_eleccion(
@@ -2407,6 +2524,10 @@ async def actualizar_datos(
                 libres_fallidas,
                 codigo_plan,
             )
+
+        if cache_libres is not None:
+            for materia in libres_eleccion:
+                cache_libres[_codigo_materia(materia)] = deepcopy(materia)
 
         publicar_progreso(
             (
@@ -2694,7 +2815,10 @@ async def actualizar_solo_libres(
 async def actualizar(
     solo_libres=False,
     nombre_plan=None,
-    codigo_plan=None
+    codigo_plan=None,
+    priorizar_estudiante=True,
+    cache_materias=None,
+    cache_libres=None,
 ):
     # Función pública utilizada por main.py.
     #
@@ -2732,5 +2856,8 @@ async def actualizar(
         return await actualizar_datos(
             playwright,
             nombre_plan,
-            codigo_plan
+            codigo_plan,
+            priorizar_estudiante=priorizar_estudiante,
+            cache_materias=cache_materias,
+            cache_libres=cache_libres,
         )

@@ -6,7 +6,7 @@ from configuracion import ARCHIVO_ESTADO_ACTUALIZACION, CARPETA_DATOS
 from infraestructura.almacenamiento.json_atomico import cargar_json, guardar_json_atomico
 
 
-def guardar_estado(estado, mensaje, progreso=None):
+def guardar_estado(estado, mensaje, progreso=None, **detalles):
     """Publica un estado que puede ser leído por la interfaz en otro proceso."""
     CARPETA_DATOS.mkdir(parents=True, exist_ok=True)
     datos = {
@@ -15,6 +15,7 @@ def guardar_estado(estado, mensaje, progreso=None):
         "progreso": progreso,
         "actualizado_en": datetime.now().isoformat(timespec="seconds")
     }
+    datos.update({clave: valor for clave, valor in detalles.items() if valor is not None})
     guardar_json_atomico(ARCHIVO_ESTADO_ACTUALIZACION, datos)
 
 

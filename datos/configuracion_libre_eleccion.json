@@ -4,7 +4,7 @@
         "planes": {
             "3068:3528": {
                 "facultad": "3068 FACULTAD DE MINAS",
-                "plan": "3528 INGENIERÍA ADMINISTRATIVA",
+                "plan": "3528 Ingeniería Administrativa",
                 "facultades_libre_eleccion": [
                     "3 SEDE MEDELLÍN",
                     "3068 FACULTAD DE MINAS"
@@ -12,7 +12,7 @@
             },
             "3068:3529": {
                 "facultad": "3068 FACULTAD DE MINAS",
-                "plan": "3529 INGENIERÍA AMBIENTAL",
+                "plan": "3529 Ingeniería Ambiental",
                 "facultades_libre_eleccion": [
                     "3 SEDE MEDELLÍN",
                     "3068 FACULTAD DE MINAS"
@@ -20,7 +20,7 @@
             },
             "3068:3530": {
                 "facultad": "3068 FACULTAD DE MINAS",
-                "plan": "3530 INGENIERÍA CIVIL",
+                "plan": "3530 Ingeniería Civil",
                 "facultades_libre_eleccion": [
                     "3 SEDE MEDELLÍN",
                     "3068 FACULTAD DE MINAS"
@@ -28,7 +28,7 @@
             },
             "3068:3531": {
                 "facultad": "3068 FACULTAD DE MINAS",
-                "plan": "3531 INGENIERÍA DE CONTROL",
+                "plan": "3531 Ingeniería de Control",
                 "facultades_libre_eleccion": [
                     "3 SEDE MEDELLÍN",
                     "3068 FACULTAD DE MINAS"
@@ -36,7 +36,7 @@
             },
             "3068:3532": {
                 "facultad": "3068 FACULTAD DE MINAS",
-                "plan": "3532 INGENIERÍA DE MINAS Y METALURGIA",
+                "plan": "3532 Ingeniería de Minas y Metalurgia",
                 "facultades_libre_eleccion": [
                     "3 SEDE MEDELLÍN",
                     "3068 FACULTAD DE MINAS"
@@ -44,7 +44,7 @@
             },
             "3068:3533": {
                 "facultad": "3068 FACULTAD DE MINAS",
-                "plan": "3533 INGENIERÍA DE PETRÓLEOS",
+                "plan": "3533 Ingeniería de Petróleos",
                 "facultades_libre_eleccion": [
                     "3 SEDE MEDELLÍN",
                     "3068 FACULTAD DE MINAS"
@@ -52,7 +52,7 @@
             },
             "3068:3534": {
                 "facultad": "3068 FACULTAD DE MINAS",
-                "plan": "3534 INGENIERÍA DE SISTEMAS E INFORMÁTICA",
+                "plan": "3534 Ingeniería en Sistemas e Informática",
                 "facultades_libre_eleccion": [
                     "3 SEDE MEDELLÍN",
                     "3068 FACULTAD DE MINAS"
@@ -60,7 +60,7 @@
             },
             "3068:3535": {
                 "facultad": "3068 FACULTAD DE MINAS",
-                "plan": "3535 INGENIERÍA ELÉCTRICA",
+                "plan": "3535 Ingeniería Eléctrica",
                 "facultades_libre_eleccion": [
                     "3 SEDE MEDELLÍN",
                     "3068 FACULTAD DE MINAS"
@@ -68,7 +68,7 @@
             },
             "3068:3536": {
                 "facultad": "3068 FACULTAD DE MINAS",
-                "plan": "3536 INGENIERÍA GEOLÓGICA",
+                "plan": "3536 Ingeniería Geológica",
                 "facultades_libre_eleccion": [
                     "3 SEDE MEDELLÍN",
                     "3068 FACULTAD DE MINAS"
@@ -76,7 +76,7 @@
             },
             "3068:3537": {
                 "facultad": "3068 FACULTAD DE MINAS",
-                "plan": "3537 INGENIERÍA INDUSTRIAL",
+                "plan": "3537 Ingeniería Industrial",
                 "facultades_libre_eleccion": [
                     "3 SEDE MEDELLÍN",
                     "3068 FACULTAD DE MINAS"
@@ -84,7 +84,7 @@
             },
             "3068:3538": {
                 "facultad": "3068 FACULTAD DE MINAS",
-                "plan": "3538 INGENIERÍA MECÁNICA",
+                "plan": "3538 Ingeniería Mecánica",
                 "facultades_libre_eleccion": [
                     "3 SEDE MEDELLÍN",
                     "3068 FACULTAD DE MINAS"
@@ -92,10 +92,58 @@
             },
             "3068:3539": {
                 "facultad": "3068 FACULTAD DE MINAS",
-                "plan": "3539 INGENIERÍA QUÍMICA",
+                "plan": "3539 Ingeniería Química",
                 "facultades_libre_eleccion": [
                     "3 SEDE MEDELLÍN",
                     "3068 FACULTAD DE MINAS"
+                ]
+            },
+            "3065:3505": {
+                "facultad": "3065 FACULTAD DE CIENCIAS",
+                "plan": "3505 Ingeniería Biológica",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3065 FACULTAD DE CIENCIAS"
+                ]
+            },
+            "3065:3504": {
+                "facultad": "3065 FACULTAD DE CIENCIAS",
+                "plan": "3504 Estadística",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3065 FACULTAD DE CIENCIAS"
+                ]
+            },
+            "3065:3506": {
+                "facultad": "3065 FACULTAD DE CIENCIAS",
+                "plan": "3506 Ingeniería Física",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3065 FACULTAD DE CIENCIAS"
+                ]
+            },
+            "3065:3507": {
+                "facultad": "3065 FACULTAD DE CIENCIAS",
+                "plan": "3507 Matemáticas",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3065 FACULTAD DE CIENCIAS"
+                ]
+            },
+            "3065:3647": {
+                "facultad": "3065 FACULTAD DE CIENCIAS",
+                "plan": "3647 Ciencias de la Computación",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3065 FACULTAD DE CIENCIAS"
+                ]
+            },
+            "3065:3705": {
+                "facultad": "3065 FACULTAD DE CIENCIAS",
+                "plan": "3705 Química",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3065 FACULTAD DE CIENCIAS"
                 ]
             }
         }

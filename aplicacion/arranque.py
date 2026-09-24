@@ -67,23 +67,36 @@ def preparar_entorno():
         # Playwright buscará su navegador dentro del paquete distribuido.
         os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
 
-    carpeta_logs = CARPETA_DATOS / "logs"
-    carpeta_logs.mkdir(exist_ok=True)
     rol = "actualizacion" if "--actualizar-solo" in sys.argv else "interfaz"
     registro = logging.getLogger("fenix")
     if not registro.handlers:
-        manejador = RotatingFileHandler(
-            carpeta_logs / f"{rol}.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8"
-        )
+        try:
+            carpeta_logs = CARPETA_DATOS / "logs"
+            carpeta_logs.mkdir(parents=True, exist_ok=True)
+            manejador = RotatingFileHandler(
+                carpeta_logs / f"{rol}.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8"
+            )
+        except OSError:
+            # Un ACL o una carpeta de datos no escribible no debe impedir que
+            # arranque la aplicación. El publicador conecta stderr a su consola;
+            # Fénix normal sigue abriendo su ventana aunque no pueda guardar logs.
+            flujo = sys.stderr
+            if flujo is None:
+                flujo = sys.stderr = io.StringIO()
+            manejador = logging.StreamHandler(flujo)
         manejador.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
         registro.addHandler(manejador)
         registro.setLevel(logging.INFO)
         registro.propagate = False
 
     if sys.stdout is None:
-        sys.stdout = SalidaRegistro(registro, logging.INFO)
+        sys.stdout = SalidaRegistro(registro, logging.INFO) if isinstance(
+            registro.handlers[0], RotatingFileHandler
+        ) else io.StringIO()
     if sys.stderr is None:
-        sys.stderr = SalidaRegistro(registro, logging.ERROR)
+        sys.stderr = SalidaRegistro(registro, logging.ERROR) if isinstance(
+            registro.handlers[0], RotatingFileHandler
+        ) else io.StringIO()
 
     def registrar_excepcion(tipo, valor, traza):
         registro.critical("Error no controlado", exc_info=(tipo, valor, traza))

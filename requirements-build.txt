@@ -16,3 +16,4 @@ pywin32-ctypes==0.2.3
 setuptools==84.0.0
 pillow==12.3.0
 certifi==2025.11.12
+boto3>=1.35,<2
