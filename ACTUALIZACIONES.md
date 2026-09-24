@@ -1,3 +1,12 @@
+# Fénix 2.0.3
+
+- La descarga de Libre Elección ahora es opcional en Cloudflare. Si el manifiesto
+  anuncia el archivo pero el objeto aún no está disponible (HTTP 404), Fénix
+  conserva e instala las materias y la oferta válidas, y busca las libres en el
+  SIA. La falta de ese archivo ya no invalida toda la actualización.
+- Si el SIA tampoco está disponible, Fénix puede seguir usando los datos locales
+  existentes y deja constancia del estado de Libre Elección.
+
 # Actualizaciones desde 1.0.8
 
 Instalar 1.0.8 manualmente una vez, extrayendo su ZIP completo en una carpeta nueva.

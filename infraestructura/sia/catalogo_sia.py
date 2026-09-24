@@ -8,6 +8,7 @@ from configuracion import (
     ARCHIVO_ESTUDIANTE as RUTA_ESTUDIANTE,
 )
 from infraestructura.sia.catalogo_local import clave_plan
+from infraestructura.sia.errores import MateriaNoDisponibleEnSIA
 
 
 class CatalogoSIA:
@@ -1218,31 +1219,34 @@ class CatalogoSIA:
             codigo_academico
         )
 
-        if texto_esperado:
-            await self.esperar_opcion_estable(
-                selector,
-                texto_esperado
-            )
-
-        valor = await self.obtener_valor_por_codigo(
-            selector,
-            codigo_academico
-        )
-
-        print(
-            f">>> Código académico "
-            f"'{codigo_academico}' "
-            f"corresponde a value HTML "
-            f"'{valor}'."
-        )
-
-        await self.seleccionar_nativamente(
-            selector,
-            valor,
-            esperar_adf=esperar_adf
-        )
-
-        return valor
+        ultimo_error = None
+        for intento in range(1, 4):
+            try:
+                if texto_esperado:
+                    await self.esperar_opcion_estable(selector, texto_esperado)
+                # ADF reconstruye los selectores con frecuencia; vuelve a
+                # resolver el código justo antes de cada selección.
+                valor = await self.obtener_valor_por_codigo(
+                    selector, codigo_academico
+                )
+                print(
+                    f">>> Código académico '{codigo_academico}' "
+                    f"corresponde a value HTML '{valor}' (intento {intento}/3)."
+                )
+                await self.seleccionar_nativamente(
+                    selector, valor, esperar_adf=esperar_adf
+                )
+                return valor
+            except ValueError as error:
+                ultimo_error = error
+                if intento >= 3:
+                    raise
+                print(
+                    f">>> El selector cambió al elegir '{codigo_academico}'; "
+                    f"se consultará de nuevo ({intento}/3): {error}"
+                )
+                await self.page.wait_for_timeout(500 * intento)
+        raise ultimo_error
 
     # =========================================================
     # SELECCIONAR POR TEXTO
@@ -2422,26 +2426,41 @@ class CatalogoSIA:
         )
 
         if await enlace.count() == 0:
-            raise RuntimeError(
+            raise MateriaNoDisponibleEnSIA(
                 f"No se encontró el enlace "
                 f"de la materia {codigo}."
             )
 
         await enlace.first.click(
             timeout=(
-                self.TIEMPO_MAXIMO_CARGA * 1000
+                min(self.TIEMPO_MAXIMO_CARGA, 15) * 1000
             )
         )
 
-        await self.page.get_by_text(
-            "Información de la asignatura",
-            exact=True
-        ).wait_for(
-            state="visible",
-            timeout=(
-                self.TIEMPO_MAXIMO_CARGA * 1000
+        # Algunas referencias del catálogo conducen a la página de error
+        # propia del SIA. Detectarla evita esperar todo el timeout de carga.
+        if "errornavegacion.jsf" in self.page.url.casefold():
+            raise MateriaNoDisponibleEnSIA(
+                f"El SIA rechazó el detalle de la materia {codigo} "
+                "(errorNavegacion.jsf).",
+                sesion_invalidada=True,
             )
+
+        await self.page.wait_for_function(
+            """() => location.href.toLowerCase().includes('errornavegacion.jsf') ||
+                Array.from(document.querySelectorAll('body *')).some(
+                    e => e.children.length === 0 &&
+                    e.textContent.trim() === 'Información de la asignatura'
+                )""",
+            timeout=min(self.TIEMPO_MAXIMO_CARGA, 15) * 1000,
         )
+
+        if "errornavegacion.jsf" in self.page.url.casefold():
+            raise MateriaNoDisponibleEnSIA(
+                f"El SIA rechazó el detalle de la materia {codigo} "
+                "(errorNavegacion.jsf).",
+                sesion_invalidada=True,
+            )
 
     # =========================================================
     # VOLVER AL CATÁLOGO

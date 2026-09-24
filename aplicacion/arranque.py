@@ -67,7 +67,12 @@ def preparar_entorno():
         # Playwright buscará su navegador dentro del paquete distribuido.
         os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
 
-    rol = "actualizacion" if "--actualizar-solo" in sys.argv else "interfaz"
+    if "--publicador-plan-worker" in sys.argv:
+        rol = "publicador"
+    elif "--actualizar-solo" in sys.argv:
+        rol = "actualizacion"
+    else:
+        rol = "interfaz"
     registro = logging.getLogger("fenix")
     if not registro.handlers:
         try:

@@ -62,6 +62,10 @@ from infraestructura.sia.navegador import (
 from infraestructura.sia.catalogo_sia import (
     CatalogoSIA
 )
+from infraestructura.sia.errores import (
+    MateriaNoDisponibleEnSIA,
+    es_error_transitorio_sia,
+)
 
 from infraestructura.sia.parser.materias import (
     obtener_materias_de_tabla
@@ -81,7 +85,8 @@ from infraestructura.almacenamiento.oferta_academica import (
 )
 
 from infraestructura.almacenamiento.materias_libre_eleccion import (
-    guardar_libres_eleccion
+    guardar_libres_eleccion,
+    guardar_libres_eleccion_sede,
 )
 
 from infraestructura.almacenamiento.estado_actualizacion import (
@@ -269,9 +274,13 @@ def publicar_progreso(
     )
 
 
-def datos_para_reintento(materias_basicas, fallidas):
+def datos_para_reintento(materias_basicas, fallidas, solo_transitorias=False):
     """Recupera datos originales, incluida la tabla de procedencia LE."""
-    codigos = {str(item.get("codigo", "")).strip() for item in fallidas}
+    codigos = {
+        str(item.get("codigo", "")).strip()
+        for item in fallidas
+        if not solo_transitorias or item.get("reintentable", False)
+    }
     return [
         datos for datos in materias_basicas
         if str(datos.get("codigo", "")).strip() in codigos
@@ -298,6 +307,18 @@ def registrar_errores_definitivos(categoria, fallidas, codigo_plan):
     from datetime import datetime
     with open(ARCHIVO_LOG_ERRORES_ACTUALIZACION, "a", encoding="utf-8") as archivo:
         for fallo in fallidas:
+            error = str(fallo.get("error", "Error no especificado"))
+            texto_error = error.casefold()
+            posible_dato_incorrecto = any(
+                marca in texto_error
+                for marca in (
+                    "no se encontró el enlace de la materia",
+                    "no se encontro el enlace de la materia",
+                    "errornavegacion.jsf",
+                    "no se encontró el código académico",
+                    "no se encontro el codigo academico",
+                )
+            )
             registro = {
                 "fecha": datetime.now().isoformat(timespec="seconds"),
                 "plan_estudios": str(codigo_plan) if codigo_plan is not None else None,
@@ -305,7 +326,12 @@ def registrar_errores_definitivos(categoria, fallidas, codigo_plan):
                 "codigo": fallo.get("codigo", ""),
                 "nombre": fallo.get("nombre", ""),
                 "intentos": fallo.get("intentos", MAX_REINTENTOS),
-                "error": fallo.get("error", "Error no especificado"),
+                "error": error,
+                "posible_codigo_o_nombre_incorrecto": posible_dato_incorrecto,
+                "revision_sugerida": (
+                    "Verificar manualmente el código y el nombre de la materia en el plan."
+                    if posible_dato_incorrecto else None
+                ),
             }
             archivo.write(json.dumps(registro, ensure_ascii=False) + "\n")
 
@@ -639,7 +665,10 @@ async def crear_sesion_libre_eleccion(
 async def obtener_materias_libre_eleccion(
     page,
     catalogo,
-    numero_worker=None
+    numero_worker=None,
+    solo_sede=False,
+    materias_sede_compartidas=None,
+    segunda_consulta_ya_mostrada=False,
 ):
     # Libre Elección requiere dos consultas independientes.
     #
@@ -680,14 +709,34 @@ async def obtener_materias_libre_eleccion(
         f"de Libre Elección..."
     )
 
-    primera_tabla = await obtener_materias_de_tabla(
-        page
-    )
+    if materias_sede_compartidas is None:
+        primera_tabla = await obtener_materias_de_tabla(page)
+    else:
+        primera_tabla = [
+            dict(materia)
+            for materia in materias_sede_compartidas
+            if isinstance(materia, dict) and materia.get("codigo")
+        ]
 
     imprimir(
         f"{prefijo}✓ Primera tabla obtenida: "
         f"{len(primera_tabla)} materias."
     )
+
+    if solo_sede:
+        materias_sede = []
+        for materia in primera_tabla:
+            codigo = str(materia.get("codigo", "")).strip()
+            if not codigo:
+                continue
+            materia_con_origen = dict(materia)
+            materia_con_origen[CLAVE_INDICE_FACULTAD_LIBRE_ELECCION] = 0
+            materias_sede.append(materia_con_origen)
+        imprimir(
+            f"{prefijo}✓ Catálogo limitado a Libre Elección de sede: "
+            f"{len(materias_sede)} materias."
+        )
+        return materias_sede
 
     # ---------------------------------------------------------
     # SEGUNDA CONSULTA
@@ -701,19 +750,20 @@ async def obtener_materias_libre_eleccion(
         f"de Libre Elección..."
     )
 
-    await catalogo.seleccionar_facultad_libre_eleccion(
-        1
-    )
+    if not segunda_consulta_ya_mostrada:
+        await catalogo.seleccionar_facultad_libre_eleccion(
+            1
+        )
 
-    imprimir(
-        f"{prefijo}✓ Segundo filtro seleccionado."
-    )
+        imprimir(
+            f"{prefijo}✓ Segundo filtro seleccionado."
+        )
 
-    imprimir(
-        f"{prefijo}Consultando segunda tabla..."
-    )
+        imprimir(
+            f"{prefijo}Consultando segunda tabla..."
+        )
 
-    await catalogo.mostrar_resultados()
+        await catalogo.mostrar_resultados()
 
     segunda_tabla = await obtener_materias_de_tabla(
         page
@@ -1518,7 +1568,8 @@ async def worker_libres_eleccion(
     materias_basicas,
     numero_worker,
     progreso=None,
-    codigo_plan=None
+    codigo_plan=None,
+    max_intentos_materia=1,
 ):
     # Procesa las materias de Libre Elección asignadas
     # a un worker.
@@ -1663,17 +1714,32 @@ async def worker_libres_eleccion(
             materia_obtenida = None
             ultimo_error = None
 
-            for intento in range(
-                1,
-                MAX_REINTENTOS + 1
-            ):
+            intentos_realizados = 0
+
+            for intento in range(1, max_intentos_materia + 1):
+                intentos_realizados = intento
 
                 try:
+
+                    # Si el intento anterior no logró reconstruir la sesión,
+                    # crearla al comienzo de este intento. Nunca se debe
+                    # interpretar catalogo=None como un fallo de la materia.
+                    if contexto is None or page is None or catalogo is None:
+                        (
+                            contexto,
+                            page,
+                            catalogo
+                        ) = await crear_sesion_libre_eleccion(
+                            navegador,
+                            numero_worker,
+                            codigo_plan
+                        )
+                        indice_facultad_actual = 0
 
                     imprimir(
                         f"[LE Worker {numero_worker}] "
                         f"    Intento "
-                        f"{intento}/{MAX_REINTENTOS}"
+                        f"{intento}/{max_intentos_materia}"
                     )
 
                     # -------------------------------------------------
@@ -1729,13 +1795,41 @@ async def worker_libres_eleccion(
                         f"{error}"
                     )
 
-                    if intento >= MAX_REINTENTOS:
+                    transitorio = es_error_transitorio_sia(error)
+                    fallo_permanente = isinstance(
+                        error, MateriaNoDisponibleEnSIA
+                    )
+
+                    if fallo_permanente:
+                        imprimir(
+                            f"[LE Worker {numero_worker}] "
+                            "    ✗ El SIA no ofrece esta materia; "
+                            "se continúa sin repetirla."
+                        )
+                        if error.sesion_invalidada:
+                            await cerrar_sesion_worker(
+                                navegador, contexto, numero_worker, "LE "
+                            )
+                            contexto = page = catalogo = None
+                            indice_facultad_actual = 0
+                        break
+
+                    if not transitorio or intento >= max_intentos_materia:
 
                         imprimir(
                             f"[LE Worker {numero_worker}] "
-                            f"    ✗ Materia agotó "
-                            f"todos los intentos."
+                            f"    ✗ No se reintentará este error "
+                            "o se agotaron los intentos transitorios."
                         )
+
+                        # El error puede haber dejado abierta una página de
+                        # detalle. Reiniciar solo la sesión dañada, sin hacer
+                        # esperas/reintentos por una materia no recuperable.
+                        await cerrar_sesion_worker(
+                            navegador, contexto, numero_worker, "LE "
+                        )
+                        contexto = page = catalogo = None
+                        indice_facultad_actual = 0
 
                         break
 
@@ -1768,33 +1862,7 @@ async def worker_libres_eleccion(
                         intento
                     )
 
-                    try:
-
-                        (
-                            contexto,
-                            page,
-                            catalogo
-                        ) = await crear_sesion_libre_eleccion(
-                            navegador,
-                            numero_worker,
-                            codigo_plan
-                        )
-
-                        # La nueva sesión está en la primera tabla.
-                        indice_facultad_actual = 0
-
-                    except Exception as error_sesion:
-
-                        ultimo_error = error_sesion
-
-                        imprimir(
-                            f"[LE Worker {numero_worker}] "
-                            f"    ⚠ Tampoco se pudo "
-                            f"recrear la sesión: "
-                            f"{error_sesion}"
-                        )
-
-                        continue
+                    # La sesión se recreará al comienzo del siguiente intento.
 
             # =================================================
             # RESULTADO
@@ -1806,10 +1874,11 @@ async def worker_libres_eleccion(
                     {
                         "codigo": codigo,
                         "nombre": nombre,
-                        "intentos": MAX_REINTENTOS,
+                        "intentos": intentos_realizados,
                         "error": str(
                             ultimo_error
-                        )
+                        ),
+                        "reintentable": es_error_transitorio_sia(ultimo_error),
                     }
                 )
 
@@ -1883,7 +1952,8 @@ async def ejecutar_worker_libre_resistente(
     grupo,
     numero_worker,
     progreso,
-    codigo_plan=None
+    codigo_plan=None,
+    max_intentos_materia=1,
 ):
     # Aísla un fallo inesperado de un worker LE y conserva
     # los demás resultados.
@@ -1916,7 +1986,8 @@ async def ejecutar_worker_libre_resistente(
                 grupo,
                 numero_worker,
                 progreso,
-                codigo_plan
+                codigo_plan,
+                max_intentos_materia,
             )
 
         except ActualizacionCancelada:
@@ -1965,7 +2036,9 @@ async def ejecutar_worker_libre_resistente(
 async def procesar_libres_eleccion(
     navegador,
     materias_basicas,
-    codigo_plan=None
+    codigo_plan=None,
+    max_intentos_materia=1,
+    cantidad_workers=None,
 ):
     if not materias_basicas:
         return [], []
@@ -1983,10 +2056,8 @@ async def procesar_libres_eleccion(
         )
         return [], []
 
-    grupos = dividir_materias(
-        materias_basicas,
-        CANTIDAD_WORKERS
-    )
+    cantidad_workers = max(1, int(cantidad_workers or CANTIDAD_WORKERS))
+    grupos = dividir_materias(materias_basicas, cantidad_workers)
 
     imprimir()
     imprimir(
@@ -2032,7 +2103,8 @@ async def procesar_libres_eleccion(
                 grupo,
                 i,
                 progreso,
-                codigo_plan
+                codigo_plan,
+                max_intentos_materia,
             )
             for i, grupo in enumerate(
                 grupos,
@@ -2076,6 +2148,8 @@ async def actualizar_datos(
     priorizar_estudiante=True,
     cache_materias=None,
     cache_libres=None,
+    al_terminar_obligatorias=None,
+    materias_sede_compartidas=None,
 ):
     # Ejecuta la actualización completa del catálogo del SIA.
     #
@@ -2309,6 +2383,17 @@ async def actualizar_datos(
             60
         )
 
+        # El publicador puede enviar materias y oferta en este punto, antes
+        # de abrir la consulta lenta de Libre Elección. La función es opcional
+        # para que los clientes normales conserven el mismo flujo.
+        if al_terminar_obligatorias is not None:
+            comprobar_cancelacion()
+            await asyncio.to_thread(
+                al_terminar_obligatorias,
+                materias,
+                materias_normales_fallidas,
+            )
+
         if materias_normales_fallidas:
 
             imprimir()
@@ -2372,6 +2457,7 @@ async def actualizar_datos(
             codigo_plan=codigo_plan
         )
 
+        catalogo_libres_consultado = False
         try:
 
             # -------------------------------------------------
@@ -2399,10 +2485,18 @@ async def actualizar_datos(
             await catalogo_le.abrir()
 
             await catalogo_le.configurar_libre_eleccion()
-
-            await catalogo_le.mostrar_resultados()
-
-            await catalogo_le.esperar_resultados()
+            consulta_facultad_preparada = False
+            if materias_sede_compartidas:
+                imprimir(
+                    "Usando el catálogo compartido de sede; "
+                    "se omite la consulta SIA de Libre Elección de sede."
+                )
+                await catalogo_le.seleccionar_facultad_libre_eleccion(1)
+                await catalogo_le.mostrar_resultados()
+                consulta_facultad_preparada = True
+            else:
+                await catalogo_le.mostrar_resultados()
+                await catalogo_le.esperar_resultados()
 
             # -------------------------------------------------
             # PRIMERA TABLA → SEGUNDA TABLA
@@ -2430,9 +2524,12 @@ async def actualizar_datos(
             libres_basicas = (
                 await obtener_materias_libre_eleccion(
                     page_le,
-                    catalogo_le
+                    catalogo_le,
+                    materias_sede_compartidas=materias_sede_compartidas,
+                    segunda_consulta_ya_mostrada=consulta_facultad_preparada,
                 )
             )
+            catalogo_libres_consultado = True
 
         except Exception as error:
 
@@ -2472,12 +2569,14 @@ async def actualizar_datos(
         # PROCESAR LIBRE ELECCIÓN
         # =====================================================
 
+        cache_libres_detalle = dict(cache_libres or {})
+        cache_libres_detalle.update(materias_sede_compartidas or {})
         libres_reutilizadas = [
             reutilizada
             for materia_basica in libres_basicas
             if (reutilizada := _reutilizar_desde_cache(
                 materia_basica,
-                cache_libres,
+                cache_libres_detalle,
             )) is not None
         ]
         libres_pendientes = [
@@ -2503,22 +2602,34 @@ async def actualizar_datos(
         )
 
         if libres_fallidas:
-            imprimir(
-                f">>> Reintentando {len(libres_fallidas)} materia(s) de Libre Elección fallida(s)..."
-            )
+            fallidas_primera_pasada = libres_fallidas
             segunda_libres_basicas = datos_para_reintento(
                 libres_pendientes,
-                libres_fallidas,
+                fallidas_primera_pasada,
+                solo_transitorias=True,
             )
-            libres_segundo_intento, libres_fallidas = await procesar_libres_eleccion(
-                navegador,
-                segunda_libres_basicas,
-                codigo_plan,
-            )
-            libres_eleccion = combinar_materias(
-                libres_eleccion,
-                libres_segundo_intento,
-            )
+            fallidas_permanentes = [
+                fallo for fallo in fallidas_primera_pasada
+                if not fallo.get("reintentable", False)
+            ]
+            if segunda_libres_basicas:
+                imprimir(
+                    f">>> Reintentando una vez {len(segunda_libres_basicas)} "
+                    "materia(s) con fallo transitorio de Libre Elección..."
+                )
+                libres_segundo_intento, fallidas_segunda_pasada = await procesar_libres_eleccion(
+                    navegador,
+                    segunda_libres_basicas,
+                    codigo_plan,
+                    max_intentos_materia=1,
+                )
+                libres_eleccion = combinar_materias(
+                    libres_eleccion,
+                    libres_segundo_intento,
+                )
+                libres_fallidas = fallidas_permanentes + fallidas_segunda_pasada
+            else:
+                libres_fallidas = fallidas_permanentes
             registrar_errores_definitivos(
                 "libre_eleccion",
                 libres_fallidas,
@@ -2655,6 +2766,7 @@ async def actualizar_datos(
         return {
             "materias": materias,
             "libres_eleccion": libres_eleccion,
+            "catalogo_libres_consultado": catalogo_libres_consultado,
             "materias_fallidas": (
                 materias_normales_fallidas
             ),
@@ -2674,16 +2786,19 @@ async def actualizar_datos(
 
 async def actualizar_solo_libres(
     playwright,
-    nombre_plan=None
+    nombre_plan=None,
+    codigo_plan=None,
+    cache_libres=None,
+    solo_sede=False,
+    materias_sede_compartidas=None,
+    cantidad_workers=None,
 ):
     # Actualiza solamente las materias de Libre Elección.
     #
     # El plan se obtiene igualmente desde estudiante.json.
 
     comprobar_cancelacion()
-    codigo_plan = (
-        obtener_codigo_plan_estudiante()
-    )
+    codigo_plan = str(codigo_plan or obtener_codigo_plan_estudiante())
 
     publicar_progreso(
         "Priorizando la actualización de libres elección…",
@@ -2728,11 +2843,20 @@ async def actualizar_solo_libres(
         # primera opción de "¿Por qué facultad?" utilizando
         # soc6.
 
+        catalogo_libres_consultado = False
         await catalogo.configurar_libre_eleccion()
-
-        await catalogo.mostrar_resultados()
-
-        await catalogo.esperar_resultados()
+        consulta_facultad_preparada = False
+        if materias_sede_compartidas and not solo_sede:
+            imprimir(
+                "Usando el catálogo compartido de sede; "
+                "se omite la consulta SIA de Libre Elección de sede."
+            )
+            await catalogo.seleccionar_facultad_libre_eleccion(1)
+            await catalogo.mostrar_resultados()
+            consulta_facultad_preparada = True
+        else:
+            await catalogo.mostrar_resultados()
+            await catalogo.esperar_resultados()
 
         # -----------------------------------------------------
         # PRIMERA TABLA + SEGUNDA TABLA
@@ -2749,9 +2873,13 @@ async def actualizar_solo_libres(
         libres_basicas = (
             await obtener_materias_libre_eleccion(
                 pagina,
-                catalogo
+                catalogo,
+                solo_sede=solo_sede,
+                materias_sede_compartidas=materias_sede_compartidas,
+                segunda_consulta_ya_mostrada=consulta_facultad_preparada,
             )
         )
+        catalogo_libres_consultado = True
 
         if not libres_basicas:
             raise RuntimeError(
@@ -2763,26 +2891,52 @@ async def actualizar_solo_libres(
             contexto
         )
 
-        (
-            libres,
-            fallidas
-        ) = await procesar_libres_eleccion(
+        cache_compartida = dict(cache_libres or {})
+        cache_compartida.update(materias_sede_compartidas or {})
+        reutilizadas = [
+            materia
+            for basica in libres_basicas
+            if (materia := _reutilizar_desde_cache(basica, cache_compartida)) is not None
+        ]
+        pendientes = [
+            basica for basica in libres_basicas
+            if _codigo_materia(basica) not in cache_compartida
+        ]
+        libres_nuevas, fallidas = await procesar_libres_eleccion(
             navegador,
-            libres_basicas,
-            codigo_plan
+            pendientes,
+            codigo_plan,
+            cantidad_workers=cantidad_workers,
         )
+        libres = combinar_materias(reutilizadas, libres_nuevas)
 
         if fallidas:
-            imprimir(
-                f">>> Reintentando {len(fallidas)} materia(s) de Libre Elección fallida(s)..."
+            fallidas_primera_pasada = fallidas
+            segunda_basicas = datos_para_reintento(
+                libres_basicas,
+                fallidas_primera_pasada,
+                solo_transitorias=True,
             )
-            segunda_basicas = datos_para_reintento(libres_basicas, fallidas)
-            libres_segundo_intento, fallidas = await procesar_libres_eleccion(
-                navegador,
-                segunda_basicas,
-                codigo_plan,
-            )
-            libres = combinar_materias(libres, libres_segundo_intento)
+            fallidas_permanentes = [
+                fallo for fallo in fallidas_primera_pasada
+                if not fallo.get("reintentable", False)
+            ]
+            if segunda_basicas:
+                imprimir(
+                    f">>> Reintentando una vez {len(segunda_basicas)} "
+                    "materia(s) con fallo transitorio de Libre Elección..."
+                )
+                libres_segundo_intento, fallidas_segunda_pasada = await procesar_libres_eleccion(
+                    navegador,
+                    segunda_basicas,
+                    codigo_plan,
+                    max_intentos_materia=1,
+                    cantidad_workers=cantidad_workers,
+                )
+                libres = combinar_materias(libres, libres_segundo_intento)
+                fallidas = fallidas_permanentes + fallidas_segunda_pasada
+            else:
+                fallidas = fallidas_permanentes
             registrar_errores_definitivos("libre_eleccion", fallidas, codigo_plan)
 
         publicar_progreso(
@@ -2791,14 +2945,15 @@ async def actualizar_solo_libres(
         )
 
         comprobar_cancelacion()
-        guardar_libres_eleccion(
-            libres,
-            codigo_plan=codigo_plan,
-        )
+        if solo_sede:
+            guardar_libres_eleccion_sede(libres, sede="1102")
+        else:
+            guardar_libres_eleccion(libres, codigo_plan=codigo_plan)
 
         return {
             "materias": [],
             "libres_eleccion": libres,
+            "catalogo_libres_consultado": catalogo_libres_consultado,
             "materias_fallidas": [],
             "libres_fallidas": fallidas,
         }
@@ -2819,6 +2974,10 @@ async def actualizar(
     priorizar_estudiante=True,
     cache_materias=None,
     cache_libres=None,
+    al_terminar_obligatorias=None,
+    solo_sede=False,
+    materias_sede_compartidas=None,
+    cantidad_workers=None,
 ):
     # Función pública utilizada por main.py.
     #
@@ -2850,7 +3009,12 @@ async def actualizar(
 
             return await actualizar_solo_libres(
                 playwright,
-                nombre_plan
+                nombre_plan,
+                codigo_plan=codigo_plan if not priorizar_estudiante else None,
+                cache_libres=cache_libres,
+                solo_sede=solo_sede,
+                materias_sede_compartidas=materias_sede_compartidas,
+                cantidad_workers=cantidad_workers,
             )
 
         return await actualizar_datos(
@@ -2860,4 +3024,6 @@ async def actualizar(
             priorizar_estudiante=priorizar_estudiante,
             cache_materias=cache_materias,
             cache_libres=cache_libres,
+            al_terminar_obligatorias=al_terminar_obligatorias,
+            materias_sede_compartidas=materias_sede_compartidas,
         )

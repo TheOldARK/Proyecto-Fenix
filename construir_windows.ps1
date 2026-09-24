@@ -66,6 +66,9 @@ try {
     # sobre todo, garantiza que use las mismas DLL nativas ya validadas por el
     # diagnóstico de Fenix.exe.
     Copy-Item -LiteralPath (Join-Path $Salida 'FenixPublicador.exe') -Destination (Join-Path $carpetaFenix 'FenixPublicador.exe') -Force
+    & $pythonFenix -m PyInstaller --clean --noconfirm --distpath $Salida --workpath (Join-Path $Entorno 'build-manager') (Join-Path $PSScriptRoot 'Gestor.spec')
+    if ($LASTEXITCODE -ne 0) { throw 'No se pudo construir FenixGestor.exe.' }
+    Copy-Item -LiteralPath (Join-Path $Salida 'FenixGestor.exe') -Destination (Join-Path $carpetaFenix 'FenixGestor.exe') -Force
     $env:FENIX_DATA_DIR = Join-Path $Entorno ('diagnostico-' + [guid]::NewGuid().ToString('N'))
     $diagnosticoFenix = Start-Process -FilePath (Join-Path $carpetaFenix 'Fenix.exe') -ArgumentList '--diagnostico' -WindowStyle Hidden -PassThru
     if (-not $diagnosticoFenix.WaitForExit(60000)) {

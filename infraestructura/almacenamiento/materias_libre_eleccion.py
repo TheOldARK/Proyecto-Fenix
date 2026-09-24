@@ -20,10 +20,12 @@
 
 import json
 from datetime import datetime
+from pathlib import Path
 
 from configuracion import (
     CARPETA_DATOS,
-    ARCHIVO_LIBRES_ELECCION
+    ARCHIVO_LIBRES_ELECCION,
+    ARCHIVO_LIBRES_ELECCION_SEDE,
 )
 from infraestructura.almacenamiento.json_atomico import guardar_json_atomico
 
@@ -171,6 +173,51 @@ def guardar_libres_eleccion(materias, codigo_plan=None):
     }
 
     guardar_json_atomico(ARCHIVO_LIBRES_ELECCION, datos)
+
+
+def cargar_libres_eleccion_sede():
+    """Lee el catálogo compartido de Libre Elección de la sede."""
+    inicializar_datos()
+    try:
+        datos = json.loads(ARCHIVO_LIBRES_ELECCION_SEDE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    materias = datos.get("materias", []) if isinstance(datos, dict) else []
+    return materias if isinstance(materias, list) else []
+
+
+def guardar_libres_eleccion_sede(materias, sede="1102"):
+    """Guarda el resultado independiente del plan que consultó el catálogo."""
+    inicializar_datos()
+    datos = {
+        "sede": str(sede),
+        "ultima_actualizacion": datetime.now().isoformat(timespec="seconds"),
+        "materias": materias,
+    }
+    guardar_json_atomico(ARCHIVO_LIBRES_ELECCION_SEDE, datos)
+
+
+def sincronizar_libres_eleccion_sede(origen, destino=ARCHIVO_LIBRES_ELECCION_SEDE):
+    """Valida y copia atómicamente el catálogo de sede de un publicador hijo."""
+    origen = Path(origen)
+    try:
+        datos = json.loads(origen.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"No se pudo leer el catálogo compartido '{origen}': {error}") from error
+
+    if not isinstance(datos, dict) or str(datos.get("sede", "")).strip() != "1102":
+        raise ValueError("El catálogo compartido no corresponde a la sede Medellín (1102).")
+    materias = datos.get("materias")
+    if not isinstance(materias, list):
+        raise ValueError("El catálogo compartido no contiene una lista válida de materias.")
+    if any(
+        not isinstance(materia, dict) or not str(materia.get("codigo", "")).strip()
+        for materia in materias
+    ):
+        raise ValueError("El catálogo compartido contiene materias sin código válido.")
+
+    guardar_json_atomico(destino, datos)
+    return len(materias)
 
 
 def preparar_libres_para_plan(codigo_plan):

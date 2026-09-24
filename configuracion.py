@@ -26,7 +26,7 @@
 import os
 from pathlib import Path
 
-VERSION = "2.0.2"
+VERSION = "2.0.3"
 URL_DATOS_CLOUDFLARE = "https://pub-c4af9a6ed2d249a290ff6c850b8dac15.r2.dev"
 
 
@@ -82,6 +82,11 @@ ARCHIVO_ESTUDIANTE = (
 
 ARCHIVO_LIBRES_ELECCION = (
     CARPETA_DATOS / "libres_eleccion.json"
+)
+
+# Catálogo compartido de Libre Elección consultado por sede Medellín.
+ARCHIVO_LIBRES_ELECCION_SEDE = (
+    CARPETA_DATOS / "libres_eleccion_sede.json"
 )
 
 
@@ -245,7 +250,10 @@ MAX_ESPERA_REINTENTO = 15
 #   - Materias normales.
 #   - Materias de Libre Elección.
 
-CANTIDAD_WORKERS = 3
+# Cada publicador consulta el SIA con una sola sesión. La concurrencia entre
+# carreras se controla desde el gestor; abrir varias sesiones por publicador
+# provoca que el SIA se ralentice y deja una larga cola de materias al final.
+CANTIDAD_WORKERS = 1
 
 # Escalonamiento inicial para no abrir varias sesiones SIA exactamente al
 # mismo tiempo. El paralelismo se conserva después de este retraso.

@@ -19,6 +19,20 @@ def main():
     p.add_argument('zip', type=Path)
     p.add_argument('commit')
     args = p.parse_args()
+    changelog = Path(__file__).resolve().parents[1] / 'ACTUALIZACIONES.md'
+    lineas = changelog.read_text(encoding='utf-8').splitlines()
+    encabezado = f'# Fénix {args.version}'
+    try:
+        inicio_notas = lineas.index(encabezado) + 1
+    except ValueError as error:
+        raise RuntimeError(f'No hay notas de publicación para {args.version} en {changelog}.') from error
+    fin_notas = next(
+        (indice for indice in range(inicio_notas, len(lineas)) if lineas[indice].startswith('# ')),
+        len(lineas),
+    )
+    notas = '\n'.join(lineas[inicio_notas:fin_notas]).strip()
+    if not notas:
+        raise RuntimeError(f'Las notas de publicación de {args.version} están vacías.')
     with ZipFile(args.zip) as z:
         manifest, _ = leer_paquete(z)
         assert manifest['version'] == args.version
@@ -37,8 +51,6 @@ def main():
     except urllib.error.HTTPError as e:
         if e.code != 404:
             raise
-        notas = ('Dummy funcionalmente equivalente a 1.0.8 para comprobar la actualización automática.' if args.version.endswith('.1') else
-                 'Instalador independiente, soporte de rutas largas de Windows, verificación SHA-256 de todos los archivos, recuperación compatible y rollback con diagnóstico real de Qt y Chromium. Instalar esta versión manualmente una vez para sustituir el actualizador antiguo.')
         try:
             release = request(api, {'tag_name': 'v' + args.version, 'target_commitish': args.commit,
                                    'name': 'Fénix ' + args.version, 'body': notas, 'draft': True, 'prerelease': False})
@@ -70,7 +82,11 @@ def main():
         assert respuesta.status == 201, 'GitHub no aceptó el paquete: ' + str(respuesta.status)
     assert asset['size'] == args.zip.stat().st_size
     assert asset.get('digest') == 'sha256:' + digest, 'La huella de GitHub no coincide.'
-    request(api + '/' + str(release['id']), {'draft': False, 'make_latest': 'true'}, 'PATCH')
+    request(
+        api + '/' + str(release['id']),
+        {'draft': False, 'make_latest': 'true', 'body': notas},
+        'PATCH',
+    )
     print(json.dumps({'url': asset['browser_download_url'], 'sha256': digest, 'bytes': asset['size']}))
 
 

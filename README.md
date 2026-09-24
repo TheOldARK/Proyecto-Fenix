@@ -2,20 +2,20 @@
 
 Fénix es una herramienta de escritorio para consultar la oferta académica del Sistema de Información Académica (SIA) y organizar horarios compatibles para estudiantes de la **Universidad Nacional de Colombia**.
 
-## Alcance de esta versión
+## Alcance
 
-La primera versión presentable está deliberadamente enfocada en una única ruta académica:
-
-- **Sede:** Medellín (`1102`)
-- **Facultad:** Minas (`3068`)
-- **Nivel:** Pregrado
-- **Planes incluidos:** los 12 planes de pregrado actualmente registrados para la Facultad de Minas
-
-El alcance reducido no es una limitación accidental: permite estabilizar la navegación del SIA, validar la experiencia de usuario y presentar una base funcional antes de incorporar otras facultades o sedes.
+Fénix trabaja con planes de pregrado de la **Sede Medellín** (`1102`). El paquete
+incluye actualmente planes de las facultades de Minas (`3068`) y Ciencias
+(`3065`); el catálogo de planes también puede ampliarse desde Cloudflare a medida
+que se preparan nuevas facultades. La selección del estudiante determina qué
+datos necesita cada cliente.
 
 ## Funcionalidades
 
-Fénix puede conectarse al catálogo público del SIA, obtener materias normales y de Libre Elección, extraer créditos, prerrequisitos, grupos, docentes, cupos y horarios, y guardar los datos localmente. La información se conserva separando los datos relativamente estables de las materias y la oferta académica del período actual.
+Fénix obtiene datos académicos desde Cloudflare y puede consultar el SIA cuando
+faltan datos necesarios para el plan elegido. Libre Elección es opcional en la
+publicación: si falta su archivo, el cliente la busca directamente en el SIA sin
+perder las materias obligatorias ni la oferta que sí estén disponibles.
 
 La aplicación permite seleccionar materias y grupos, detectar cruces de horario, mostrar detalles de cada asignatura, restaurar selecciones entre ejecuciones y exportar o importar el estado del estudiante mediante archivos `.fnx`. La actualización se ejecuta en segundo plano, utiliza varios workers con sesiones independientes y cuenta con reintentos para tolerar la inestabilidad del SIA.
 

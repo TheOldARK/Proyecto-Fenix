@@ -56,7 +56,9 @@ from infraestructura.almacenamiento.estado_actualizacion import guardar_estado  
 from main import (  # noqa: E402
     cargar_planes,
     ejecutar_publicador,
+    ejecutar_publicador_libres_sede,
     seleccionar_planes_publicables,
+    seleccionar_planes_referencia_libres,
 )
 
 
@@ -236,10 +238,13 @@ class PublicadorWorker(QObject):
                     0,
                 )
                 try:
-                    ejecutar_publicador(
-                        codigo_plan=self.codigo_plan if self.modo == "manual" else None,
-                        modo=self.modo,
-                    )
+                    if self.modo == "libres_sede":
+                        ejecutar_publicador_libres_sede(self.codigo_plan)
+                    else:
+                        ejecutar_publicador(
+                            codigo_plan=self.codigo_plan if self.modo == "manual" else None,
+                            modo=self.modo,
+                        )
                 except Exception as error:
                     ultimo_error = str(error)
                     traceback.print_exc()
@@ -286,16 +291,16 @@ class VentanaPublicador(QWidget):
         self.setWindowIcon(self.icono)
         self.setStyleSheet("QWidget { background:#121212; color:#fff; } QPushButton { padding:7px; }")
         self.titulo = QLabel("Elige cómo quieres actualizar los datos"); self.titulo.setStyleSheet("font-size:16px; font-weight:bold;")
-        self.descripcion = QLabel("Automático recorre todas las carreras listas de Medellín. Manual mantiene actualizada solo la carrera seleccionada.")
+        self.descripcion = QLabel("Automático recorre todas las carreras listas de Medellín. Manual mantiene una carrera. El modo compartido solo consulta Libre Elección por sede y publica el catálogo común de Medellín.")
         self.descripcion.setWordWrap(True)
         self.selector_modo = QComboBox()
         self.selector_modo.addItem("Automático · todas las carreras", "automatico")
         self.selector_modo.addItem("Manual · elegir una carrera", "manual")
+        self.selector_modo.addItem("Compartido · Libre Elección de sede", "libres_sede")
         self.selector_carrera = QComboBox()
         self.planes_disponibles, _ = seleccionar_planes_publicables(cargar_planes())
-        for codigo, plan in sorted(self.planes_disponibles.items()):
-            facultad = plan.facultad_nombre or "Facultad"
-            self.selector_carrera.addItem(f"{facultad} · {plan.nombre}", str(codigo))
+        self.planes_referencia = seleccionar_planes_referencia_libres(self.planes_disponibles)
+        self._poblar_selector_carrera(self.planes_disponibles)
         self.selector_carrera.setEnabled(False)
         self.selector_modo.currentIndexChanged.connect(self.cambiar_modo)
         self.estado = QLabel("Listo para iniciar."); self.estado.setWordWrap(True)
@@ -310,7 +315,7 @@ class VentanaPublicador(QWidget):
         layout.addWidget(self.descripcion)
         layout.addWidget(QLabel("Modo de trabajo"))
         layout.addWidget(self.selector_modo)
-        layout.addWidget(QLabel("Carrera (solo para modo manual)"))
+        layout.addWidget(QLabel("Carrera de referencia para configurar el SIA"))
         layout.addWidget(self.selector_carrera)
         layout.addWidget(self.boton_iniciar)
         layout.addSpacing(8)
@@ -334,9 +339,43 @@ class VentanaPublicador(QWidget):
             self.boton.setText("Minimizar (bandeja no disponible)")
         self.timer = QTimer(self); self.timer.timeout.connect(self.actualizar_estado); self.timer.start(500)
     def cambiar_modo(self):
-        manual = self.selector_modo.currentData() == "manual"
-        self.selector_carrera.setEnabled(manual and self.boton_iniciar.isEnabled())
-        self.boton_iniciar.setText("Iniciar actualización de la carrera" if manual else "Iniciar actualización de todas")
+        modo = self.selector_modo.currentData()
+        usa_carrera = modo in {"manual", "libres_sede"}
+        planes_selector = (
+            self.planes_referencia if modo == "libres_sede"
+            else self.planes_disponibles
+        )
+        codigo_previo = self.selector_carrera.currentData()
+        self._poblar_selector_carrera(planes_selector, codigo_previo)
+        tiene_referencias = bool(self.planes_referencia)
+        self.selector_carrera.setEnabled(
+            usa_carrera and self.boton_iniciar.isEnabled() and bool(planes_selector)
+        )
+        if modo == "libres_sede" and not tiene_referencias:
+            self.estado.setText(
+                "No hay planes con configuración de Libre Elección de sede. "
+                "Completa configuracion_libre_eleccion.json primero."
+            )
+            self.boton_iniciar.setEnabled(False)
+        elif self.estado.text().startswith("No hay planes con configuración de Libre Elección"):
+            self.estado.setText("Listo para iniciar.")
+            self.boton_iniciar.setEnabled(True)
+        textos = {
+            "manual": "Iniciar actualización de la carrera",
+            "libres_sede": "Iniciar catálogo compartido de sede",
+            "automatico": "Iniciar actualización de todas",
+        }
+        self.boton_iniciar.setText(textos.get(modo, "Iniciar publicador"))
+
+    def _poblar_selector_carrera(self, planes, codigo_previo=None):
+        self.selector_carrera.clear()
+        for codigo, plan in sorted(planes.items()):
+            facultad = plan.facultad_nombre or "Facultad"
+            self.selector_carrera.addItem(f"{facultad} · {plan.nombre}", str(codigo))
+        if codigo_previo:
+            indice = self.selector_carrera.findData(str(codigo_previo))
+            if indice >= 0:
+                self.selector_carrera.setCurrentIndex(indice)
 
     def iniciar(self):
         try:
@@ -367,10 +406,15 @@ class VentanaPublicador(QWidget):
             QMessageBox.warning(self, "Publicador en ejecución", mensaje)
             return False
         modo = str(self.selector_modo.currentData() or "automatico")
-        codigo_plan = self.selector_carrera.currentData() if modo == "manual" else None
-        if modo == "manual" and not codigo_plan:
+        codigo_plan = self.selector_carrera.currentData() if modo in {"manual", "libres_sede"} else None
+        if modo in {"manual", "libres_sede"} and not codigo_plan:
             self.lock.release()
-            QMessageBox.warning(self, "Carrera requerida", "Selecciona una carrera para iniciar el modo manual.")
+            mensaje = (
+                "No hay planes con configuración de Libre Elección de sede."
+                if modo == "libres_sede"
+                else "Selecciona una carrera para iniciar el modo manual."
+            )
+            QMessageBox.warning(self, "Carrera requerida", mensaje)
             return False
         self.selector_modo.setEnabled(False)
         self.selector_carrera.setEnabled(False)
@@ -393,7 +437,7 @@ class VentanaPublicador(QWidget):
         except Exception as error:
             self.lock.release()
             self.selector_modo.setEnabled(True)
-            self.selector_carrera.setEnabled(modo == "manual")
+            self.selector_carrera.setEnabled(modo in {"manual", "libres_sede"})
             self.boton_iniciar.setEnabled(True)
             self.boton_iniciar.setText("Reintentar inicio")
             mensaje = f"No se pudo iniciar el publicador: {error}"

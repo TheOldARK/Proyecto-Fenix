@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import sys
 
-from PyInstaller.utils.hooks import copy_metadata
+from PyInstaller.utils.hooks import collect_all, copy_metadata
 from PyInstaller.utils.win32.versioninfo import (
     FixedFileInfo, StringFileInfo, StringStruct, StringTable, VarFileInfo, VarStruct, VSVersionInfo,
 )
@@ -31,13 +31,23 @@ datos = [
     (str(raiz / "LEEME.txt"), "."),
     (str(navegadores), "playwright/driver/package/.local-browsers"),
 ]
+binarios_cloudflare = []
+imports_cloudflare = []
+# El publicador importa boto3 dinámicamente. PyInstaller no lo detecta por el
+# análisis estático, así que incluimos el SDK y sus modelos S3 explícitamente.
+for paquete in ("boto3", "botocore", "s3transfer", "jmespath"):
+    datos_paquete, binarios_paquete, imports_paquete = collect_all(paquete)
+    datos.extend(datos_paquete)
+    binarios_cloudflare.extend(binarios_paquete)
+    imports_cloudflare.extend(imports_paquete)
 licencia_python = Path(sys.base_prefix) / "LICENSE.txt"
 if licencia_python.is_file():
     datos.append((str(licencia_python), "licencias/python"))
 for nombre in ("catalogo_sia.json", "planes_estudio.json", "configuracion_libre_eleccion.json"):
     datos.append((str(raiz / "datos" / nombre), "datos"))
 for paquete in ("PySide6-Essentials", "shiboken6", "playwright",
-                "beautifulsoup4", "soupsieve", "pyee", "greenlet", "typing-extensions", "certifi"):
+                "beautifulsoup4", "soupsieve", "pyee", "greenlet", "typing-extensions", "certifi",
+                "boto3", "botocore", "s3transfer", "jmespath"):
     datos.extend(copy_metadata(paquete))
 
 version_windows = VSVersionInfo(
@@ -53,10 +63,14 @@ version_windows = VSVersionInfo(
     ])]), VarFileInfo([VarStruct("Translation", [1033, 1200])])],
 )
 
-a = Analysis([str(raiz / "main.py")], pathex=[str(raiz)], binaries=[], datas=datos,
+a = Analysis([str(raiz / "main.py")], pathex=[str(raiz)], binaries=binarios_cloudflare, datas=datos,
              # El publicador se importa dinámicamente al pasar --publicador;
              # PyInstaller no puede detectarlo recorriendo imports estáticos.
-             hiddenimports=["herramientas.publicador_main"], hookspath=[],
+             hiddenimports=[
+                 "herramientas.publicador_main",
+                 "herramientas.gestor_publicadores",
+                 *imports_cloudflare,
+             ], hookspath=[],
              runtime_hooks=[], excludes=[], noarchive=False)
 # Chromium se copia en browser/ al lado del EXE para evitar MAX_PATH.
 a.datas = [entrada for entrada in a.datas if '/.local-browsers/' not in entrada[0].replace('\\', '/')]
