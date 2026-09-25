@@ -12,7 +12,11 @@ class MateriaNoDisponibleEnSIA(RuntimeError):
 def es_error_transitorio_sia(error):
     """True solo cuando repetir una consulta puede recuperarla."""
     if isinstance(error, MateriaNoDisponibleEnSIA):
-        return False
+        # errorNavegacion.jsf también invalida la sesión. Al reabrirla, un
+        # segundo intento permite distinguir un tropiezo de navegación de
+        # una materia realmente ausente; los enlaces inexistentes siguen
+        # siendo permanentes.
+        return error.sesion_invalidada
 
     texto = str(error).casefold()
     marcas_transitorias = (

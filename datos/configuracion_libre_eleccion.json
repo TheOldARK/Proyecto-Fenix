@@ -138,6 +138,14 @@
                     "3065 FACULTAD DE CIENCIAS"
                 ]
             },
+            "3065:PENDIENTE": {
+                "facultad": "3065 FACULTAD DE CIENCIAS",
+                "plan": "PENDIENTE QUÍMICA",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3065 FACULTAD DE CIENCIAS"
+                ]
+            },
             "3065:3705": {
                 "facultad": "3065 FACULTAD DE CIENCIAS",
                 "plan": "3705 Química",

@@ -7,18 +7,37 @@ from dominio.materia import Prerrequisito
 
 CODIGO_RE = re.compile(r"(?<!\d)(\d{6,9}(?:-[A-Za-z])?)(?!\d)")
 MARCADOR_RE = re.compile(r"prerrequisit(?:o|os|a|as)", re.IGNORECASE)
+CONDICION_RE = re.compile(
+    r"Condici[oó]n\s*(\d+).*?\bTipo\s*([A-Z])"
+    r"(?:\s+¿?Todas\??\s*\[[^\]]*\])?"
+    r"(?:\s+N[uú]mero\s+asignaturas?\s*\[[^\]]*\])?",
+    re.IGNORECASE,
+)
+TODAS_RE = re.compile(r"¿?Todas\??\s*\[\s*([^\]]*)\s*\]", re.IGNORECASE)
+NUMERO_ASIGNATURAS_RE = re.compile(
+    r"N[uú]mero\s+asignaturas?\s*\[\s*([^\]]*)\s*\]", re.IGNORECASE
+)
 
 
 def normalizar_texto(texto: str) -> str:
     return re.sub(r"\s+", " ", str(texto or "")).strip()
 
 
-def _crear_prerrequisito(codigo, nombre):
+def _crear_prerrequisito(
+    codigo, nombre, tipo="", condicion="", todas="", numero_asignaturas=""
+):
     codigo = normalizar_texto(codigo)
     nombre = normalizar_texto(nombre)
     if not codigo or not nombre:
         return None
-    return Prerrequisito(codigo=codigo, nombre=nombre)
+    return Prerrequisito(
+        codigo=codigo,
+        nombre=nombre,
+        tipo=tipo,
+        condicion=condicion,
+        todas=todas,
+        numero_asignaturas=numero_asignaturas,
+    )
 
 
 def _nombre_de_fila(fila, codigo):
@@ -47,12 +66,31 @@ def _nombre_de_fila(fila, codigo):
 def _extraer_de_contenedor(contenedor):
     resultados = []
     filas = contenedor.find_all("tr") or [contenedor]
+    condicion_actual = ""
+    tipo_actual = ""
+    todas_actual = ""
+    numero_actual = ""
     for fila in filas:
         texto = normalizar_texto(fila.get_text(" ", strip=True))
+        encabezado_condicion = CONDICION_RE.search(texto)
+        if encabezado_condicion:
+            condicion_actual = encabezado_condicion.group(1)
+            tipo_actual = encabezado_condicion.group(2).upper()
+            todas_match = TODAS_RE.search(texto)
+            numero_match = NUMERO_ASIGNATURAS_RE.search(texto)
+            todas_actual = todas_match.group(1).strip() if todas_match else ""
+            numero_actual = numero_match.group(1).strip() if numero_match else ""
         codigos = CODIGO_RE.findall(texto)
         for codigo in codigos:
             nombre = _nombre_de_fila(fila, codigo)
-            requisito = _crear_prerrequisito(codigo, nombre)
+            requisito = _crear_prerrequisito(
+                codigo,
+                nombre,
+                tipo=tipo_actual,
+                condicion=condicion_actual,
+                todas=todas_actual,
+                numero_asignaturas=numero_actual,
+            )
             if requisito is not None:
                 resultados.append(requisito)
     return resultados
@@ -81,29 +119,65 @@ def _extraer_prerrequisitos_desde_html(html: str):
     vistos = set()
     for contenedor in contenedores:
         for requisito in _extraer_de_contenedor(contenedor):
-            if requisito.codigo in vistos:
+            clave = (requisito.codigo, requisito.tipo, requisito.condicion)
+            if clave in vistos:
                 continue
-            vistos.add(requisito.codigo)
+            vistos.add(clave)
             resultados.append(requisito)
         if resultados:
             break
 
-    # Fallback para HTML sin filas: toma el texto inmediatamente posterior al
-    # marcador y lo divide por códigos consecutivos.
+    # Fallback para HTML sin filas: conserva el tipo de cada condición y
+    # asocia ese metadato a los códigos que aparecen antes de la siguiente.
     if not resultados:
         texto = normalizar_texto(soup.get_text(" ", strip=True))
         marcador = MARCADOR_RE.search(texto)
         if marcador:
             fragmento = texto[marcador.end():]
-            coincidencias = list(CODIGO_RE.finditer(fragmento))
-            for indice, coincidencia in enumerate(coincidencias):
-                inicio = coincidencia.end()
-                fin = coincidencias[indice + 1].start() if indice + 1 < len(coincidencias) else len(fragmento)
-                nombre = MARCADOR_RE.sub("", fragmento[inicio:fin])
-                requisito = _crear_prerrequisito(coincidencia.group(1), nombre.strip(" :-–—"))
-                if requisito is not None and requisito.codigo not in vistos:
-                    vistos.add(requisito.codigo)
-                    resultados.append(requisito)
+            condiciones = list(CONDICION_RE.finditer(fragmento))
+            segmentos = []
+            if condiciones:
+                for indice, condicion in enumerate(condiciones):
+                    fin = (
+                        condiciones[indice + 1].start()
+                        if indice + 1 < len(condiciones)
+                        else len(fragmento)
+                    )
+                    segmentos.append((condicion.group(0), fragmento[condicion.end():fin]))
+            else:
+                segmentos.append(("", fragmento))
+
+            for encabezado, segmento in segmentos:
+                condicion_match = CONDICION_RE.search(encabezado)
+                todas_match = TODAS_RE.search(encabezado)
+                numero_match = NUMERO_ASIGNATURAS_RE.search(encabezado)
+                tipo = condicion_match.group(2).upper() if condicion_match else ""
+                numero_condicion = condicion_match.group(1) if condicion_match else ""
+                todas = todas_match.group(1).strip() if todas_match else ""
+                numero = numero_match.group(1).strip() if numero_match else ""
+                coincidencias = list(CODIGO_RE.finditer(segmento))
+                for indice, coincidencia in enumerate(coincidencias):
+                    inicio = coincidencia.end()
+                    fin = (
+                        coincidencias[indice + 1].start()
+                        if indice + 1 < len(coincidencias)
+                        else len(segmento)
+                    )
+                    nombre = MARCADOR_RE.sub("", segmento[inicio:fin])
+                    requisito = _crear_prerrequisito(
+                        coincidencia.group(1),
+                        nombre.strip(" :-–—"),
+                        tipo=tipo,
+                        condicion=numero_condicion,
+                        todas=todas,
+                        numero_asignaturas=numero,
+                    )
+                    clave = (
+                        requisito.codigo, requisito.tipo, requisito.condicion
+                    ) if requisito is not None else None
+                    if requisito is not None and clave not in vistos:
+                        vistos.add(clave)
+                        resultados.append(requisito)
 
     return resultados
 

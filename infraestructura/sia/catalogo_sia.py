@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import unicodedata
 
 from configuracion import (
@@ -70,7 +71,8 @@ class CatalogoSIA:
         self,
         page,
         url,
-        codigo_plan=None
+        codigo_plan=None,
+        omitir_configuracion_libre_eleccion=False,
     ):
         self.page = page
         self.url = url
@@ -95,6 +97,7 @@ class CatalogoSIA:
         # Ruta académica encontrada en catalogo_sia.json.
 
         self.datos_carrera = None
+        self.valor_nivel_estudio = self.VALOR_PREGRADO
 
         self.codigo_sede = None
         self.codigo_facultad = None
@@ -136,7 +139,8 @@ class CatalogoSIA:
             )
 
         self._cargar_ruta_carrera()
-        self._cargar_configuracion_libre_eleccion()
+        if not omitir_configuracion_libre_eleccion:
+            self._cargar_configuracion_libre_eleccion()
 
     # =========================================================
     # CARGAR ESTUDIANTE
@@ -264,6 +268,9 @@ class CatalogoSIA:
         self.nombre_plan = resultado[
             "plan"
         ]["nombre"]
+        self.valor_nivel_estudio = str(
+            resultado["nivel"].get("value", self.VALOR_PREGRADO)
+        )
 
         print()
         print(
@@ -1507,7 +1514,7 @@ class CatalogoSIA:
 
         await self.seleccionar_nativamente(
             self.SELECTOR_NIVEL_ESTUDIO,
-            self.VALOR_PREGRADO
+            self.valor_nivel_estudio
         )
 
         # -----------------------------------------------------

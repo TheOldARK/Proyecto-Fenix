@@ -60,13 +60,22 @@ def main(argumentos=None) -> int:
         guardar_estado("error", f"Falló la actualización de {args.plan}: {error}", None, codigo_plan=str(args.plan))
         codigo_salida = 1
     else:
+        pendientes = int(resumen.get("materias_pendientes", 0) or 0)
         documento.update(
             estado="completado",
             terminado_en=datetime.now(timezone.utc).isoformat(timespec="seconds"),
             duracion_segundos=round(time.time() - inicio, 2),
             unidades_trabajo=int(resumen.get("unidades_actualizadas", 0)),
+            materias_pendientes=pendientes,
         )
-        guardar_estado("completada", f"Actualización de {args.plan} completada.", 100, codigo_plan=str(args.plan))
+        mensaje = f"Actualización de {args.plan} completada."
+        if pendientes:
+            mensaje += (
+                f" {pendientes} materia(s) no se encontraron; "
+                "se publicó el resto y se conservaron los datos anteriores para las fases vacías."
+            )
+            documento["advertencia"] = mensaje
+        guardar_estado("completada", mensaje, 100, codigo_plan=str(args.plan))
         codigo_salida = 0
     salida.write_text(json.dumps(documento, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return codigo_salida

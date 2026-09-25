@@ -163,6 +163,28 @@ def _reutilizar_desde_cache(materia_basica, cache):
     return materia
 
 
+def _combinar_cache_libres(cache_libres, materias_sede_compartidas):
+    """Indexa por código la caché del plan y el catálogo compartido de sede.
+
+    El catálogo de sede se carga como una lista de registros; convertir esa
+    lista directamente con ``dict.update`` intenta interpretarla como pares y
+    provoca ``ValueError: dictionary update sequence element ...``.
+    Los detalles específicos del plan tienen prioridad sobre los compartidos.
+    """
+    combinada = {}
+    if isinstance(materias_sede_compartidas, dict):
+        combinada.update(materias_sede_compartidas)
+    elif isinstance(materias_sede_compartidas, (list, tuple)):
+        for materia in materias_sede_compartidas:
+            codigo = _codigo_materia(materia).strip()
+            if codigo:
+                combinada[codigo] = materia
+
+    if isinstance(cache_libres, dict):
+        combinada.update(cache_libres)
+    return combinada
+
+
 class ActualizacionCancelada(asyncio.CancelledError):
     """Señala que el usuario cambió de perfil durante una actualización."""
 
@@ -1469,7 +1491,8 @@ async def ejecutar_worker_normal_resistente(
 async def procesar_materias(
     navegador,
     materias_basicas,
-    codigo_plan=None
+    codigo_plan=None,
+    cantidad_workers=None,
 ):
     # Distribuye las materias entre los workers y espera a que
     # todos terminen.
@@ -1477,10 +1500,8 @@ async def procesar_materias(
     if not materias_basicas:
         return [], []
 
-    grupos = dividir_materias(
-        materias_basicas,
-        CANTIDAD_WORKERS
-    )
+    cantidad_workers = max(1, int(cantidad_workers or CANTIDAD_WORKERS))
+    grupos = dividir_materias(materias_basicas, cantidad_workers)
 
     imprimir()
     imprimir(
@@ -2150,6 +2171,8 @@ async def actualizar_datos(
     cache_libres=None,
     al_terminar_obligatorias=None,
     materias_sede_compartidas=None,
+    cantidad_workers=None,
+    omitir_libre_eleccion=False,
 ):
     # Ejecuta la actualización completa del catálogo del SIA.
     #
@@ -2234,7 +2257,8 @@ async def actualizar_datos(
         catalogo_inicial = CatalogoSIA(
             page=page_inicial,
             url=URL_SIA,
-            codigo_plan=codigo_plan
+            codigo_plan=codigo_plan,
+            omitir_configuracion_libre_eleccion=omitir_libre_eleccion,
         )
 
         await catalogo_inicial.abrir()
@@ -2252,7 +2276,8 @@ async def actualizar_datos(
 
         materias_basicas = (
             await obtener_materias_de_tabla(
-                page_inicial
+                page_inicial,
+                incluir_no_programadas=omitir_libre_eleccion,
             )
         )
 
@@ -2310,7 +2335,8 @@ async def actualizar_datos(
         ) = await procesar_materias(
             navegador,
             materias_pendientes,
-            codigo_plan
+            codigo_plan,
+            cantidad_workers=cantidad_workers,
         )
         materias = combinar_materias(materias_reutilizadas, materias_nuevas)
 
@@ -2326,6 +2352,7 @@ async def actualizar_datos(
                 navegador,
                 segunda_basicas,
                 codigo_plan,
+                cantidad_workers=cantidad_workers,
             )
             materias = combinar_materias(materias, materias_segundo_intento)
             registrar_errores_definitivos(
@@ -2414,6 +2441,16 @@ async def actualizar_datos(
                     f"        Error: "
                     f"{materia['error']}"
                 )
+
+        if omitir_libre_eleccion:
+            publicar_progreso("Análisis de materias de la carrera terminado.", 100)
+            return {
+                "materias": materias,
+                "libres_eleccion": [],
+                "catalogo_libres_consultado": False,
+                "materias_fallidas": materias_normales_fallidas,
+                "libres_fallidas": [],
+            }
 
         # =====================================================
         # OBTENER LISTA DE LIBRE ELECCIÓN
@@ -2569,8 +2606,10 @@ async def actualizar_datos(
         # PROCESAR LIBRE ELECCIÓN
         # =====================================================
 
-        cache_libres_detalle = dict(cache_libres or {})
-        cache_libres_detalle.update(materias_sede_compartidas or {})
+        cache_libres_detalle = _combinar_cache_libres(
+            cache_libres,
+            materias_sede_compartidas,
+        )
         libres_reutilizadas = [
             reutilizada
             for materia_basica in libres_basicas
@@ -2582,7 +2621,7 @@ async def actualizar_datos(
         libres_pendientes = [
             materia_basica
             for materia_basica in libres_basicas
-            if _codigo_materia(materia_basica) not in (cache_libres or {})
+            if _codigo_materia(materia_basica) not in cache_libres_detalle
         ]
         imprimir(
             f">>> Caché libre: {len(libres_reutilizadas)} reutilizada(s), "
@@ -2594,7 +2633,8 @@ async def actualizar_datos(
         ) = await procesar_libres_eleccion(
             navegador,
             libres_pendientes,
-            codigo_plan
+            codigo_plan,
+            cantidad_workers=cantidad_workers,
         )
         libres_eleccion = combinar_materias(
             libres_reutilizadas,
@@ -2622,6 +2662,7 @@ async def actualizar_datos(
                     segunda_libres_basicas,
                     codigo_plan,
                     max_intentos_materia=1,
+                    cantidad_workers=cantidad_workers,
                 )
                 libres_eleccion = combinar_materias(
                     libres_eleccion,
@@ -2891,8 +2932,10 @@ async def actualizar_solo_libres(
             contexto
         )
 
-        cache_compartida = dict(cache_libres or {})
-        cache_compartida.update(materias_sede_compartidas or {})
+        cache_compartida = _combinar_cache_libres(
+            cache_libres,
+            materias_sede_compartidas,
+        )
         reutilizadas = [
             materia
             for basica in libres_basicas
@@ -2978,6 +3021,7 @@ async def actualizar(
     solo_sede=False,
     materias_sede_compartidas=None,
     cantidad_workers=None,
+    omitir_libre_eleccion=False,
 ):
     # Función pública utilizada por main.py.
     #
@@ -3026,4 +3070,6 @@ async def actualizar(
             cache_libres=cache_libres,
             al_terminar_obligatorias=al_terminar_obligatorias,
             materias_sede_compartidas=materias_sede_compartidas,
+            cantidad_workers=cantidad_workers,
+            omitir_libre_eleccion=omitir_libre_eleccion,
         )

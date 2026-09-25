@@ -54,7 +54,8 @@ def normalizar_texto(texto: str) -> str:
 # =============================================================
 
 async def obtener_materias_de_tabla(
-    page: Page
+    page: Page,
+    incluir_no_programadas: bool = False,
 ):
     # Extrae las materias que aparecen en la tabla de resultados
     # del catálogo del SIA.
@@ -80,7 +81,7 @@ async def obtener_materias_de_tabla(
         "table.af_table_data-table"
     ).evaluate_all(
         """
-        tablas => {
+        (tablas, incluirNoProgramadas) => {
 
             // ==================================================
             // NORMALIZAR TEXTO
@@ -197,12 +198,14 @@ async def obtener_materias_de_tabla(
                     ).toUpperCase();
 
                     if (
+                        !incluirNoProgramadas && (
                         textoCompleto.includes(
                             "NO PROGRAMADA"
                         )
                         ||
                         textoCompleto.includes(
                             "SIN PROGRAMAR"
+                        )
                         )
                     ) {
                         continue;
@@ -244,7 +247,8 @@ async def obtener_materias_de_tabla(
 
             return [];
         }
-        """
+        """ ,
+        incluir_no_programadas,
     )
 
     # =============================================================

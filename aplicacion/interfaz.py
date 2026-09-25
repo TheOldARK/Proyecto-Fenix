@@ -49,7 +49,9 @@ from servicios.recomendaciones import (
 )
 from servicios.elegibilidad import materias_visibles
 from servicios.elegibilidad import motivo_materia_no_mostrable
+from servicios.elegibilidad import advertencias_materia
 from servicios.tipos_materia import clasificar_tipo_materia
+from servicios.prerrequisitos import descripcion_tipo
 
 
 RUTA_LOGO = BASE_DIR / "recursos" / "logo.png"
@@ -144,15 +146,25 @@ def subtipo_materia(materia):
 
 def codigos_prerrequisitos(materia):
     """Normaliza prerrequisitos guardados como objetos o códigos simples."""
+    return [codigo for codigo, _ in relaciones_prerrequisitos(materia)]
+
+
+def relaciones_prerrequisitos(materia):
+    """Devuelve (código, tipo SIA), conservando metadatos de cada relación."""
     if not isinstance(materia, dict):
         return []
-    codigos = []
+    relaciones = []
     for requisito in materia.get("prerrequisitos", []) or []:
         valor = requisito.get("codigo") if isinstance(requisito, dict) else requisito
         codigo = codigo_base(valor)
-        if codigo and codigo not in codigos:
-            codigos.append(codigo)
-    return codigos
+        tipo = (
+            str(requisito.get("tipo") or "").strip().upper()
+            if isinstance(requisito, dict) else ""
+        )
+        relacion = (codigo, tipo)
+        if codigo and relacion not in relaciones:
+            relaciones.append(relacion)
+    return relaciones
 
 
 def codigo_numerico_plan(codigo):
@@ -686,7 +698,7 @@ class TarjetaMateriaPlan(QFrame):
 
 
 class CapaConexionesPlan(QWidget):
-    """Dibuja flechas entre prerrequisitos de semestres consecutivos."""
+    """Dibuja relaciones de prerrequisito y correquisito en la malla."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -704,24 +716,49 @@ class CapaConexionesPlan(QWidget):
             return
         pintor = QPainter(self)
         pintor.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        pintor.setPen(
-            QPen(
-                QColor(COLOR_VERDE).lighter(115),
-                2,
-                Qt.PenStyle.SolidLine,
-                Qt.PenCapStyle.RoundCap,
-                Qt.PenJoinStyle.RoundJoin,
-            )
-        )
-        for origen, destino in self.conexiones:
+        for origen, destino, tipo in self.conexiones:
             if not origen.isVisible() or not destino.isVisible():
                 continue
-            inicio_global = origen.mapToGlobal(
-                QPoint(origen.width(), origen.height() // 2)
+            mismo_semestre = origen.parentWidget() is destino.parentWidget()
+            estilos = {
+                "M": (COLOR_ROJO if mismo_semestre else COLOR_VERDE, Qt.PenStyle.SolidLine),
+                "O": ("#65A9E8", Qt.PenStyle.DashLine),
+                "E": ("#46C8C5", Qt.PenStyle.DashLine),
+                "A": (COLOR_ROJO, Qt.PenStyle.DashDotLine),
+                "Y": (COLOR_AMARILLO, Qt.PenStyle.DashLine),
+            }
+            color, estilo = estilos.get(
+                tipo, (QColor(COLOR_VERDE).lighter(115), Qt.PenStyle.SolidLine)
             )
-            fin_global = destino.mapToGlobal(
-                QPoint(0, destino.height() // 2)
-            )
+            pintor.setPen(QPen(
+                QColor(color), 2, estilo,
+                Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin,
+            ))
+            if mismo_semestre:
+                columna = origen.parentWidget()
+                izquierda = self.mapFromGlobal(
+                    columna.mapToGlobal(QPoint(columna.width() - 3, 0))
+                ).x()
+                inicio_global = origen.mapToGlobal(
+                    QPoint(origen.width(), origen.height() // 2)
+                )
+                fin_global = destino.mapToGlobal(
+                    QPoint(destino.width(), destino.height() // 2)
+                )
+                inicio_local = self.mapFromGlobal(inicio_global)
+                fin_local = self.mapFromGlobal(fin_global)
+                inicio = QPointF(inicio_local)
+                fin = QPointF(fin_local)
+                camino = QPainterPath(inicio)
+                camino.lineTo(izquierda, inicio.y())
+                camino.lineTo(izquierda, fin.y())
+                camino.lineTo(fin)
+                pintor.drawPath(camino)
+                pintor.drawLine(fin, QPointF(fin.x() + 6, fin.y() - 4))
+                pintor.drawLine(fin, QPointF(fin.x() + 6, fin.y() + 4))
+                continue
+            inicio_global = origen.mapToGlobal(QPoint(origen.width(), origen.height() // 2))
+            fin_global = destino.mapToGlobal(QPoint(0, destino.height() // 2))
             inicio_local = self.mapFromGlobal(inicio_global)
             fin_local = self.mapFromGlobal(fin_global)
             inicio = QPointF(inicio_local)
@@ -788,9 +825,10 @@ class VentanaPlanEstudios(QDialog):
         encabezado.addWidget(self.resumen)
         principal.addLayout(encabezado)
         self.ayuda = QLabel(
-            "La malla se lee de izquierda a derecha por semestre. Usa “Marcar aprobada” "
-            "para actualizar tu avance y “Ver grupos” para llevar una materia al horario. "
-            "Puedes dejar esta ventana abierta y continuar usando el planificador."
+            "Tipos de relación: M verde (aprobación previa), O azul (requisito para calificar), "
+            "E turquesa (previa o simultánea), A roja (incompatibilidad) y Y amarilla "
+            "(mismo semestre, interpretación provisional). Una relación M dentro del mismo "
+            "semestre se marca roja porque requiere aprobación previa."
         )
         self.ayuda.setWordWrap(True)
         self.ayuda.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 11px;")
@@ -876,6 +914,7 @@ class VentanaPlanEstudios(QDialog):
                 )
             )
         self._ordenar_por_conexiones(materias_por_semestre, cantidad_semestres)
+        self._ordenar_prerrequisitos_mismo_semestre(materias_por_semestre)
         self.diagrama.addWidget(
             self._crear_seccion(
                 "MALLA CURRICULAR",
@@ -923,6 +962,42 @@ class VentanaPlanEstudios(QDialog):
 
             ordenadas = sorted(enumerate(actuales), key=posicion_deseada)
             materias_por_semestre[numero] = [materia for _, materia in ordenadas]
+
+    @staticmethod
+    def _ordenar_prerrequisitos_mismo_semestre(materias_por_semestre):
+        """Alinea requisitos que pueden cursarse juntos sin cambiar la tipología.
+
+        Fundamentación conserva prioridad absoluta sobre Disciplinar.
+        """
+        for numero, materias in materias_por_semestre.items():
+            resultado = []
+            for tipo in sorted({materia.get("_orden_plan", 2) for materia in materias}):
+                grupo = [materia for materia in materias if materia.get("_orden_plan", 2) == tipo]
+                por_codigo = {codigo_base(m.get("codigo")): m for m in grupo}
+                posiciones = {codigo: indice for indice, codigo in enumerate(por_codigo)}
+                pendientes = set(por_codigo)
+                ordenados = []
+                while pendientes:
+                    disponibles = [
+                        codigo for codigo in pendientes
+                        if not any(
+                            requisito_tipo in ("M", "O", "E", "Y")
+                            and requisito in pendientes
+                            and requisito != codigo
+                            for requisito, requisito_tipo in relaciones_prerrequisitos(
+                                por_codigo[codigo]
+                            )
+                        )
+                    ]
+                    if not disponibles:
+                        # Ciclo o autorreferencia: no arriesgarse a perder cursos.
+                        disponibles = list(pendientes)
+                    disponibles.sort(key=lambda codigo: posiciones[codigo])
+                    for codigo in disponibles:
+                        pendientes.remove(codigo)
+                        ordenados.append(por_codigo[codigo])
+                resultado.extend(ordenados)
+            materias_por_semestre[numero] = resultado
 
     def _crear_seccion(self, titulo, descripcion, materias, cantidad_semestres,
                        aprobadas, seleccionadas):
@@ -1002,14 +1077,23 @@ class VentanaPlanEstudios(QDialog):
             }
             for numero in range(1, cantidad_semestres + 1)
         }
-        for numero in range(2, cantidad_semestres + 1):
-            anteriores = codigos_por_semestre[numero - 1]
+        for numero in range(1, cantidad_semestres + 1):
+            anteriores = set().union(*(
+                codigos_por_semestre.get(semestre, set())
+                for semestre in range(1, numero)
+            )) if numero > 1 else set()
+            mismo_semestre = codigos_por_semestre.get(numero, set())
             for materia in materias.get(numero, []):
                 destino = tarjetas_por_codigo.get(codigo_base(materia.get("codigo")))
-                for requisito in codigos_prerrequisitos(materia):
+                for requisito, tipo_requisito in relaciones_prerrequisitos(materia):
                     origen = tarjetas_por_codigo.get(requisito)
-                    if requisito in anteriores and origen is not None and destino is not None:
-                        conexiones.append((origen, destino))
+                    if (
+                        (requisito in anteriores or requisito in mismo_semestre)
+                        and origen is not None
+                        and destino is not None
+                        and origen is not destino
+                    ):
+                        conexiones.append((origen, destino, tipo_requisito))
         capa.establecer_conexiones(conexiones)
         superpuestas.addWidget(base)
         superpuestas.addWidget(capa)
@@ -1026,7 +1110,20 @@ class VentanaPlanEstudios(QDialog):
         tarjeta.setObjectName("tarjetaMateriaPlan")
         tarjeta.setFixedHeight(76)
         tarjeta.setCursor(Qt.CursorShape.PointingHandCursor)
-        tarjeta.setToolTip("Haz clic en la tarjeta para consultar sus grupos.")
+        tooltip = "Haz clic en la tarjeta para consultar sus grupos."
+        relaciones = []
+        for requisito, tipo in relaciones_prerrequisitos(materia):
+            objeto = next((valor for valor in materia.get("prerrequisitos", [])
+                           if isinstance(valor, dict)
+                           and codigo_base(valor.get("codigo")) == requisito
+                           and str(valor.get("tipo") or "").strip().upper() == tipo), None)
+            nombre_requisito = str((objeto or {}).get("nombre") or requisito)
+            relaciones.append(
+                f"{tipo or '?'} · {nombre_requisito}: {descripcion_tipo(tipo)}"
+            )
+        if relaciones:
+            tooltip += "\n\n" + "\n".join(relaciones)
+        tarjeta.setToolTip(tooltip)
         acento = COLOR_VERDE if aprobada else ("#5AA9E6" if seleccionada else COLOR_LINEA)
         fondo = COLOR_VERDE_FONDO if aprobada else COLOR_SUPERFICIE_CLARA
         tarjeta.setStyleSheet(
@@ -2672,6 +2769,19 @@ class VentanaPrincipal(QMainWindow):
                 "text-align: left; font-size: 11px; }"
             )
             return boton
+        avisos = advertencias_materia(
+            materia,
+            self.materias_aprobadas,
+            {codigo_base(referencia.get("codigo")) for referencia in self.referencias},
+        )
+        if avisos:
+            boton.setToolTip("\n".join(avisos))
+            boton.setStyleSheet(
+                f"QPushButton {{ background-color: transparent; color: {COLOR_TEXTO}; "
+                f"border: 1px solid {COLOR_AMARILLO}; border-radius: 6px; padding: 7px 8px; "
+                "text-align: left; font-size: 11px; }"
+                f"QPushButton:hover {{ background-color: {COLOR_SUPERFICIE_CLARA}; }}"
+            )
         boton.setCursor(Qt.PointingHandCursor)
         boton.setMinimumHeight(51)
         borde = COLOR_VERDE if seleccionada else COLOR_LINEA
@@ -2846,7 +2956,18 @@ class VentanaPrincipal(QMainWindow):
             contenido.layout().addWidget(etiqueta_descripcion)
         prerrequisitos = materia.get("prerrequisitos", [])
         if prerrequisitos:
-            texto_prerrequisitos = ", ".join(str(valor) for valor in prerrequisitos)
+            lineas_prerrequisitos = []
+            for requisito in prerrequisitos:
+                if isinstance(requisito, dict):
+                    tipo = str(requisito.get("tipo") or "?").strip().upper()
+                    codigo = str(requisito.get("codigo") or "").strip()
+                    nombre = str(requisito.get("nombre") or codigo or "Requisito")
+                    lineas_prerrequisitos.append(
+                        f"{tipo} · {nombre} ({codigo}): {descripcion_tipo(tipo)}"
+                    )
+                else:
+                    lineas_prerrequisitos.append(str(requisito))
+            texto_prerrequisitos = "\n".join(lineas_prerrequisitos)
             etiqueta_prerrequisitos = QLabel(f"Prerrequisitos: {texto_prerrequisitos}")
             etiqueta_prerrequisitos.setWordWrap(True)
             etiqueta_prerrequisitos.setStyleSheet(

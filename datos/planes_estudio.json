@@ -593,8 +593,8 @@
                         "3010524"
                     ],
                     "creditos": {
-                        "optativa_disciplinar": 3,
-                        "libre_eleccion": 3
+                        "libre_eleccion": 3,
+                        "optativa_disciplinar": 3
                     }
                 },
                 "7": {
@@ -615,15 +615,15 @@
                         "3010439"
                     ],
                     "creditos": {
-                        "optativa_disciplinar": 3,
-                        "libre_eleccion": 3
+                        "libre_eleccion": 3,
+                        "optativa_disciplinar": 3
                     }
                 },
                 "9": {
                     "asignaturas": [],
                     "creditos": {
-                        "optativa_disciplinar": 7,
-                        "libre_eleccion": 9
+                        "libre_eleccion": 9,
+                        "optativa_disciplinar": 7
                     }
                 },
                 "10": {
@@ -983,9 +983,9 @@
                 "3007375": "Diseño Básico de Estructuras de Acero",
                 "3007404": "Construcción de Edificaciones",
                 "3010439": "Proyecto Integrado en Ingeniería",
-                "3007440": "Trabajo de Grado",
                 "3010659": "Programación y Presupuestos",
-                "3010655": "Gerencia y Administración de Proyectos Civiles"
+                "3010655": "Gerencia y Administración de Proyectos Civiles",
+                "3007498": "Trabajo de Grado"
             },
             "semestres": {
                 "1": {
@@ -1082,9 +1082,9 @@
                 },
                 "10": {
                     "asignaturas": [
-                        "3007440",
                         "3010655",
-                        "3010659"
+                        "3010659",
+                        "3007498"
                     ],
                     "creditos": {
                         "libre_eleccion": 6
@@ -2106,7 +2106,6 @@
                 "3010470": "Selección de Materiales",
                 "3010466": "Laboratorio de Materiales",
                 "3007753": "Fundamentos de Control",
-                "3010443": "Diseño Mecánico Básico",
                 "3010419": "Procesos de Manufactura I",
                 "3010467": "Laboratorio de Ciencias Térmicas",
                 "3010407": "Estructuración y Evaluación de Proyectos de Ingeniería",
@@ -2117,7 +2116,6 @@
                 "3010439": "Proyecto Integrado en Ingeniería",
                 "3010456": "Diseño Mecatrónico",
                 "3010432": "Diseño Mecánico Integrado",
-                "3007435": "Modelamiento: Electromecánica",
                 "3007440": "Trabajo de Grado",
                 "3010418": "Modelamiento: Electromecánica",
                 "3011065": "Diseño Mecánico Básico"

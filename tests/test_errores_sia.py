@@ -17,7 +17,7 @@ class ClasificacionErroresSIATest(unittest.TestCase):
         error = MateriaNoDisponibleEnSIA(
             "El SIA rechazó el detalle.", sesion_invalidada=True
         )
-        self.assertFalse(es_error_transitorio_sia(error))
+        self.assertTrue(es_error_transitorio_sia(error))
         self.assertTrue(error.sesion_invalidada)
 
     def test_timeout_de_navegacion_es_transitorio(self):

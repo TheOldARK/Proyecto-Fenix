@@ -44,7 +44,6 @@ from configuracion import (  # noqa: E402
     ARCHIVO_PLANES_ESTUDIO,
     ARCHIVO_LIBRES_ELECCION_SEDE,
     CARPETA_DATOS,
-    CANTIDAD_WORKERS,
 )
 from herramientas.estrategia_publicadores import (  # noqa: E402
     debe_reintentar_timeout,
@@ -199,6 +198,10 @@ class CicloPublicadores(QObject):
             bloqueo_manifest = str(base_local / "Fenix" / "manifest-publicacion.lock")
         entorno["FENIX_PUBLICADOR_MANIFEST_LOCK"] = bloqueo_manifest
         tipo_publicador = "libres_sede" if codigo == ID_PUBLICADOR_LIBRES_SEDE else "carrera"
+        if tipo_publicador == "libres_sede":
+            entorno["FENIX_PUBLICADOR_LIBRES_SEDE_SALIDA"] = str(
+                datos / "resultado_libres_eleccion_sede.json"
+            )
         argumentos = comando_fenix(
             "--publicador-plan-worker", "--plan", codigo,
             "--tipo", tipo_publicador,
@@ -255,7 +258,7 @@ class CicloPublicadores(QObject):
             except (OSError, ValueError):
                 resultado = {}
             exito = proceso.returncode == 0 and resultado.get("estado") == "completado"
-            detalle = str(resultado.get("error") or (
+            detalle = str(resultado.get("error") or resultado.get("advertencia") or (
                 "Actualización terminada." if exito
                 else f"El proceso terminó con código {proceso.returncode}."
             ))
@@ -359,7 +362,7 @@ class CicloPublicadores(QObject):
                     if resultado_sede["exito"]:
                         archivo_sede_hijo = (
                             CARPETA_GESTOR / "datos" / ID_PUBLICADOR_LIBRES_SEDE
-                            / ARCHIVO_LIBRES_ELECCION_SEDE.name
+                            / "resultado_libres_eleccion_sede.json"
                         )
                         try:
                             sincronizar_libres_eleccion_sede(
@@ -473,8 +476,8 @@ class VentanaGestor(QWidget):
             "Selecciona las carreras y cuántas actualizar en paralelo. En modo automático, "
             "el gestor aprende qué concurrencia procesa más materias por unidad de tiempo, "
             "y prioriza las carreras con la actualización exitosa más antigua. El catálogo "
-            "compartido de Libre Elección usa 3 workers; cada carrera usa hasta "
-            f"{CANTIDAD_WORKERS}. Los procesos hijos no muestran ventanas."
+            "compartido de Libre Elección usa 3 workers; cada publicador de carrera "
+            "usa 2. Los procesos hijos no muestran ventanas."
         )
         descripcion.setWordWrap(True)
         self.tabla = QTableWidget()
@@ -698,9 +701,13 @@ class VentanaGestor(QWidget):
             QMessageBox.warning(self, "Selecciona carreras", "Activa al menos una carrera en la tabla.")
             return
         simultaneos = min(len(seleccion), self.cantidad.value())
+        carreras_seleccionadas = sum(
+            codigo != ID_PUBLICADOR_LIBRES_SEDE for codigo in seleccion
+        )
+        carreras_simultaneas = min(carreras_seleccionadas, self.cantidad.value())
         estimado_workers = max(
             3 if ID_PUBLICADOR_LIBRES_SEDE in seleccion else 0,
-            simultaneos * CANTIDAD_WORKERS,
+            carreras_simultaneas * 2,
         )
         if simultaneos > 3 and QMessageBox.question(
             self,

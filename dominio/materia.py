@@ -52,6 +52,11 @@ class Prerrequisito:
     # de los prerrequisitos.
     todas: str = ""
 
+    # Número de asignaturas exigidas dentro de la condición del SIA, cuando
+    # la página lo informa. Se conserva para que cada consumidor interprete
+    # correctamente condiciones compuestas.
+    numero_asignaturas: str = ""
+
 
 # =============================================================
 # MATERIA

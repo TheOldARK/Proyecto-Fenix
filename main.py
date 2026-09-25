@@ -512,6 +512,7 @@ def ejecutar_publicador(codigo_plan=None, modo="automatico", tipo="carrera", pla
     libres_sede_compartidas = cargar_libres_eleccion_sede()
     unidades_actualizadas = 0
     publicadas = 0
+    materias_pendientes_total = 0
     with tempfile.TemporaryDirectory(prefix="fenix-planes-") as temporal:
         raiz_snapshots = Path(temporal)
         try:
@@ -543,13 +544,20 @@ def ejecutar_publicador(codigo_plan=None, modo="automatico", tipo="carrera", pla
                 publicacion_obligatorias = {"exitosa": False}
 
                 def publicar_obligatorias(materias, fallidas, *, _codigo=str(codigo_plan), _meta=metadatos, _destino=carpeta_obligatorias, _estado=publicacion_obligatorias):
-                    if fallidas:
+                    if not materias:
                         print(
                             f">>> Se omite la publicación temprana de {_codigo}: "
-                            f"{len(fallidas)} materia(s) obligatoria(s) fallaron.",
+                            "no se obtuvo ninguna materia obligatoria válida.",
                             flush=True,
                         )
                         return
+                    if fallidas:
+                        print(
+                            f">>> Publicación parcial de obligatorias de {_codigo}: "
+                            f"se publicarán {len(materias)} materias válidas; "
+                            f"{len(fallidas)} quedan registradas para revisión.",
+                            flush=True,
+                        )
                     _destino.mkdir(parents=True, exist_ok=True)
                     for ruta in (ARCHIVO_MATERIAS, ARCHIVO_OFERTA):
                         if not ruta.is_file():
@@ -557,6 +565,7 @@ def ejecutar_publicador(codigo_plan=None, modo="automatico", tipo="carrera", pla
                                 f"No se generó {ruta.name} para publicar {_codigo}."
                             )
                         (_destino / ruta.name).write_bytes(ruta.read_bytes())
+                    _estado["preparada"] = True
                     try:
                         publicar_planes(
                             {_codigo: _destino},
@@ -587,13 +596,15 @@ def ejecutar_publicador(codigo_plan=None, modo="automatico", tipo="carrera", pla
                         cache_libres=cache_libres,
                         materias_sede_compartidas=libres_sede_compartidas or None,
                         al_terminar_obligatorias=publicar_obligatorias,
+                        cantidad_workers=2,
                     )
                 )
-                if resultado.get("materias_fallidas") or resultado.get("libres_fallidas"):
-                    fallos = (
-                        list(resultado.get("materias_fallidas", []))
-                        + list(resultado.get("libres_fallidas", []))
-                    )
+                fallos = (
+                    list(resultado.get("materias_fallidas", []))
+                    + list(resultado.get("libres_fallidas", []))
+                )
+                materias_pendientes_total += len(fallos)
+                if fallos:
                     detalle_fallos = "; ".join(
                         f"{fallo.get('codigo', '¿?')} ({fallo.get('nombre', 'materia')}): "
                         f"{fallo.get('error', 'error desconocido')}"
@@ -602,14 +613,16 @@ def ejecutar_publicador(codigo_plan=None, modo="automatico", tipo="carrera", pla
                     restantes = len(fallos) - min(3, len(fallos))
                     if restantes:
                         detalle_fallos += f"; y {restantes} más"
-                    raise RuntimeError(
-                        f"El plan {codigo_plan} terminó con materias pendientes; "
-                        f"no se publicaron datos incompletos. Fallos: {detalle_fallos}"
+                    print(
+                        f">>> {codigo_plan}: {len(fallos)} materia(s) no se pudieron "
+                        f"obtener. Se publicarán los datos encontrados. Fallos: {detalle_fallos}",
+                        flush=True,
                     )
                 unidades_actualizadas += len(resultado.get("materias", []))
                 unidades_actualizadas += len(resultado.get("libres_eleccion", []))
 
-                if resultado.get("catalogo_libres_consultado"):
+                fase_libres_publicada = False
+                if resultado.get("catalogo_libres_consultado") and resultado.get("libres_eleccion"):
                     carpeta_libres.mkdir(parents=True, exist_ok=True)
                     if not ARCHIVO_LIBRES_ELECCION.is_file():
                         raise FileNotFoundError(
@@ -619,7 +632,7 @@ def ejecutar_publicador(codigo_plan=None, modo="automatico", tipo="carrera", pla
                         ARCHIVO_LIBRES_ELECCION.read_bytes()
                     )
                     carpeta_publicar = carpeta_libres
-                    if not publicacion_obligatorias["exitosa"]:
+                    if publicacion_obligatorias.get("preparada") and not publicacion_obligatorias["exitosa"]:
                         # Si falló la primera subida, publicar el paquete
                         # completo ahora para no dejar fuera las obligatorias.
                         for ruta in (ARCHIVO_MATERIAS, ARCHIVO_OFERTA):
@@ -630,18 +643,27 @@ def ejecutar_publicador(codigo_plan=None, modo="automatico", tipo="carrera", pla
                         metadatos_planes={str(codigo_plan): metadatos},
                         preservar_existentes=True,
                     )
-                    publicadas += 1
+                    fase_libres_publicada = True
                     print(
-                        f">>> Libre Elección de {codigo_plan} publicada; "
-                        "Cloudflare ya tiene ambas fases.",
+                        f">>> Libre Elección de {codigo_plan} publicada "
+                        f"({len(resultado.get('libres_eleccion', []))} materias válidas).",
                         flush=True,
                     )
-                elif publicacion_obligatorias["exitosa"]:
-                    publicadas += 1
+                elif resultado.get("libres_fallidas"):
                     print(
-                        f">>> Solo se publicó la fase obligatoria de {codigo_plan}; "
-                        "no se obtuvo un catálogo de Libre Elección válido.",
+                        f">>> Se conserva el catálogo anterior de Libre Elección de {codigo_plan}: "
+                        "no se obtuvo ninguna materia válida en esta fase.",
                         flush=True,
+                    )
+
+                if publicacion_obligatorias["exitosa"] or fase_libres_publicada:
+                    publicadas += 1
+                else:
+                    raise RuntimeError(
+                        f"El plan {codigo_plan} no produjo datos válidos para publicar"
+                        + (f" ({len(fallos)} materia(s) pendientes)" if fallos else "")
+                        + ". "
+                        "Se conservaron los datos anteriores en Cloudflare."
                     )
 
                 for categoria, codigos in (("normal", cache_materias), ("libre_eleccion", cache_libres)):
@@ -658,18 +680,25 @@ def ejecutar_publicador(codigo_plan=None, modo="automatico", tipo="carrera", pla
                     ruta.parent.mkdir(parents=True, exist_ok=True)
                     ruta.write_bytes(contenido)
 
+    mensaje_final = (
+        f"Publicador: {publicadas} carreras enviadas a Cloudflare; "
+        f"{len(cache_materias)} materias obligatorias y "
+        f"{len(cache_libres)} libres en caché reciente."
+    )
+    if materias_pendientes_total:
+        mensaje_final += (
+            f" {materias_pendientes_total} materia(s) quedaron pendientes; "
+            "se publicó lo que sí se encontró."
+        )
     guardar_estado(
         "completada",
-        (
-            f"Publicador: {publicadas} carreras enviadas a Cloudflare; "
-            f"{len(cache_materias)} materias obligatorias y "
-            f"{len(cache_libres)} libres en caché reciente."
-        ),
+        mensaje_final,
         100,
     )
     return {
         "planes_actualizados": len(planes),
         "unidades_actualizadas": unidades_actualizadas,
+        "materias_pendientes": materias_pendientes_total,
     }
 
 
@@ -717,6 +746,14 @@ def ejecutar_publicador_libres_sede(codigo_plan=None):
         if not resultado.get("catalogo_libres_consultado"):
             raise RuntimeError("No se pudo confirmar la consulta del catálogo de sede.")
         publicar_libres_eleccion_sede(ARCHIVO_LIBRES_ELECCION_SEDE, sede="1102")
+        ruta_exportacion = os.environ.get(
+            "FENIX_PUBLICADOR_LIBRES_SEDE_SALIDA", ""
+        ).strip()
+        if ruta_exportacion:
+            catalogo_exportado = json.loads(
+                ARCHIVO_LIBRES_ELECCION_SEDE.read_text(encoding="utf-8")
+            )
+            guardar_json_atomico(Path(ruta_exportacion), catalogo_exportado)
         guardar_estado(
             "completada",
             f"Catálogo compartido de Libre Elección de Medellín publicado ({len(resultado.get('libres_eleccion', []))} materias).",
@@ -751,7 +788,22 @@ def ejecutar_interfaz():
     iniciar_interfaz()
 
 
+def configurar_salida_consola_segura():
+    """Evita que símbolos Unicode incompatibles con Windows aborten workers."""
+    for flujo in (sys.stdout, sys.stderr):
+        reconfigurar = getattr(flujo, "reconfigure", None)
+        if not callable(reconfigurar):
+            continue
+        try:
+            # Conserva la codificación que eligió Windows, pero representa
+            # cualquier carácter no disponible como \uXXXX en vez de fallar.
+            reconfigurar(errors="backslashreplace")
+        except (OSError, ValueError):
+            pass
+
+
 def main():
+    configurar_salida_consola_segura()
     # Fenix.exe es una aplicación GUI y normalmente no tiene stdout/stderr.
     # Cuando lo inicia FenixPublicador.exe (consola), conectarlos explícitamente
     # para que los errores y el avance de los workers sean visibles.

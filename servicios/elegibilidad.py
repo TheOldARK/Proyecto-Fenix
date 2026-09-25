@@ -9,6 +9,36 @@ def _codigo_prerrequisito(prerrequisito):
     return codigo_base(prerrequisito)
 
 
+def _tipo_prerrequisito(prerrequisito):
+    if isinstance(prerrequisito, dict):
+        return str(prerrequisito.get("tipo") or "").strip().upper()
+    return ""
+
+
+def advertencias_materia(materia, materias_aprobadas, codigos_excluidos=None):
+    """Devuelve avisos informativos que no impiden inscribir una materia."""
+    aprobadas = {codigo_base(valor) for valor in (materias_aprobadas or [])}
+    seleccionadas = {codigo_base(valor) for valor in (codigos_excluidos or [])}
+    avisos = []
+    for requisito in materia.get("prerrequisitos", []) or []:
+        codigo = _codigo_prerrequisito(requisito)
+        nombre = (
+            str(requisito.get("nombre") or codigo)
+            if isinstance(requisito, dict) else codigo
+        )
+        tipo = _tipo_prerrequisito(requisito)
+        if codigo and codigo not in aprobadas:
+            if tipo == "O":
+                avisos.append(
+                    f"Puedes inscribirla, pero no podrás calificarla hasta aprobar {nombre}."
+                )
+            elif tipo == "Y" and codigo not in seleccionadas:
+                avisos.append(
+                    f"Tipo Y (interpretación provisional): incluye {nombre} en el mismo semestre."
+                )
+    return avisos
+
+
 def motivo_materia_no_mostrable(materia, materias_aprobadas, codigos_excluidos=None):
     """Devuelve el motivo por el que una materia no se puede elegir."""
     codigo = codigo_base(materia.get("codigo"))
@@ -23,16 +53,33 @@ def motivo_materia_no_mostrable(materia, materias_aprobadas, codigos_excluidos=N
     if not prerrequisitos:
         return ""
     faltantes = []
+    incompatibles = []
     for requisito in prerrequisitos:
         requisito_codigo = _codigo_prerrequisito(requisito)
         requisito_nombre = (
             requisito.get("nombre", "") if isinstance(requisito, dict) else ""
         )
+        tipo = _tipo_prerrequisito(requisito)
         if not requisito_codigo:
             faltantes.append(requisito_nombre or "requisito sin código verificable")
+        elif tipo == "O":
+            # Se puede inscribir; el SIA impide calificarla hasta aprobarlo.
+            continue
+        elif tipo == "A":
+            if requisito_codigo in excluidos and requisito_codigo not in aprobadas:
+                incompatibles.append(requisito_nombre or requisito_codigo)
+        elif tipo in ("E", "Y"):
+            if requisito_codigo not in aprobadas and requisito_codigo not in excluidos:
+                faltantes.append(requisito_nombre or requisito_codigo)
         elif requisito_codigo not in aprobadas:
+            # M y tipos desconocidos conservan el criterio seguro anterior:
+            # requieren aprobación registrada antes de mostrar la materia.
             faltantes.append(requisito_nombre or requisito_codigo)
+    if incompatibles:
+        return "Incompatibilidad Tipo A: no elijas ambas sin aprobar " + ", ".join(incompatibles)
     if faltantes:
+        if any(_tipo_prerrequisito(r) in ("E", "Y") for r in prerrequisitos):
+            return "Falta aprobar o incluir simultáneamente: " + ", ".join(faltantes)
         return "Falta aprobar: " + ", ".join(faltantes)
     return ""
 
