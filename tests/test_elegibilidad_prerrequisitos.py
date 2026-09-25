@@ -2,6 +2,7 @@ import unittest
 
 from servicios.elegibilidad import (
     advertencias_materia,
+    buscar_materias_no_disponibles,
     motivo_materia_no_mostrable,
 )
 
@@ -54,6 +55,61 @@ class ElegibilidadPorTipoTests(unittest.TestCase):
         motivo = motivo_materia_no_mostrable(self.materia("Z"), [])
         self.assertIn("Falta aprobar", motivo)
 
+
+class BusquedaNoDisponiblesTests(unittest.TestCase):
+    def setUp(self):
+        self.oferta = {
+            "principal": [
+                {"codigo": "1000001", "nombre": "Cátedra TI"},
+                {
+                    "codigo": "1000002",
+                    "nombre": "Análisis Numérico",
+                    "prerrequisitos": [{
+                        "codigo": "1000003",
+                        "nombre": "Ecuaciones Diferenciales",
+                        "tipo": "M",
+                    }],
+                },
+                {"codigo": "1000004", "nombre": "Otra Disponible"},
+            ],
+            "libre": [],
+        }
+
+    def test_busqueda_incluye_aprobadas_y_explica_la_razon(self):
+        resultados = buscar_materias_no_disponibles(
+            self.oferta, "catedra ti", {"1000001"}
+        )
+        self.assertEqual(len(resultados), 1)
+        self.assertEqual(resultados[0]["materia"]["codigo"], "1000001")
+        self.assertIn("aprobada", resultados[0]["motivo"])
+
+    def test_busqueda_incluye_requisitos_pendientes_sin_distinguir_tildes(self):
+        resultados = buscar_materias_no_disponibles(
+            self.oferta, "analisis numerico", set()
+        )
+        self.assertEqual(len(resultados), 1)
+        self.assertEqual(resultados[0]["materia"]["codigo"], "1000002")
+        self.assertIn("Falta aprobar", resultados[0]["motivo"])
+
+    def test_omite_disponibles_y_materias_ya_seleccionadas(self):
+        self.assertEqual(buscar_materias_no_disponibles(
+            self.oferta, "otra disponible", set()
+        ), [])
+        self.assertEqual(buscar_materias_no_disponibles(
+            self.oferta, "catedra ti", set(), {"1000001"}
+        ), [])
+
+    def test_busca_aprobada_adicional_que_no_esta_en_la_oferta(self):
+        adicionales = [{
+            "origen": "principal",
+            "materia": {"codigo": "1000005", "nombre": "Cátedra TI Antiguo"},
+        }]
+        resultados = buscar_materias_no_disponibles(
+            self.oferta, "catedra ti antiguo", {"1000005"},
+            materias_adicionales=adicionales,
+        )
+        self.assertEqual(len(resultados), 1)
+        self.assertIn("aprobada", resultados[0]["motivo"])
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,3 +1,13 @@
+# Fénix 2.0.4
+
+- Al buscar una asignatura, Fénix muestra una sección dinámica de “No disponibles”
+  con las materias aprobadas o bloqueadas por prerrequisitos y explica el motivo.
+- La búsqueda de materias no disponibles ignora mayúsculas y tildes e incluye
+  materias aprobadas aunque no estén en la oferta actual.
+- El árbol de prerrequisitos representa las tipologías del SIA: M como requisito
+  previo estricto, Y como simultaneidad provisional, O como requisito para
+  calificar, E como prerrequisito especial y A como incompatibilidad.
+
 # Fénix 2.0.3
 
 - La descarga de Libre Elección ahora es opcional en Cloudflare. Si el manifiesto

@@ -119,6 +119,114 @@ class ArbolPrerrequisitosTests(unittest.TestCase):
         self.assertEqual(colores_flechas[("1", "2")], colores_flechas[("1", "3")])
         self.assertNotEqual(colores_flechas[("1", "2")], colores_flechas[("4", "5")])
 
+    def test_conserva_tipologia_y_datos_de_condicion_en_cada_relacion(self):
+        grafo = construir_grafo([
+            {"codigo": "1", "nombre": "Ecuaciones", "tipologia": "FUND. OBLIGATORIA"},
+            {
+                "codigo": "2",
+                "nombre": "Análisis numérico",
+                "tipologia": "DISCIPLINAR OBLIGATORIA",
+                "prerrequisitos": [{
+                    "codigo": "1",
+                    "nombre": "Ecuaciones",
+                    "tipo": "Y",
+                    "condicion": "2",
+                    "todas": "S",
+                    "numero_asignaturas": "",
+                }],
+            },
+        ])
+
+        self.assertEqual(grafo["aristas"], [("1", "2")])
+        self.assertEqual(grafo["relaciones"], [{
+            "origen": "1",
+            "destino": "2",
+            "tipo": "Y",
+            "condicion": "2",
+            "todas": "S",
+            "numero_asignaturas": "",
+        }])
+
+    def test_y_ubica_materias_en_la_misma_columna(self):
+        grafo = construir_grafo([
+            {"codigo": "1", "nombre": "Ecuaciones", "tipologia": "OBLIGATORIA"},
+            {
+                "codigo": "2",
+                "nombre": "Análisis numérico",
+                "tipologia": "OBLIGATORIA",
+                "prerrequisitos": [{"codigo": "1", "tipo": "Y"}],
+            },
+            {
+                "codigo": "3",
+                "nombre": "Métodos avanzados",
+                "tipologia": "OBLIGATORIA",
+                "prerrequisitos": [{"codigo": "2", "tipo": "M"}],
+            },
+        ])
+
+        self.assertEqual(grafo["niveles"]["1"], grafo["niveles"]["2"])
+        self.assertGreater(grafo["niveles"]["3"], grafo["niveles"]["2"])
+
+    def test_o_e_y_a_no_se_tratan_como_precedencia_estricta(self):
+        for tipo in ("O", "E", "Y", "A"):
+            with self.subTest(tipo=tipo):
+                grafo = construir_grafo([
+                    {"codigo": "1", "nombre": "Base", "tipologia": "OBLIGATORIA"},
+                    {
+                        "codigo": "2",
+                        "nombre": "Avanzada",
+                        "tipologia": "OBLIGATORIA",
+                        "prerrequisitos": [{"codigo": "1", "tipo": tipo}],
+                    },
+                ])
+                self.assertEqual(grafo["niveles"]["1"], grafo["niveles"]["2"])
+
+    def test_tipo_desconocido_conserva_orden_estricto_y_a_no_es_prerrequisito(self):
+        desconocido = construir_grafo([
+            {"codigo": "1", "nombre": "Base", "tipologia": "OBLIGATORIA"},
+            {
+                "codigo": "2",
+                "nombre": "Avanzada",
+                "tipologia": "OBLIGATORIA",
+                "prerrequisitos": [{"codigo": "1", "tipo": "Z"}],
+            },
+        ])
+        incompatibilidad = construir_grafo([
+            {"codigo": "1", "nombre": "Llave", "tipologia": "OPTATIVA"},
+            {
+                "codigo": "2",
+                "nombre": "Incompatible",
+                "tipologia": "OPTATIVA",
+                "prerrequisitos": [{"codigo": "1", "tipo": "A"}],
+            },
+        ])
+
+        self.assertGreater(desconocido["niveles"]["2"], desconocido["niveles"]["1"])
+        self.assertEqual(
+            [materia["codigo"] for materia in incompatibilidad["sin_prerrequisitos"]],
+            ["1", "2"],
+        )
+        self.assertEqual(codigos_visibles_en_arbol(incompatibilidad), {"1", "2"})
+
+    def test_m_contradictorio_dentro_de_un_grupo_y_se_reporta(self):
+        grafo = construir_grafo([
+            {"codigo": "1", "nombre": "A", "tipologia": "OBLIGATORIA"},
+            {
+                "codigo": "2",
+                "nombre": "B",
+                "tipologia": "OBLIGATORIA",
+                "prerrequisitos": [{"codigo": "1", "tipo": "Y"}],
+            },
+            {
+                "codigo": "1",
+                "nombre": "A",
+                "tipologia": "OBLIGATORIA",
+                "prerrequisitos": [{"codigo": "2", "tipo": "M"}],
+            },
+        ])
+
+        self.assertEqual(set(grafo["ciclicos"]), {"1", "2"})
+
 
 if __name__ == "__main__":
     unittest.main()

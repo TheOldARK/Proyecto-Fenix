@@ -18,6 +18,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ))
 from dominio.codigos import codigo_base
+from servicios.prerrequisitos import descripcion_tipo
 from PySide6.QtCore import QPointF, Qt, QProcess, QProcessEnvironment
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen, QPolygonF
 from PySide6.QtWidgets import (
@@ -64,7 +65,7 @@ def nombre_materia_limpio(nombre: str, descripcion: str = "") -> str:
 
 
 def construir_grafo(materias: list[dict]) -> dict:
-    """Prepara nodos, dependencias, niveles y cursos sin prerrequisitos."""
+    """Prepara nodos y relaciones conservando la tipología académica."""
     por_codigo = {}
     codigo_canonico = {}
     for materia in materias:
@@ -95,8 +96,8 @@ def construir_grafo(materias: list[dict]) -> dict:
         for codigo, materia in por_codigo.items()
     }
     aristas = set()
+    relaciones = {}
     sin_prerrequisitos = []
-    prereq_por_materia = {}
 
     for codigo, materia in por_codigo.items():
         requisitos = materia.get("prerrequisitos") or []
@@ -123,35 +124,96 @@ def construir_grafo(materias: list[dict]) -> dict:
                     req_codigo = clave
             if req_codigo and req_codigo != codigo:
                 aristas.add((req_codigo, codigo))
-                validos.append(req_codigo)
-        prereq_por_materia[codigo] = validos
+                tipo = str(requisito.get("tipo") or "").strip().upper()
+                clave_relacion = (req_codigo, codigo, tipo, str(requisito.get("condicion") or ""))
+                relaciones[clave_relacion] = {
+                    "origen": req_codigo,
+                    "destino": codigo,
+                    "tipo": tipo,
+                    "condicion": str(requisito.get("condicion") or "").strip(),
+                    "todas": str(requisito.get("todas") or "").strip(),
+                    "numero_asignaturas": str(requisito.get("numero_asignaturas") or "").strip(),
+                }
+                # A representa incompatibilidad, no una asignatura que deba
+                # cursarse antes; por eso no quita al curso de la lista raíz.
+                if tipo != "A":
+                    validos.append(req_codigo)
         if not validos:
             sin_prerrequisitos.append(nodos[codigo])
 
-    # Orden topológico; cualquier ciclo se conserva y se informa como tal.
-    entradas = {codigo: 0 for codigo in nodos}
+    # Y se interpreta provisionalmente como simultaneidad: sus materias
+    # comparten columna. Solo M impone precedencia estricta en el árbol;
+    # O/E pueden cumplirse en el mismo período y A no es una dependencia.
+    representante = {codigo: codigo for codigo in nodos}
+
+    def raiz(codigo):
+        while representante[codigo] != codigo:
+            representante[codigo] = representante[representante[codigo]]
+            codigo = representante[codigo]
+        return codigo
+
+    def unir(a, b):
+        raiz_a, raiz_b = raiz(a), raiz(b)
+        if raiz_a != raiz_b:
+            representante[max(raiz_a, raiz_b)] = min(raiz_a, raiz_b)
+
+    for relacion in relaciones.values():
+        if relacion["tipo"] == "Y":
+            unir(relacion["origen"], relacion["destino"])
+
+    grupos = {codigo: raiz(codigo) for codigo in nodos}
+    miembros_grupo = defaultdict(list)
+    for codigo, grupo in grupos.items():
+        miembros_grupo[grupo].append(codigo)
+
+    # Orden topológico sobre componentes Y; los ciclos M se reportan, pero
+    # no eliminan ninguna de las relaciones del dibujo.
+    entradas = {grupo: 0 for grupo in miembros_grupo}
     siguientes = defaultdict(list)
-    for origen, destino in aristas:
+    aristas_orden = set()
+    grupos_conflictivos = set()
+    for relacion in relaciones.values():
+        if relacion["tipo"] not in ("M", ""):
+            if relacion["tipo"] in ("O", "E", "Y", "A"):
+                continue
+        origen = grupos[relacion["origen"]]
+        destino = grupos[relacion["destino"]]
+        if origen == destino:
+            grupos_conflictivos.add(origen)
+            continue
+        aristas_orden.add((origen, destino))
+    for origen, destino in aristas_orden:
         siguientes[origen].append(destino)
         entradas[destino] += 1
-    cola = deque(sorted(codigo for codigo, cuenta in entradas.items() if cuenta == 0))
-    niveles = {codigo: 0 for codigo in cola}
+    cola = deque(sorted(grupo for grupo, cuenta in entradas.items() if cuenta == 0))
+    niveles_grupo = {grupo: 0 for grupo in cola}
     ordenados = []
     while cola:
-        codigo = cola.popleft()
-        ordenados.append(codigo)
-        for destino in siguientes[codigo]:
-            niveles[destino] = max(niveles.get(destino, 0), niveles[codigo] + 1)
+        grupo = cola.popleft()
+        ordenados.append(grupo)
+        for destino in siguientes[grupo]:
+            niveles_grupo[destino] = max(niveles_grupo.get(destino, 0), niveles_grupo[grupo] + 1)
             entradas[destino] -= 1
             if entradas[destino] == 0:
                 cola.append(destino)
-    ciclicos = sorted(set(nodos) - set(ordenados))
-    for codigo in ciclicos:
-        niveles[codigo] = max((niveles.get(origen, 0) + 1 for origen, destino in aristas if destino == codigo), default=0)
+    grupos_ciclicos = (set(miembros_grupo) - set(ordenados)) | grupos_conflictivos
+    ciclicos = sorted(codigo for grupo in grupos_ciclicos for codigo in miembros_grupo[grupo])
+    for grupo in grupos_ciclicos:
+        niveles_grupo[grupo] = max(
+            (niveles_grupo.get(origen, 0) + 1 for origen, destino in aristas_orden if destino == grupo),
+            default=0,
+        )
+    niveles = {codigo: niveles_grupo[grupo] for codigo, grupo in grupos.items()}
 
     return {
         "nodos": nodos,
         "aristas": sorted(aristas),
+        "relaciones": sorted(
+            relaciones.values(),
+            key=lambda relacion: (
+                relacion["origen"], relacion["destino"], relacion["tipo"], relacion["condicion"]
+            ),
+        ),
         "niveles": niveles,
         "sin_prerrequisitos": sin_prerrequisitos,
         "ciclicos": ciclicos,
@@ -210,7 +272,13 @@ def codigos_visibles_en_arbol(grafo: dict) -> set[str]:
         if not nodo.get("externo") and es_materia_obligatoria(nodo.get("tipologia", ""))
     }
     con_sucesores = {origen for origen, _destino in grafo["aristas"]}
-    return obligatorias | con_sucesores
+    incompatibilidades = {
+        codigo
+        for relacion in grafo.get("relaciones", [])
+        if relacion.get("tipo") == "A"
+        for codigo in (relacion["origen"], relacion["destino"])
+    }
+    return obligatorias | con_sucesores | incompatibilidades
 
 
 def tonos_por_origen(grafo: dict) -> dict[str, int]:
@@ -469,16 +537,35 @@ class TarjetaMateriaItem(QGraphicsPathItem):
 
 
 class ConexionItem(QGraphicsPathItem):
-    """Flecha que recalcula sus anclajes al moverse cualquiera de sus tarjetas."""
+    """Relación tipada que conserva sus anclajes al mover las tarjetas."""
 
-    def __init__(self, origen: TarjetaMateriaItem | None, destino: TarjetaMateriaItem, inicio_fijo: QPointF | None, color: QColor, tooltip: str):
+    def __init__(
+        self,
+        origen: TarjetaMateriaItem,
+        destino: TarjetaMateriaItem,
+        color: QColor,
+        tipo: str,
+        tooltip: str,
+        desplazamiento: float = 0,
+    ):
         super().__init__()
         self.origen = origen
         self.destino = destino
-        self.inicio_fijo = inicio_fijo
         self.ancho_tarjeta = destino.ancho
         self.alto_tarjeta = destino.alto
-        self.setPen(QPen(color, 2))
+        self.tipo = tipo
+        self.desplazamiento = desplazamiento
+        self.mostrar_flecha = tipo not in ("Y", "A")
+        estilos = {
+            "M": Qt.PenStyle.SolidLine,
+            "O": Qt.PenStyle.DashLine,
+            "E": Qt.PenStyle.DashDotLine,
+            "Y": Qt.PenStyle.DotLine,
+            "A": Qt.PenStyle.DashDotDotLine,
+        }
+        pluma = QPen(color, 3 if tipo == "Y" else 2)
+        pluma.setStyle(estilos.get(tipo, Qt.PenStyle.DashLine))
+        self.setPen(pluma)
         self.setZValue(-1)
         self.setToolTip(tooltip)
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
@@ -486,17 +573,30 @@ class ConexionItem(QGraphicsPathItem):
         self.punta.setBrush(QBrush(color))
         self.punta.setPen(QPen(color, 1))
         self.punta.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+        self.marcador = QGraphicsTextItem("×", self) if tipo == "A" else None
+        if self.marcador is not None:
+            self.marcador.setDefaultTextColor(QColor("#ff7070"))
+            self.marcador.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
+            self.marcador.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+        self.puntos = []
+        if tipo == "Y":
+            for _ in range(2):
+                punto = QGraphicsEllipseItem(-4, -4, 8, 8, self)
+                punto.setBrush(QBrush(color))
+                punto.setPen(QPen(color, 1))
+                punto.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+                self.puntos.append(punto)
         destino.conexiones.append(self)
-        if origen is not None:
-            origen.conexiones.append(self)
+        origen.conexiones.append(self)
         self.actualizar()
 
     def actualizar(self):
-        if self.origen is not None:
-            inicio = self.origen.mapToScene(QPointF(self.origen.ancho, self.origen.alto / 2))
-        else:
-            inicio = self.inicio_fijo
-        fin = self.destino.mapToScene(QPointF(0, self.alto_tarjeta / 2))
+        inicio = self.origen.mapToScene(
+            QPointF(self.origen.ancho, self.origen.alto / 2 + self.desplazamiento)
+        )
+        fin = self.destino.mapToScene(
+            QPointF(0, self.alto_tarjeta / 2 + self.desplazamiento)
+        )
         direccion = 1 if fin.x() >= inicio.x() else -1
         distancia = max(35, abs(fin.x() - inicio.x()) * 0.45)
         control_inicio = QPointF(inicio.x() + direccion * distancia, inicio.y())
@@ -504,7 +604,7 @@ class ConexionItem(QGraphicsPathItem):
         trazado = QPainterPath(inicio)
         trazado.cubicTo(control_inicio, control_fin, fin)
         self.setPath(trazado)
-        self.punta.setVisible(abs(fin.x() - inicio.x()) > 10)
+        self.punta.setVisible(self.mostrar_flecha and abs(fin.x() - inicio.x()) > 10)
         tangente = trazado.pointAtPercent(0.99)
         dx, dy = fin.x() - tangente.x(), fin.y() - tangente.y()
         longitud = max(1, (dx * dx + dy * dy) ** 0.5)
@@ -516,6 +616,12 @@ class ConexionItem(QGraphicsPathItem):
             base + perpendicular,
             base - perpendicular,
         ]))
+        if self.marcador is not None:
+            centro = trazado.pointAtPercent(0.5)
+            self.marcador.setPos(centro.x() - 5, centro.y() - 13)
+        if self.puntos:
+            self.puntos[0].setPos(inicio)
+            self.puntos[1].setPos(fin)
 
 
 class VistaGrafo(QGraphicsView):
@@ -628,17 +734,45 @@ class VistaGrafo(QGraphicsView):
             tarjeta.setPos(x, y)
             escena.addItem(tarjeta)
 
-        for origen, destino in grafo["aristas"]:
+        relaciones_por_par = defaultdict(int)
+        for relacion in grafo["relaciones"]:
+            origen, destino = relacion["origen"], relacion["destino"]
             destino_item = tarjetas.get(destino)
             if destino_item is None:
                 continue
             origen_item = tarjetas.get(origen)
             if origen_item is None:
                 continue
-            inicio_fijo = None
-            texto_ayuda = f"Sale de {grafo['nodos'][origen]['nombre']} ({grafo['nodos'][origen]['codigo']})"
+            tipo = relacion["tipo"]
+            codigo_tipo = tipo or "?"
+            origen_nodo = grafo["nodos"][origen]
+            destino_nodo = grafo["nodos"][destino]
+            texto_ayuda = (
+                f"Tipo {codigo_tipo}: {descripcion_tipo(tipo)}\n"
+                f"Relación: {origen_nodo['nombre']} → {destino_nodo['nombre']}"
+            )
+            detalles_condicion = []
+            if relacion["condicion"]:
+                detalles_condicion.append(f"Condición {relacion['condicion']}")
+            if relacion["todas"]:
+                detalles_condicion.append(f"¿Todas?: {relacion['todas']}")
+            if relacion["numero_asignaturas"]:
+                detalles_condicion.append(
+                    f"Número de asignaturas: {relacion['numero_asignaturas']}"
+                )
+            if detalles_condicion:
+                texto_ayuda += "\n" + " · ".join(detalles_condicion)
             color_linea = QColor.fromHsv(tonos[origen], 190, 245)
-            conexion = ConexionItem(origen_item, destino_item, inicio_fijo, color_linea, texto_ayuda)
+            desplazamiento = relaciones_por_par[(origen, destino)] * 8
+            relaciones_por_par[(origen, destino)] += 1
+            conexion = ConexionItem(
+                origen_item,
+                destino_item,
+                color_linea,
+                tipo,
+                texto_ayuda,
+                desplazamiento,
+            )
             escena.addItem(conexion)
 
         if not escena.items():
@@ -674,6 +808,16 @@ class VentanaArbol(QMainWindow):
             selector.addWidget(QLabel(etiqueta))
             selector.addWidget(combo, 1)
         layout.addLayout(selector)
+
+        leyenda = QLabel(
+            "Relaciones: M flecha continua (aprobación previa) · O discontinua "
+            "(requisito para calificar) · E raya-punto (cursada antes o simultánea) · "
+            "Y punteada y misma columna (simultaneidad provisional) · A con × "
+            "(incompatibilidad). Los colores distinguen la materia de origen. "
+            "Pasa el cursor sobre una línea para ver los datos del SIA."
+        )
+        leyenda.setWordWrap(True)
+        layout.addWidget(leyenda)
 
         controles = QHBoxLayout()
         self.boton_rutas = QPushButton("Actualizar sedes desde SIA")

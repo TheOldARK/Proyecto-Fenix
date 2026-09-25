@@ -47,6 +47,7 @@ from servicios.horarios import (
 from servicios.recomendaciones import (
     codigo_base, codigos_recomendados, ordenar_materias,
 )
+from servicios.elegibilidad import buscar_materias_no_disponibles
 from servicios.elegibilidad import materias_visibles
 from servicios.elegibilidad import motivo_materia_no_mostrable
 from servicios.elegibilidad import advertencias_materia
@@ -1785,6 +1786,7 @@ class VentanaPrincipal(QMainWindow):
         self.materias_aprobadas = set()
         self.codigos_recomendados = set()
         self.materias_por_origen = {"principal": [], "libre": []}
+        self.materias_locales = {}
         self.materias_para_mostrar = {"principal": [], "libre": []}
         self.secciones_expandida = {}
         self.todas_secciones_expandidas = False
@@ -2152,6 +2154,7 @@ class VentanaPrincipal(QMainWindow):
             return
         oferta = cargar_oferta().get("materias", {})
         plan = self.planes[self.codigo_plan]
+        self.materias_locales = cargar_materias()
         # La oferta normal se puede usar desde que está lista. Libre Elección
         # permanece vacía hasta que la fase LE termina completamente.
         # Las libres se actualizan en segundo plano; se muestran en cuanto el
@@ -2599,13 +2602,6 @@ class VentanaPrincipal(QMainWindow):
             self.agregar_seccion_asignaturas(
                 contenedor, "LIBRES ELECCIÓN", self.materias_para_mostrar["libre"], "libre",
             )
-            self.agregar_seccion_asignaturas(
-                contenedor,
-                "NO DISPONIBLES · revisa el motivo",
-                self.materias_bloqueadas_buscadas(),
-                "principal",
-                COLOR_ROJO,
-            )
             aprobadas = []
             origenes_aprobadas = {}
             codigos_aprobadas = set()
@@ -2835,22 +2831,69 @@ class VentanaPrincipal(QMainWindow):
         return None
 
     def materias_bloqueadas_buscadas(self):
-        """Devuelve materias bloqueadas que coinciden con el texto buscado."""
-        consulta = self.buscar_asignaturas.text().casefold().strip()
-        if not consulta:
-            return []
+        """Devuelve las materias no disponibles que coinciden con la búsqueda."""
         seleccionadas = {
             codigo_base(referencia.get("codigo")) for referencia in self.referencias
         }
-        resultado = []
-        for materia in self.materias_por_origen.get("principal", []):
-            texto = f"{materia.get('nombre', '')} {materia.get('codigo', '')}".casefold()
-            motivo = motivo_materia_no_mostrable(
-                materia, self.materias_aprobadas, seleccionadas
+        codigos_en_oferta = {
+            codigo_base(materia.get("codigo"))
+            for materias in self.materias_por_origen.values()
+            for materia in materias
+        }
+        plan = self.planes.get(self.codigo_plan)
+        nombres_plan = getattr(plan, "nombres_asignaturas", {}) or {}
+        materias_locales = self.materias_locales or {}
+        locales_por_codigo = {
+            codigo_base(materia.get("codigo", codigo)): materia
+            for codigo, materia in materias_locales.items()
+            if isinstance(materia, dict)
+        }
+        adicionales = []
+        for codigo in self.materias_aprobadas - codigos_en_oferta:
+            materia = dict(locales_por_codigo.get(codigo, {}))
+            materia.setdefault("codigo", codigo)
+            materia.setdefault(
+                "nombre",
+                nombres_plan.get(codigo) or nombres_plan.get(str(codigo)) or f"Materia {codigo}",
             )
-            if consulta in texto and motivo:
-                resultado.append(materia)
-        return resultado
+            tipo = str(materia.get("tipologia", materia.get("tipo", ""))).casefold()
+            origen = "libre" if "libre" in tipo else "principal"
+            adicionales.append({"materia": materia, "origen": origen})
+        return buscar_materias_no_disponibles(
+            self.materias_por_origen,
+            self.buscar_asignaturas.text(),
+            self.materias_aprobadas,
+            seleccionadas,
+            adicionales,
+        )
+
+    def _actualizar_seccion_no_disponibles(self, contenedor):
+        """Reconstruye la categoría de resultados no disponibles en cada búsqueda."""
+        titulo = "NO DISPONIBLES · revisa el motivo"
+        anterior = self._secciones_asignaturas.pop(titulo, None)
+        if anterior:
+            for widget in anterior:
+                contenedor.layout().removeWidget(widget)
+                widget.hide()
+                widget.setParent(None)
+                widget.deleteLater()
+
+        resultados = self.materias_bloqueadas_buscadas()
+        if not resultados:
+            return
+        materias = [resultado["materia"] for resultado in resultados]
+        origenes = {
+            codigo_base(resultado["materia"].get("codigo")): resultado["origen"]
+            for resultado in resultados
+        }
+        self.agregar_seccion_asignaturas(
+            contenedor,
+            titulo,
+            materias,
+            "principal",
+            COLOR_ROJO,
+            origen_por_codigo=origenes,
+        )
 
     def filtrar_asignaturas(self, texto):
         """Filtra las tarjetas por coincidencia parcial en nombre o código."""
@@ -2864,6 +2907,9 @@ class VentanaPrincipal(QMainWindow):
         consulta = normalizar(texto)
         if not hasattr(self, "lista_asignaturas"):
             return
+        contenedor = self.lista_asignaturas.widget()
+        if contenedor is not None and hasattr(self, "_secciones_asignaturas"):
+            self._actualizar_seccion_no_disponibles(contenedor)
         for clave, (encabezado, cuerpo) in self._secciones_asignaturas.items():
             # Obligatorias y Optativas son contenedores: sus hijos son
             # encabezados y cuerpos, no tarjetas de materias. Si se recorren

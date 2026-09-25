@@ -1,5 +1,7 @@
 """Reglas de elegibilidad académica para mostrar materias en Fénix."""
 
+import unicodedata
+
 from dominio.codigos import codigo_base
 
 
@@ -87,6 +89,67 @@ def motivo_materia_no_mostrable(materia, materias_aprobadas, codigos_excluidos=N
 def materia_puede_mostrarse(materia, materias_aprobadas):
     """Indica si la materia cumple todos sus prerrequisitos."""
     return not motivo_materia_no_mostrable(materia, materias_aprobadas)
+
+
+def buscar_materias_no_disponibles(
+    materias_por_origen,
+    consulta,
+    materias_aprobadas,
+    codigos_seleccionados=None,
+    materias_adicionales=None,
+):
+    """Encuentra materias del catálogo que coinciden con la búsqueda pero
+    están aprobadas o bloqueadas por sus prerrequisitos.
+
+    Devuelve registros ``materia/origen/motivo`` para que la interfaz pueda
+    mostrarlos en una sección aparte sin mutar los datos originales.
+    """
+    def normalizar(valor):
+        texto = unicodedata.normalize("NFD", str(valor or ""))
+        return "".join(
+            caracter for caracter in texto
+            if unicodedata.category(caracter) != "Mn"
+        ).casefold().strip()
+
+    consulta = normalizar(consulta)
+    if not consulta:
+        return []
+
+    seleccionadas = {
+        codigo_base(codigo) for codigo in (codigos_seleccionados or [])
+    }
+    vistas = set()
+    resultado = []
+    catalogo = [
+        (origen, materia)
+        for origen, materias in (materias_por_origen or {}).items()
+        for materia in (materias or [])
+    ]
+    catalogo.extend(
+        (entrada.get("origen", "principal"), entrada.get("materia", {}))
+        for entrada in (materias_adicionales or [])
+    )
+    for origen, materia in catalogo:
+        codigo = codigo_base(materia.get("codigo"))
+        if not codigo or codigo in vistas or codigo in seleccionadas:
+            continue
+        texto = normalizar(
+            f"{materia.get('nombre', '')} {materia.get('codigo', '')}"
+        )
+        if consulta not in texto:
+            continue
+        motivo = motivo_materia_no_mostrable(
+            materia, materias_aprobadas, seleccionadas
+        )
+        if not motivo:
+            continue
+        vistas.add(codigo)
+        resultado.append({
+            "materia": materia,
+            "origen": origen,
+            "motivo": motivo,
+        })
+    return resultado
 
 
 def materias_visibles(materias, materias_aprobadas, codigos_excluidos=None):
