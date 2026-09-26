@@ -41,10 +41,12 @@ class HoverGrupoSelectorTests(unittest.TestCase):
         boton_grupo.resize(250, 70)
         boton_grupo.setEnabled(False)
         boton_grupo.show()
-        self.app.processEvents()
+        self.assertTrue(QTest.qWaitForWindowExposed(boton_grupo))
 
         QTest.mouseMove(boton_grupo, QPoint(10, 10))
-        self.app.processEvents()
+        # X11 entrega el movimiento desde el servidor de ventanas de forma
+        # asíncrona; processEvents por sí solo puede adelantarse al evento.
+        QTest.qWait(100)
 
         self.assertEqual(len(cuadricula.bloques_previsualizados), 3)
         self.assertTrue(all(
