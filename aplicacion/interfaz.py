@@ -234,6 +234,11 @@ class DialogoPlan(QDialog):
         self.setStyleSheet(
             f"""
             QDialog {{ background-color: {COLOR_SUPERFICIE}; }}
+            QScrollArea, QScrollArea::viewport {{
+                background-color: {COLOR_SUPERFICIE};
+                border: none;
+            }}
+            QScrollArea QWidget {{ background-color: {COLOR_SUPERFICIE}; }}
             QLabel {{ color: {COLOR_TEXTO}; }}
             QComboBox {{ background-color: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO};
                 border: 1px solid {COLOR_LINEA}; border-radius: 7px; padding: 9px; }}
@@ -255,7 +260,14 @@ class DialogoPlan(QDialog):
         self.area_desplazable.setFrameShape(QFrame.Shape.NoFrame)
         self.area_desplazable.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.area_desplazable.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.area_desplazable.setStyleSheet(
+            f"QScrollArea {{ background-color: {COLOR_SUPERFICIE}; border: none; }}"
+        )
+        self.area_desplazable.viewport().setStyleSheet(
+            f"background-color: {COLOR_SUPERFICIE};"
+        )
         contenido = QWidget()
+        contenido.setStyleSheet(f"background-color: {COLOR_SUPERFICIE};")
         self.area_desplazable.setWidget(contenido)
         contenedor_dialogo.addWidget(self.area_desplazable, 1)
 

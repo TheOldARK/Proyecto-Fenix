@@ -1,3 +1,8 @@
+# Fénix 2.0.7
+
+- Se corrigió el fondo blanco del formulario de materias aprobadas: el área
+  desplazable y su contenido ahora conservan el tema oscuro.
+
 # Fénix 2.0.6
 
 - El menú de carreras incluye los planes agregados de la Facultad de Ciencias.

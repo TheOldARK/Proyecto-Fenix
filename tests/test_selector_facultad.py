@@ -41,6 +41,9 @@ class SelectorFacultadTests(unittest.TestCase):
         self.assertEqual(dialogo.selector.currentData(), "1102:3065:3705")
         self.assertEqual(dialogo.selector.count(), 2)
         self.assertIsNotNone(dialogo.area_desplazable.widget())
+        self.assertIn("background-color", dialogo.area_desplazable.styleSheet())
+        self.assertIn("background-color", dialogo.area_desplazable.viewport().styleSheet())
+        self.assertIn("background-color", dialogo.area_desplazable.widget().styleSheet())
         self.assertIsInstance(dialogo.botones, QDialogButtonBox)
         self.assertNotEqual(
             dialogo.area_desplazable.widget(), dialogo.botones.parentWidget()
