@@ -4196,8 +4196,8 @@ class VentanaPrincipal(QMainWindow):
                 self.continuar_arranque()
             else:
                 QMessageBox.information(
-                    self, "Versiones para Mac",
-                    "Todavía no hay una versión publicada para este tipo de Mac. "
+                    self, "Versiones compatibles",
+                    "Todavía no hay una versión publicada para este sistema y arquitectura. "
                     "Puedes seguir usando la versión instalada.",
                 )
             return
@@ -4209,11 +4209,16 @@ class VentanaPrincipal(QMainWindow):
                 QMessageBox.information(self, "Fénix actualizado", f"Ya tienes Fénix {VERSION}.")
             return
         if release.get("instalacion_manual"):
+            instrucciones = (
+                "Cuando termine la descarga, cierra Fénix y extrae el paquete tar.gz "
+                "en una carpeta nueva. Abre el ejecutable Fenix de esa carpeta. "
+                if sys.platform == "linux" else
+                "Cuando termine la descarga, cierra Fénix y reemplaza Fenix.app en Aplicaciones. "
+            )
             respuesta = QMessageBox.question(
-                self, "Actualización disponible para Mac",
+                self, "Actualización disponible",
                 f"Está disponible Fénix {release['version']}. ¿Abrir su descarga?\n\n"
-                "Cuando termine la descarga, cierra Fénix y reemplaza Fenix.app "
-                "en Aplicaciones. Tu perfil y horario se conservan.",
+                + instrucciones + "Tu perfil y horario se conservan.",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes,
             )

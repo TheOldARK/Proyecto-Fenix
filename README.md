@@ -184,3 +184,20 @@ La incorporación de otras facultades y sedes deberá hacerse como una ampliaci�
 ## Licencia
 
 El proyecto se distribuye bajo los términos indicados en `LICENSE`.
+
+## Linux (edición portable)
+
+Fénix 2.1.1 para Linux x86_64 se distribuye como `Fenix-2.1.1-linux-x64.tar.gz`.
+Extrae el archivo en Linux y ejecuta `./Fenix` dentro de la carpeta `Fenix`.
+Incluye Python, Qt y Chromium. Conserva toda la carpeta, no solo el ejecutable.
+El objetivo verificado es Ubuntu 22.04 y 24.04; otras distribuciones no están
+verificadas. Consulta las bibliotecas del sistema necesarias en `LEEME_LINUX.txt`.
+
+El perfil se guarda en `~/.local/share/Fenix` (respeta `XDG_DATA_HOME` y
+`FENIX_DATA_DIR`). Esta primera edición ofrece la descarga de actualizaciones
+compatibles y su instalación manual, sin ejecutar el actualizador de Windows.
+
+La compilación nativa usa `FenixLinux.spec` y `herramientas/construir_linux.py`.
+El workflow `linux.yml` comprueba el ejecutable y Chromium después de extraer
+el paquete, con una pantalla X11 de prueba, y vuelve a probarlo en Ubuntu 24.04.
+Genera artefactos de GitHub Actions; no publica releases automáticamente.

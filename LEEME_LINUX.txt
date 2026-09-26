@@ -1,0 +1,35 @@
+FÉNIX 2.1.1 PARA LINUX x86_64
+
+Edición portable para Ubuntu 22.04/24.04, Intel o AMD de 64 bits.
+Incluye Python, Qt y Chromium. No requiere instalar Python.
+Otras distribuciones no están verificadas; no es compatible con Alpine/musl ni ARM.
+
+1. Extrae el tar.gz desde Linux en una carpeta de tu usuario.
+2. Conserva juntos Fenix, _internal y browser: no copies solo el ejecutable.
+3. Abre una terminal en la carpeta extraída Fenix y ejecuta: ./Fenix
+   No lo ejecutes como root ni con sudo.
+
+Si tu escritorio no tiene las bibliotecas de Qt/Chromium, en Ubuntu 22.04 instala:
+sudo apt-get update
+sudo apt-get install libxcb-cursor0 libxkbcommon-x11-0 libxcb-xinerama0 libegl1 libopengl0 libgl1 libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libdbus-1-3 libatspi2.0-0 libx11-6 libxcomposite1 libxdamage1 libxext6 libxfixes3 libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2
+En Ubuntu 24.04, utiliza libasound2t64 en lugar de libasound2.
+
+Los datos personales se guardan fuera del programa: ~/.local/share/Fenix
+(o $XDG_DATA_HOME/Fenix si configuraste esa variable).
+
+ACTUALIZACIONES
+Esta primera edición Linux consulta GitHub, pero la instalación es manual:
+cierra Fénix, extrae la versión nueva en otra carpeta y abre su ejecutable.
+Tu perfil y horario se conservan. No mezcla archivos ni paquetes de Windows/Mac.
+Si todavía no se publicó un paquete Linux, permite continuar usando el instalado.
+
+DIAGNÓSTICO
+./Fenix --diagnostico
+Informe: ~/.local/share/Fenix/logs/diagnostico_instalacion.json
+Comprueba interfaz, recursos y Chromium sin consultar el SIA.
+
+COMPILACIÓN NATIVA (desarrolladores)
+Python 3.12, requirements-build.txt, playwright install --with-deps --only-shell chromium.
+Con las dependencias de Qt/X11 instaladas:
+QT_QPA_PLATFORM=xcb xvfb-run -a python herramientas/construir_linux.py
+El workflow linux.yml compila y prueba en Ubuntu; no publica releases automáticamente.

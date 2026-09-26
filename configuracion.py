@@ -51,11 +51,13 @@ BASE_DIR = Path(__file__).resolve().parent
 # actualizaciones y no requieren permisos de escritura en la instalación.
 CARPETA_DATOS_BASE = BASE_DIR / "datos"
 CARPETA_RECURSOS = BASE_DIR / "recursos"
-_CARPETA_USUARIO = (
-    Path.home() / "Library" / "Application Support"
-    if sys.platform == "darwin"
-    else Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
-)
+if sys.platform == "darwin":
+    _CARPETA_USUARIO = Path.home() / "Library" / "Application Support"
+elif sys.platform == "linux":
+    _xdg = Path(os.environ.get("XDG_DATA_HOME", ""))
+    _CARPETA_USUARIO = _xdg if _xdg.is_absolute() else Path.home() / ".local" / "share"
+else:
+    _CARPETA_USUARIO = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
 CARPETA_DATOS = Path(
     os.environ.get("FENIX_DATA_DIR")
     or _CARPETA_USUARIO / "Fenix"

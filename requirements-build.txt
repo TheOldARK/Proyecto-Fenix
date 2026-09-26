@@ -1,4 +1,4 @@
-# Entorno de construcción para Windows x64 con Python 3.12.
+# Entorno de construcción nativa para Windows, macOS y Linux con Python 3.12.
 shiboken6==6.11.2
 PySide6-Essentials==6.11.2
 playwright==1.63.0

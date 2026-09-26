@@ -21,6 +21,11 @@ API_RELEASES = "https://api.github.com/repos/TheOldARK/Proyecto-Fenix/releases"
 
 
 def nombre_paquete(version):
+    if sys.platform == "linux":
+        arquitectura = platform.machine().lower()
+        if arquitectura != "x86_64":
+            raise ValueError(f"Arquitectura de Linux no compatible: {arquitectura}")
+        return f"Fenix-{version}-linux-x64.tar.gz"
     if sys.platform == "darwin":
         arquitectura = platform.machine().lower()
         if arquitectura not in ("arm64", "x86_64"):
@@ -62,9 +67,9 @@ def consultar_ultima_version(timeout=15):
             candidatos.append({"version": version, "asset": nombre, "url": asset["browser_download_url"],
                                "tamano": asset.get("size"), "sha256": digest.removeprefix("sha256:") if digest.startswith("sha256:") else None,
                                "notas": release.get("body", ""),
-                               "instalacion_manual": sys.platform == "darwin"})
+                               "instalacion_manual": sys.platform in ("darwin", "linux")})
     if not candidatos:
-        if sys.platform == "darwin":
+        if sys.platform in ("darwin", "linux"):
             return {"sin_paquete_compatible": True, "version": VERSION,
                     "asset": None, "instalacion_manual": True}
         raise ValueError("No hay una versión de Windows completa publicada.")
@@ -77,6 +82,8 @@ def hay_actualizacion(release):
 
 
 def descargar_release(release, destino=None, timeout=120, progreso=None):
+    if sys.platform == "linux":
+        raise RuntimeError("En Linux descarga el paquete tar.gz desde el enlace de la actualización.")
     if sys.platform == "darwin":
         raise RuntimeError("En macOS descarga Fenix.app desde el enlace de la actualización.")
     destino = Path(destino) if destino else Path(tempfile.mkdtemp(prefix="fx-download-")) / "paquete.zip"
@@ -109,6 +116,8 @@ def descargar_release(release, destino=None, timeout=120, progreso=None):
 
 
 def iniciar_reemplazo(paquete, pid, instalacion=None):
+    if sys.platform == "linux":
+        raise RuntimeError("Cierra Fénix y extrae el nuevo paquete tar.gz en una carpeta nueva para actualizar Linux.")
     if sys.platform == "darwin":
         raise RuntimeError("Cierra Fénix y sustituye Fenix.app en Aplicaciones para actualizar macOS.")
     instalacion = Path(instalacion or Path(sys.executable).parent).resolve()
