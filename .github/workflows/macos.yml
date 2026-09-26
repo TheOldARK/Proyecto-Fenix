@@ -1,0 +1,59 @@
+name: Fenix para macOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [macos-2.1.1]
+
+permissions:
+  contents: read
+
+jobs:
+  compilar:
+    name: macOS ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            arch: arm64
+            python_arch: arm64
+          - os: macos-15-intel
+            arch: x64
+            python_arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: '0'
+      QT_QPA_PLATFORM: offscreen
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: ${{ matrix.python_arch }}
+      - name: Instalar dependencias y navegador nativos
+        run: |
+          python -m pip install -r requirements-build.txt
+          python -m playwright install --only-shell chromium
+      - name: Pruebas
+        run: python -B -m unittest discover -s tests
+      - name: Compilar, firmar localmente y verificar Fenix.app
+        run: python -B herramientas/construir_macos.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Fenix-macos-${{ matrix.arch }}
+          path: |
+            dist/macos/Fenix-*-macos-*.zip
+            dist/macos/Fenix-*-macos-*.zip.sha256
+            LEEME_MACOS.txt
+          if-no-files-found: error
+          retention-days: 30
+      - name: Guardar diagnóstico
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostico-macos-${{ matrix.arch }}
+          path: build/macos/diagnostico_instalacion.json
+          if-no-files-found: ignore

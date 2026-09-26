@@ -2,6 +2,7 @@
 from __future__ import annotations
 import json
 import os
+import platform
 from pathlib import Path
 import re
 import shutil
@@ -17,6 +18,17 @@ from configuracion import VERSION
 from servicios.instalador import leer_paquete, ruta_larga, sha256, guardar
 
 API_RELEASES = "https://api.github.com/repos/TheOldARK/Proyecto-Fenix/releases"
+
+
+def nombre_paquete(version):
+    if sys.platform == "darwin":
+        arquitectura = platform.machine().lower()
+        if arquitectura not in ("arm64", "x86_64"):
+            raise ValueError(f"Arquitectura de Mac no compatible: {arquitectura}")
+        sufijo = "macos-arm64" if arquitectura == "arm64" else "macos-x64"
+    else:
+        sufijo = "windows-x64"
+    return f"Fenix-{version}-{sufijo}.zip"
 
 
 def _contexto_tls():
@@ -43,24 +55,30 @@ def consultar_ultima_version(timeout=15):
         version = str(release.get("tag_name", "")).removeprefix("v")
         if _version(version) == (0, 0, 0, 0):
             continue
-        nombre = f"Fenix-{version}-windows-x64.zip"
+        nombre = nombre_paquete(version)
         asset = next((a for a in release.get("assets", []) if a.get("name") == nombre), None)
         if asset and asset.get("browser_download_url"):
             digest = asset.get("digest") or ""
             candidatos.append({"version": version, "asset": nombre, "url": asset["browser_download_url"],
                                "tamano": asset.get("size"), "sha256": digest.removeprefix("sha256:") if digest.startswith("sha256:") else None,
-                               "notas": release.get("body", "")})
+                               "notas": release.get("body", ""),
+                               "instalacion_manual": sys.platform == "darwin"})
     if not candidatos:
+        if sys.platform == "darwin":
+            return {"sin_paquete_compatible": True, "version": VERSION,
+                    "asset": None, "instalacion_manual": True}
         raise ValueError("No hay una versión de Windows completa publicada.")
     return max(candidatos, key=lambda r: _version(r["version"]))
 
 
 def hay_actualizacion(release):
     return (_version(release["version"]) > _version(VERSION) and
-            release.get("asset") == f"Fenix-{release['version']}-windows-x64.zip")
+            release.get("asset") == nombre_paquete(release['version']))
 
 
 def descargar_release(release, destino=None, timeout=120, progreso=None):
+    if sys.platform == "darwin":
+        raise RuntimeError("En macOS descarga Fenix.app desde el enlace de la actualización.")
     destino = Path(destino) if destino else Path(tempfile.mkdtemp(prefix="fx-download-")) / "paquete.zip"
     temporal = destino.with_suffix(".partial")
     try:
@@ -91,6 +109,8 @@ def descargar_release(release, destino=None, timeout=120, progreso=None):
 
 
 def iniciar_reemplazo(paquete, pid, instalacion=None):
+    if sys.platform == "darwin":
+        raise RuntimeError("Cierra Fénix y sustituye Fenix.app en Aplicaciones para actualizar macOS.")
     instalacion = Path(instalacion or Path(sys.executable).parent).resolve()
     auxiliar = Path(tempfile.mkdtemp(prefix="fx-updater-"))
     if getattr(sys, "frozen", False):

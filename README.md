@@ -21,6 +21,32 @@ La aplicación permite seleccionar materias y grupos, detectar cruces de horario
 
 ## Instalación
 
+### macOS
+
+La edición 2.1.1 para Mac se construye de forma nativa para Apple Silicon e Intel.
+Requiere macOS 14 o posterior. El ZIP contiene `Fenix.app`, que se copia a
+Aplicaciones; el perfil se guarda en `~/Library/Application Support/Fenix`.
+Consulta [LEEME_MACOS.txt](LEEME_MACOS.txt) para la primera apertura y las
+actualizaciones manuales de esta edición.
+
+El flujo `.github/workflows/macos.yml` compila y prueba ambas arquitecturas en
+GitHub Actions. Los paquetes se entregan como artefactos de la ejecución; este
+flujo no publica ni reemplaza archivos de las releases de Windows.
+
+Para compilar en un Mac con Python 3.12:
+
+```bash
+python -m pip install -r requirements-build.txt
+PLAYWRIGHT_BROWSERS_PATH=0 python -m playwright install --only-shell chromium
+PLAYWRIGHT_BROWSERS_PATH=0 python herramientas/construir_macos.py
+```
+
+El resultado queda en `dist/macos/`, con su archivo SHA-256. La compilación
+verifica la firma local y ejecuta el diagnóstico del binario final, Qt y Chromium.
+La distribución aún no cuenta con firma Developer ID ni notarización de Apple.
+
+### Desarrollo y Windows
+
 Para desarrollar se requiere Python 3.11 o posterior. La construcción para
 Windows usa Python 3.12 de 64 bits. Las dependencias principales son PySide6,
 Playwright y BeautifulSoup4. Los usuarios del ZIP no necesitan instalar Python.

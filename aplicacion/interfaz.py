@@ -4190,12 +4190,38 @@ class VentanaPrincipal(QMainWindow):
         self.comprobacion_version_pendiente = False
         from servicios.actualizacion_aplicacion import hay_actualizacion
 
+        if release.get("sin_paquete_compatible"):
+            self.instalando_version = False
+            if self.actualizacion_desde_arranque:
+                self.continuar_arranque()
+            else:
+                QMessageBox.information(
+                    self, "Versiones para Mac",
+                    "Todavía no hay una versión publicada para este tipo de Mac. "
+                    "Puedes seguir usando la versión instalada.",
+                )
+            return
         if not hay_actualizacion(release):
             self.instalando_version = False
             if self.actualizacion_desde_arranque:
                 self.continuar_arranque()
             else:
                 QMessageBox.information(self, "Fénix actualizado", f"Ya tienes Fénix {VERSION}.")
+            return
+        if release.get("instalacion_manual"):
+            respuesta = QMessageBox.question(
+                self, "Actualización disponible para Mac",
+                f"Está disponible Fénix {release['version']}. ¿Abrir su descarga?\n\n"
+                "Cuando termine la descarga, cierra Fénix y reemplaza Fenix.app "
+                "en Aplicaciones. Tu perfil y horario se conservan.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+            self.instalando_version = False
+            if respuesta == QMessageBox.StandardButton.Yes:
+                QDesktopServices.openUrl(QUrl(release["url"]))
+            if self.actualizacion_desde_arranque:
+                self.continuar_arranque()
             return
         respuesta = QMessageBox.question(
             self,

@@ -1,6 +1,7 @@
 import hashlib
 import json
 import io
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -130,6 +131,7 @@ class InstaladorTests(unittest.TestCase):
         self.assertGreater(a._version('1.0.8'), a._version('1.0.7b'))
         self.assertEqual(a._version('1.0.8'), a._version('1.0.8.0'))
 
+    @unittest.skipUnless(os.name == 'nt', 'Bloqueo nativo de Windows')
     def test_bloqueo_concurrente_no_toca_instalacion(self):
         import msvcrt
         ident = hashlib.sha256(str(self.old.resolve()).casefold().encode()).hexdigest()[:12]
@@ -160,7 +162,8 @@ class InstaladorTests(unittest.TestCase):
 
     def test_release_mayor_no_primera(self):
         releases = [{'tag_name': 'v'+v, 'assets': [{'name': f'Fenix-{v}-windows-x64.zip', 'browser_download_url': 'https://example.com/a'}]} for v in ('1.0.7', '1.0.8.1', '1.0.8')]
-        with patch.object(a, 'urlopen', return_value=io.BytesIO(json.dumps(releases).encode())):
+        with patch.object(a, 'urlopen', return_value=io.BytesIO(json.dumps(releases).encode())), \
+             patch.object(a, 'nombre_paquete', side_effect=lambda v: f'Fenix-{v}-windows-x64.zip'):
             self.assertEqual(a.consultar_ultima_version()['version'], '1.0.8.1')
 
 

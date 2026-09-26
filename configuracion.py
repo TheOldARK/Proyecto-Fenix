@@ -24,6 +24,7 @@
 # =============================================================
 
 import os
+import sys
 from pathlib import Path
 
 VERSION = "2.1.1"
@@ -50,9 +51,14 @@ BASE_DIR = Path(__file__).resolve().parent
 # actualizaciones y no requieren permisos de escritura en la instalación.
 CARPETA_DATOS_BASE = BASE_DIR / "datos"
 CARPETA_RECURSOS = BASE_DIR / "recursos"
+_CARPETA_USUARIO = (
+    Path.home() / "Library" / "Application Support"
+    if sys.platform == "darwin"
+    else Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+)
 CARPETA_DATOS = Path(
     os.environ.get("FENIX_DATA_DIR")
-    or Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "Fenix"
+    or _CARPETA_USUARIO / "Fenix"
 ).expanduser().resolve()
 
 

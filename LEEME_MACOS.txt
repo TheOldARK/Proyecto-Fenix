@@ -1,0 +1,28 @@
+FÉNIX 2.1.1 - macOS 14 (Sonoma) o posterior
+
+Elige macos-arm64 si tu Mac tiene un chip Apple M1, M2, M3, M4 o posterior.
+Elige macos-x64 si utiliza un procesador Intel.
+Puedes consultarlo en el menú Apple > Acerca de este Mac.
+
+1. Descomprime el ZIP desde Finder.
+2. Arrastra Fenix.app a Aplicaciones y ábrela desde allí.
+3. Elige tu facultad y carrera, y registra las materias aprobadas.
+
+La aplicación incluye Python, Qt y Chromium. No debes instalarlos por separado.
+El perfil, horario y datos se guardan fuera de la aplicación:
+~/Library/Application Support/Fenix
+
+Esta primera edición tiene firma local, pero no firma Developer ID ni
+notarización de Apple. macOS puede solicitar autorización para abrirla.
+Si confías en su procedencia, sigue las indicaciones oficiales de Apple:
+https://support.apple.com/es-es/102445
+No hace falta desactivar las protecciones generales del equipo.
+
+Fénix comprueba si existe una versión publicada para la arquitectura de tu Mac.
+Cuando la hay, ofrece abrir su descarga. En esta edición, la instalación es
+manual: cierra Fénix y reemplaza Fenix.app en Aplicaciones. Tu perfil y horario
+se conservan. El instalador automático de Windows no se utiliza en macOS.
+
+Puedes exportar un respaldo .fnx desde Archivo.
+Para soporte, los registros están en la carpeta logs dentro de tus datos.
+Contacto: mialvarezr@unal.edu.co
