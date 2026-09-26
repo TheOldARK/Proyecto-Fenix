@@ -1,3 +1,10 @@
+# Fénix 2.0.8
+
+- En materias aprobadas, el buscador ahora muestra texto blanco sobre fondo oscuro.
+- La rueda del ratón ya no cambia accidentalmente la selección de facultad,
+  carrera o tipo de materia; se selecciona abriendo la lista y eligiendo una opción.
+- El selector de facultad muestra solo el nombre de la facultad, sin anteponer la sede.
+
 # Fénix 2.0.7
 
 - Se corrigió el fondo blanco del formulario de materias aprobadas: el área

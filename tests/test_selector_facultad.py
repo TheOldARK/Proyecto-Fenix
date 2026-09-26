@@ -3,9 +3,11 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtGui import QWheelEvent
 from PySide6.QtWidgets import QApplication, QDialogButtonBox
 
-from aplicacion.interfaz import DialogoPlan
+from aplicacion.interfaz import DialogoPlan, SelectorSinCambioPorRueda
 from dominio.plan_estudios import PlanEstudios, Semestre
 from herramientas.gestor_publicadores import planes_con_malla_pendiente
 
@@ -38,12 +40,34 @@ class SelectorFacultadTests(unittest.TestCase):
             planes, {}, estudiante={"plan_estudios": "1102:3065:3705"}
         )
         self.assertEqual(dialogo.selector_facultad.currentData(), "1102:3065")
+        self.assertEqual(dialogo.selector_facultad.currentText(), "3065 FACULTAD")
+        self.assertNotIn("SEDE", dialogo.selector_facultad.currentText())
         self.assertEqual(dialogo.selector.currentData(), "1102:3065:3705")
         self.assertEqual(dialogo.selector.count(), 2)
+        self.assertIsInstance(dialogo.selector_facultad, SelectorSinCambioPorRueda)
+        self.assertIsInstance(dialogo.selector, SelectorSinCambioPorRueda)
+        self.assertIsInstance(dialogo.selector_tipo, SelectorSinCambioPorRueda)
+        selector = dialogo.selector_facultad
+        posicion = QPointF(5, 5)
+        posicion_global = QPointF(selector.mapToGlobal(QPoint(5, 5)))
+        evento_rueda = QWheelEvent(
+            posicion,
+            posicion_global,
+            QPoint(),
+            QPoint(0, -120),
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+            Qt.ScrollPhase.ScrollUpdate,
+            False,
+        )
+        self.app.sendEvent(selector, evento_rueda)
+        self.assertEqual(selector.currentData(), "1102:3065")
         self.assertIsNotNone(dialogo.area_desplazable.widget())
         self.assertIn("background-color", dialogo.area_desplazable.styleSheet())
         self.assertIn("background-color", dialogo.area_desplazable.viewport().styleSheet())
         self.assertIn("background-color", dialogo.area_desplazable.widget().styleSheet())
+        self.assertIn("color: #F2F2F2", dialogo.styleSheet())
+        self.assertIn("QLineEdit", dialogo.styleSheet())
         self.assertIsInstance(dialogo.botones, QDialogButtonBox)
         self.assertNotEqual(
             dialogo.area_desplazable.widget(), dialogo.botones.parentWidget()

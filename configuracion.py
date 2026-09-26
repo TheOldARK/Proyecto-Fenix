@@ -26,7 +26,7 @@
 import os
 from pathlib import Path
 
-VERSION = "2.0.7"
+VERSION = "2.0.8"
 URL_DATOS_CLOUDFLARE = "https://pub-c4af9a6ed2d249a290ff6c850b8dac15.r2.dev"
 
 

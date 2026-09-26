@@ -220,6 +220,13 @@ def sesiones_fuera_de_horario_normal(grupo):
     return sesiones
 
 
+class SelectorSinCambioPorRueda(QComboBox):
+    """Evita que la rueda cambie una selección sin abrir el desplegable."""
+
+    def wheelEvent(self, evento):
+        evento.ignore()
+
+
 class DialogoPlan(QDialog):
     """Solicita el plan y las materias aprobadas durante el primer ingreso."""
 
@@ -245,6 +252,10 @@ class DialogoPlan(QDialog):
             QComboBox QAbstractItemView {{ background-color: {COLOR_SUPERFICIE_CLARA};
                 color: {COLOR_TEXTO}; selection-background-color: {COLOR_VERDE};
                 selection-color: #FFFFFF; }}
+            QLineEdit {{ background-color: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO};
+                border: 1px solid {COLOR_LINEA}; border-radius: 7px; padding: 8px 10px;
+                selection-background-color: {COLOR_VERDE}; selection-color: #FFFFFF; }}
+            QLineEdit:focus {{ border-color: {COLOR_VERDE}; }}
             QListWidget {{ background-color: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO};
                 border: 1px solid {COLOR_LINEA}; border-radius: 7px; padding: 4px; }}
             QPushButton {{ background-color: {COLOR_VERDE_FONDO}; color: {COLOR_TEXTO};
@@ -294,15 +305,13 @@ class DialogoPlan(QDialog):
             f"background-color: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO}; "
             f"selection-background-color: {COLOR_VERDE}; selection-color: #FFFFFF;"
         )
-        self.selector_facultad = QComboBox()
+        self.selector_facultad = SelectorSinCambioPorRueda()
         self.selector_facultad.view().setStyleSheet(estilo_selector)
         self.selector_facultad.addItem("Selecciona una facultad…", None)
         facultades = {}
         for plan in planes.values():
             clave_facultad = f"{plan.sede_codigo}:{plan.facultad_codigo}"
-            nombre_facultad = " · ".join(
-                parte for parte in (plan.sede_nombre, plan.facultad_nombre) if parte
-            ) or "Facultad sin nombre"
+            nombre_facultad = str(plan.facultad_nombre or "").strip() or "Facultad sin nombre"
             facultades.setdefault(clave_facultad, nombre_facultad)
         for clave_facultad, nombre_facultad in sorted(
             facultades.items(), key=lambda item: clave_alfabetica(item[1])
@@ -310,7 +319,7 @@ class DialogoPlan(QDialog):
             self.selector_facultad.addItem(nombre_facultad, clave_facultad)
         layout.addWidget(self.selector_facultad)
 
-        self.selector = QComboBox()
+        self.selector = SelectorSinCambioPorRueda()
         self.selector.view().setStyleSheet(estilo_selector)
         self.selector.addItem("Selecciona tu plan de estudios…", None)
         layout.addWidget(self.selector)
@@ -333,7 +342,7 @@ class DialogoPlan(QDialog):
         self.buscar_aprobadas = QLineEdit()
         self.buscar_aprobadas.setPlaceholderText("Buscar materia por nombre o código…")
         layout.addWidget(self.buscar_aprobadas)
-        self.selector_tipo = QComboBox()
+        self.selector_tipo = SelectorSinCambioPorRueda()
         self.selector_tipo.view().setStyleSheet(
             f"background-color: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO}; "
             f"selection-background-color: {COLOR_VERDE}; selection-color: #FFFFFF;"
