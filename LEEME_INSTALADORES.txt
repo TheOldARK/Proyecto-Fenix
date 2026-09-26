@@ -1,0 +1,33 @@
+INSTALADORES DESCARGABLES DE FÉNIX — EDICIÓN DE PRUEBA, SIN PUBLICAR EN RELEASES
+
+Mac: elige macos-arm64 para Apple Silicon, macos-x64 para Intel (macOS 14+).
+Descomprime el ZIP y abre Instalar Fenix.app. La firma es local: todavía no
+dispone de Developer ID ni notarización de Apple. No desactives Gatekeeper.
+Si el sistema pide autorización, sigue la opción de apertura que ofrece macOS.
+
+Linux x86_64: extrae el tar.gz y ejecuta ./Instalar-Fenix, sin sudo.
+Objetivo: Ubuntu 22.04 y 24.04. El instalador incluye Python y Qt.
+Puede requerir bibliotecas del escritorio. En Ubuntu:
+sudo apt-get install libxcb-cursor0 libxcb-shape0 libxcb-icccm4 libxcb-keysyms1 libxcb-render-util0 libxkbcommon-x11-0 libxcb-xinerama0 libegl1 libwayland-server0 libopengl0 libgl1
+Fénix/Chromium requiere además las bibliotecas indicadas en LEEME_LINUX.txt
+de la release. Si faltan, la comprobación impedirá reemplazar tu instalación.
+
+FUNCIONAMIENTO
+- Consulta las versiones estables de GitHub y elige la más reciente que tenga
+  un paquete para tu sistema y arquitectura; ignora betas y paquetes de otro OS.
+- Descarga, comprueba tamaño y SHA-256, extrae conservando permisos y enlaces.
+- Instala en ~/Applications/Fenix.app (Mac) o ~/Applications/Fenix (Linux),
+  o en otra ubicación que elijas y en la que tengas permiso de escritura.
+- No pide administrador y no modifica perfiles ni horarios.
+- Comprueba que el Fénix instalado puede dibujar su interfaz y arrancar Chromium.
+- Si falla, restaura la instalación anterior. Si funciona, conserva un respaldo
+  en la carpeta superior, llamado .Fenix-respaldo-... o .Fenix.app-respaldo-...
+- En Linux puede añadir un acceso al menú de aplicaciones.
+- Con la casilla de abrir marcada, abre Fénix y cierra el instalador al terminar.
+- Puedes cancelar antes de la sustitución. Durante la instalación final el
+  cierre queda bloqueado brevemente para no dejar la aplicación a medias.
+
+Cierra Fénix antes de instalar encima. No ejecutes dos instaladores a la vez.
+El instalador requiere Internet; no incluye la aplicación ni Chromium.
+Esto no incorpora actualización automática dentro del cliente Mac/Linux:
+puedes volver a ejecutar este instalador para obtener una versión nueva.
