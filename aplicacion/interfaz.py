@@ -13,13 +13,13 @@ import time
 import unicodedata
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QPointF, Qt, QTimer, Signal, QUrl, QLockFile, QThread, qInstallMessageHandler
-from PySide6.QtGui import QColor, QCursor, QDesktopServices, QIcon, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, QTimer, Signal, QUrl, QLockFile, QThread, qInstallMessageHandler
+from PySide6.QtGui import QColor, QCursor, QDesktopServices, QFont, QFontMetrics, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QAbstractItemView, QComboBox, QDialog, QDialogButtonBox,
     QFrame, QGridLayout, QHBoxLayout, QLayout, QLabel, QListWidget, QListWidgetItem,
     QFileDialog, QLineEdit, QMainWindow, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea,
-    QSizePolicy, QSplitter, QStackedLayout, QTextEdit, QVBoxLayout, QWidget,
+    QSizePolicy, QSplitter, QStackedLayout, QTextEdit, QToolButton, QVBoxLayout, QWidget,
 )
 
 
@@ -129,6 +129,30 @@ def clave_alfabetica(nombre):
     return texto.casefold()
 
 
+def clave_orden_grupo(grupo):
+    """Ordena grupos numéricamente y conserva un orden natural para sufijos."""
+    numero = str(grupo.get("numero") or "").strip().casefold()
+    partes = re.split(r"(\d+)", numero)
+    natural = tuple(
+        (0, int(parte)) if parte.isdigit() else (1, parte)
+        for parte in partes
+    )
+    return natural, numero
+
+
+def grupos_en_conflicto_en_bloque(materias, grupos_actuales, dia, hora, duracion):
+    """Devuelve grupos de esa franja que chocan con el horario seleccionado."""
+    bloqueados = []
+    for materia in materias:
+        for grupo in materia.get("grupos", []):
+            if not grupo_ocupa_bloque(grupo, dia, hora, duracion):
+                continue
+            elegible, motivo = grupo_es_elegible(grupo, grupos_actuales)
+            if not elegible and motivo == "Conflicto de horario":
+                bloqueados.append((materia, grupo))
+    return bloqueados
+
+
 def subtipo_materia(materia):
     """Devuelve la familia curricular usada en los submenús laterales."""
     texto = unicodedata.normalize(
@@ -168,6 +192,30 @@ def relaciones_prerrequisitos(materia):
     return relaciones
 
 
+def conexiones_entre_semestres_adyacentes(materias_por_semestre, tarjetas_por_codigo,
+                                         cantidad_semestres):
+    """Conecta prerrequisitos solo desde el semestre inmediatamente anterior."""
+    conexiones = []
+    codigos_por_semestre = {
+        numero: {
+            codigo_base(materia.get("codigo"))
+            for materia in materias_por_semestre.get(numero, [])
+        }
+        for numero in range(1, cantidad_semestres + 1)
+    }
+    for numero in range(2, cantidad_semestres + 1):
+        anteriores = codigos_por_semestre.get(numero - 1, set())
+        for materia in materias_por_semestre.get(numero, []):
+            destino = tarjetas_por_codigo.get(codigo_base(materia.get("codigo")))
+            if destino is None:
+                continue
+            for requisito, tipo_requisito in relaciones_prerrequisitos(materia):
+                origen = tarjetas_por_codigo.get(requisito)
+                if requisito in anteriores and origen is not None and origen is not destino:
+                    conexiones.append((origen, destino, tipo_requisito))
+    return conexiones
+
+
 def codigo_numerico_plan(codigo):
     """Devuelve el código numérico para ordenar versiones descendentes.
 
@@ -195,6 +243,16 @@ def texto_horarios(grupo):
         ubicacion = "Virtual" if es_sesion_virtual(sesion) else aula
         sesiones.append(f"{dia} {inicio}–{fin}{' · ' + ubicacion if ubicacion else ''}")
     return "  |  ".join(sesiones) or "Horario no disponible"
+
+
+def estilo_tarjeta_no_disponible():
+    """Estilo compartido por las materias no disponibles de ambos menús."""
+    return (
+        f"QPushButton {{ background-color: {COLOR_ROJO_FONDO}; color: {COLOR_TEXTO}; "
+        f"border: 1px solid {COLOR_ROJO}; border-radius: 6px; padding: 7px 8px; "
+        "text-align: left; font-size: 11px; } "
+        f"QPushButton:hover {{ background-color: {COLOR_SUPERFICIE_CLARA}; }}"
+    )
 
 
 def detalle_sesion_en_bloque(grupo, dia, hora, duracion):
@@ -1136,31 +1194,9 @@ class VentanaPlanEstudios(QDialog):
             columna.addStretch(1)
             fila.addWidget(columna_widget)
         capa = CapaConexionesPlan()
-        conexiones = []
-        codigos_por_semestre = {
-            numero: {
-                codigo_base(materia.get("codigo"))
-                for materia in materias.get(numero, [])
-            }
-            for numero in range(1, cantidad_semestres + 1)
-        }
-        for numero in range(1, cantidad_semestres + 1):
-            anteriores = set().union(*(
-                codigos_por_semestre.get(semestre, set())
-                for semestre in range(1, numero)
-            )) if numero > 1 else set()
-            mismo_semestre = codigos_por_semestre.get(numero, set())
-            for materia in materias.get(numero, []):
-                destino = tarjetas_por_codigo.get(codigo_base(materia.get("codigo")))
-                for requisito, tipo_requisito in relaciones_prerrequisitos(materia):
-                    origen = tarjetas_por_codigo.get(requisito)
-                    if (
-                        (requisito in anteriores or requisito in mismo_semestre)
-                        and origen is not None
-                        and destino is not None
-                        and origen is not destino
-                    ):
-                        conexiones.append((origen, destino, tipo_requisito))
+        conexiones = conexiones_entre_semestres_adyacentes(
+            materias, tarjetas_por_codigo, cantidad_semestres
+        )
         capa.establecer_conexiones(conexiones)
         superpuestas.addWidget(base)
         superpuestas.addWidget(capa)
@@ -1464,11 +1500,32 @@ class BarraTitulo(QFrame):
         super().mouseDoubleClickEvent(evento)
 
 
+class BotonGrupoHorario(QPushButton):
+    """Botón del selector que previsualiza la franja del grupo al pasar el cursor."""
+
+    cursor_entro = Signal(object)
+    cursor_salio = Signal()
+
+    def __init__(self, texto, grupo):
+        super().__init__(texto)
+        self.grupo = grupo
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+
+    def enterEvent(self, evento):
+        self.cursor_entro.emit(self.grupo)
+        super().enterEvent(evento)
+
+    def leaveEvent(self, evento):
+        self.cursor_salio.emit()
+        super().leaveEvent(evento)
+
+
 class CeldaHorario(QFrame):
     """Celda del horario semanal."""
 
     seleccionada = Signal(str, int, int)
     materia_accion = Signal(object, object, str)
+    geometria_cambiada = Signal()
 
     def __init__(self, dia, hora, duracion):
         super().__init__()
@@ -1476,6 +1533,9 @@ class CeldaHorario(QFrame):
         self.hora = hora
         self.duracion = duracion
         self.tiene_sesiones = False
+        self.previsualizacion_grupo_activa = False
+        self.linea_roja_superior = False
+        self.linea_roja_inferior = False
         self.setCursor(Qt.PointingHandCursor)
         self.contenido = QVBoxLayout(self)
         self.contenido.setContentsMargins(6, 5, 6, 5)
@@ -1492,17 +1552,10 @@ class CeldaHorario(QFrame):
         self.setCursor(
             Qt.CursorShape.ArrowCursor if self.tiene_sesiones else Qt.CursorShape.PointingHandCursor
         )
-        borde_superior = f"2px solid {COLOR_AMARILLO}" if linea_roja_superior else f"1px solid {COLOR_LINEA}"
-        borde_inferior = f"2px solid {COLOR_AMARILLO}" if linea_roja_inferior else f"1px solid {COLOR_LINEA}"
+        self.linea_roja_superior = linea_roja_superior
+        self.linea_roja_inferior = linea_roja_inferior
         self.setToolTip(tooltip_traslado)
-        self.setStyleSheet(
-            f"""
-            QFrame {{ background-color: {COLOR_SUPERFICIE}; border-left: 1px solid {COLOR_LINEA};
-                border-right: 1px solid {COLOR_LINEA}; border-top: {borde_superior};
-                border-bottom: {borde_inferior}; border-radius: 5px; }}
-            QFrame:hover {{ border-color: {COLOR_VERDE}; }}
-            """
-        )
+        self._aplicar_estilo_borde()
         for materia, grupo, color_fondo, color_texto in sesiones:
             tarjeta = TarjetaHorario(
                 materia, grupo, color_fondo, color_texto,
@@ -1530,6 +1583,37 @@ class CeldaHorario(QFrame):
             )
             self.contenido.addStretch(1)
 
+    def establecer_previsualizacion_grupo(self, activa):
+        activa = bool(activa)
+        if self.previsualizacion_grupo_activa == activa:
+            return
+        self.previsualizacion_grupo_activa = activa
+        self._aplicar_estilo_borde()
+
+    def _aplicar_estilo_borde(self):
+        if self.previsualizacion_grupo_activa:
+            izquierdo = derecho = superior = inferior = f"2px solid {COLOR_TEXTO}"
+            color_hover = COLOR_TEXTO
+        else:
+            izquierdo = derecho = f"1px solid {COLOR_LINEA}"
+            superior = (
+                f"2px solid {COLOR_AMARILLO}"
+                if self.linea_roja_superior else f"1px solid {COLOR_LINEA}"
+            )
+            inferior = (
+                f"2px solid {COLOR_AMARILLO}"
+                if self.linea_roja_inferior else f"1px solid {COLOR_LINEA}"
+            )
+            color_hover = COLOR_VERDE
+        self.setStyleSheet(
+            f"""
+            QFrame {{ background-color: {COLOR_SUPERFICIE}; border-left: {izquierdo};
+                border-right: {derecho}; border-top: {superior};
+                border-bottom: {inferior}; border-radius: 5px; }}
+            QFrame:hover {{ border-color: {color_hover}; }}
+            """
+        )
+
     def mouseReleaseEvent(self, evento):
         if evento.button() == Qt.LeftButton and not self.tiene_sesiones:
             self.seleccionada.emit(self.dia, self.hora, self.duracion)
@@ -1544,6 +1628,90 @@ class CeldaHorario(QFrame):
         if self.indicador_agregar is not None:
             self.indicador_agregar.setVisible(False)
         super().leaveEvent(evento)
+
+    def resizeEvent(self, evento):
+        super().resizeEvent(evento)
+        self.geometria_cambiada.emit()
+
+    def moveEvent(self, evento):
+        super().moveEvent(evento)
+        self.geometria_cambiada.emit()
+
+
+class CapaIntercampus(QWidget):
+    """Dibuja rótulos encima de las líneas usando la geometría real de las celdas."""
+
+    TEXTO = "Intercampus"
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.limites = {}
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+
+    def establecer_limites(self, limites):
+        self.limites = dict(limites)
+        self.update()
+
+    def rectangulos_etiquetas(self):
+        """Devuelve las cajas calculadas a partir de la posición actual de cada celda."""
+        if not self.isVisible():
+            return []
+
+        cuadricula = self.parentWidget()
+        resultado = []
+        fuente = QFont("Segoe UI", 8, QFont.Weight.Bold)
+        metricas = QFontMetrics(fuente)
+        ancho = metricas.horizontalAdvance(self.TEXTO) + 12
+        alto = metricas.height() + 4
+
+        for dia, hora in self.limites:
+            anterior = next(
+                ((inicio, fin) for inicio, fin in BLOQUES_HORARIO if fin * 60 == hora),
+                None,
+            )
+            siguiente = next(
+                ((inicio, fin) for inicio, fin in BLOQUES_HORARIO if inicio * 60 == hora),
+                None,
+            )
+            if anterior is None or siguiente is None:
+                continue
+
+            celda_anterior = cuadricula.celdas_por_bloque.get(
+                (dia, anterior[0], anterior[1] - anterior[0])
+            )
+            celda_siguiente = cuadricula.celdas_por_bloque.get(
+                (dia, siguiente[0], siguiente[1] - siguiente[0])
+            )
+            if celda_anterior is None or celda_siguiente is None:
+                continue
+
+            # Las celdas y esta capa comparten padre. Sus geometrías ya están
+            # en coordenadas de la cuadrícula; mapTo entre hermanos añadía
+            # el desplazamiento de los contenedores de la ventana.
+            rect_anterior = QRectF(celda_anterior.geometry())
+            rect_siguiente = QRectF(celda_siguiente.geometry())
+            centro_x = (
+                rect_anterior.center().x() + rect_siguiente.center().x()
+            ) / 2 - self.x()
+            centro_y = (
+                rect_anterior.bottom() + rect_siguiente.top()
+            ) / 2 - self.y()
+            resultado.append((
+                (dia, hora),
+                QRectF(centro_x - ancho / 2, centro_y - alto / 2, ancho, alto),
+            ))
+        return resultado
+
+    def paintEvent(self, evento):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+        painter.setPen(QColor("#171717"))
+        for _, rectangulo in self.rectangulos_etiquetas():
+            painter.setBrush(QColor(COLOR_AMARILLO))
+            painter.drawRoundedRect(rectangulo, 5, 5)
+            painter.drawText(rectangulo, Qt.AlignmentFlag.AlignCenter, self.TEXTO)
 
 
 class TarjetaHorario(QFrame):
@@ -1625,9 +1793,21 @@ class CuadriculaHorario(QFrame):
         self.cuadricula = QGridLayout(self)
         self.cuadricula.setContentsMargins(8, 8, 8, 8)
         self.cuadricula.setSpacing(6)
+        self.celdas_por_bloque = {}
+        self.capa_intercampus = CapaIntercampus(self)
+        self.bloques_previsualizados = set()
+        self.temporizador_limpiar_previsualizacion = QTimer(self)
+        self.temporizador_limpiar_previsualizacion.setSingleShot(True)
+        self.temporizador_limpiar_previsualizacion.setInterval(90)
+        self.temporizador_limpiar_previsualizacion.timeout.connect(
+            self.limpiar_previsualizacion_grupo
+        )
 
     def actualizar(self, grupos, grupos_previsualizados=None):
         """Redibuja el horario, distinguiendo grupos reales de previsualizaciones."""
+        self.limpiar_previsualizacion_grupo()
+        self.celdas_por_bloque = {}
+        self.capa_intercampus.establecer_limites({})
         limpiar_layout(self.cuadricula)
         grupos_previsualizados = grupos_previsualizados or ()
         limites_traslado = {}
@@ -1689,6 +1869,8 @@ class CuadriculaHorario(QFrame):
                         or ""
                     ),
                 )
+                clave_bloque = (dia, hora, duracion)
+                self.celdas_por_bloque[clave_bloque] = celda
                 if sesiones:
                     # La franja sigue siendo de dos horas. Si hay varias
                     # sesiones consecutivas o superpuestas, la celda crece
@@ -1699,7 +1881,45 @@ class CuadriculaHorario(QFrame):
                     )
                 celda.seleccionada.connect(self.bloque_seleccionado)
                 celda.materia_accion.connect(self.materia_accion)
+                celda.geometria_cambiada.connect(self._solicitar_actualizacion_intercampus)
                 self.cuadricula.addWidget(celda, fila, columna)
+        self.capa_intercampus.establecer_limites(limites_traslado)
+        self.cuadricula.activate()
+        self.capa_intercampus.setGeometry(self.rect())
+        self.capa_intercampus.raise_()
+        self.capa_intercampus.show()
+        self.capa_intercampus.update()
+
+    def _solicitar_actualizacion_intercampus(self):
+        self.capa_intercampus.update()
+
+    def resizeEvent(self, evento):
+        super().resizeEvent(evento)
+        self.capa_intercampus.setGeometry(self.rect())
+        self.capa_intercampus.raise_()
+        self.capa_intercampus.update()
+
+    def previsualizar_grupo(self, grupo):
+        """Delinea las celdas que ocuparía un grupo sin añadirlo al horario."""
+        self.temporizador_limpiar_previsualizacion.stop()
+        self.limpiar_previsualizacion_grupo()
+        for clave, celda in self.celdas_por_bloque.items():
+            dia, hora, duracion = clave
+            if grupo_ocupa_bloque(grupo, dia, hora, duracion):
+                celda.establecer_previsualizacion_grupo(True)
+                self.bloques_previsualizados.add(clave)
+
+    def programar_limpieza_previsualizacion(self):
+        if self.bloques_previsualizados:
+            self.temporizador_limpiar_previsualizacion.start()
+
+    def limpiar_previsualizacion_grupo(self):
+        self.temporizador_limpiar_previsualizacion.stop()
+        for clave in self.bloques_previsualizados:
+            celda = self.celdas_por_bloque.get(clave)
+            if celda is not None:
+                celda.establecer_previsualizacion_grupo(False)
+        self.bloques_previsualizados.clear()
 
     @staticmethod
     def estilo_encabezado():
@@ -1882,6 +2102,13 @@ class VentanaPrincipal(QMainWindow):
         self.temporizador_estado = QTimer(self)
         self.temporizador_estado.timeout.connect(self.revisar_actualizacion)
         self.temporizador_estado.start(1000)
+        self.temporizador_previsualizacion = QTimer(self)
+        self.temporizador_previsualizacion.setInterval(350)
+        self.temporizador_previsualizacion.timeout.connect(
+            self._alternar_parpadeo_previsualizacion
+        )
+        self.parpadeos_previsualizacion_restantes = 0
+        self.previsualizacion_resaltada = False
         self.temporizador_animacion_carga = QTimer(self)
         self.temporizador_animacion_carga.setInterval(120)
         self.temporizador_animacion_carga.timeout.connect(self.animar_actualizacion)
@@ -2825,11 +3052,7 @@ class VentanaPrincipal(QMainWindow):
         if motivo:
             boton.setText(f"{texto}\nNo disponible: {motivo}")
             boton.setEnabled(False)
-            boton.setStyleSheet(
-                f"QPushButton {{ background-color: {COLOR_ROJO_FONDO}; color: {COLOR_TEXTO}; "
-                f"border: 1px solid {COLOR_ROJO}; border-radius: 6px; padding: 7px 8px; "
-                "text-align: left; font-size: 11px; }"
-            )
+            boton.setStyleSheet(estilo_tarjeta_no_disponible())
             return boton
         avisos = advertencias_materia(
             materia,
@@ -3091,7 +3314,7 @@ class VentanaPrincipal(QMainWindow):
             f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 10px; font-weight: 700; padding-top: 8px;"
         )
         contenido.layout().addWidget(grupos_titulo)
-        grupos = materia.get("grupos", [])
+        grupos = sorted(materia.get("grupos", []), key=clave_orden_grupo)
         if not grupos:
             sin_grupos = QLabel("Esta materia no tiene grupos en la oferta actual.")
             sin_grupos.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; padding: 8px 0;")
@@ -3145,7 +3368,12 @@ class VentanaPrincipal(QMainWindow):
         texto = f"Grupo {grupo.get('numero', '?')} · {cupos_texto}\n{detalle}"
         if profesor:
             texto += f"\nDocente: {profesor}"
-        boton = QPushButton(texto)
+        boton = BotonGrupoHorario(texto, grupo)
+        boton.cursor_entro.connect(self.cuadricula.previsualizar_grupo)
+        boton.cursor_salio.connect(self.cuadricula.programar_limpieza_previsualizacion)
+        if not dialogo.property("limpiar_previsualizacion_grupo_conectado"):
+            dialogo.setProperty("limpiar_previsualizacion_grupo_conectado", True)
+            dialogo.finished.connect(self.cuadricula.limpiar_previsualizacion_grupo)
         boton.setMinimumHeight(63)
         boton.setCursor(Qt.PointingHandCursor)
         if seleccionado:
@@ -3224,28 +3452,48 @@ class VentanaPrincipal(QMainWindow):
         return detalles
 
     def previsualizar_conflicto(self, materia, grupo, dialogo=None):
-        """Muestra temporalmente el grupo rechazado junto al horario actual."""
+        """Destaca el grupo rechazado con tres parpadeos, sin añadirlo al horario."""
         conflictos = self.detalles_conflicto_grupo(grupo)
         if not conflictos:
             return
+        self.temporizador_previsualizacion.stop()
         self.grupo_previsualizado = (materia, grupo)
-        actuales = self.grupos_actuales()
-        self.cuadricula.actualizar(
-            actuales + [self.grupo_previsualizado],
-            grupos_previsualizados=[self.grupo_previsualizado],
-        )
+        self.previsualizacion_resaltada = True
+        self.parpadeos_previsualizacion_restantes = 6
+        self._actualizar_cuadricula_previsualizada()
         self.resumen.setText(
             "PREVISUALIZACIÓN · " + " | ".join(conflictos) +
-            " · El grupo no se añadió al horario."
+            " · El grupo no se añadió al horario; parpadea 3 veces."
         )
         if dialogo is not None:
             dialogo.accept()
-        QTimer.singleShot(3000, self.limpiar_previsualizacion)
+        self.temporizador_previsualizacion.start()
+
+    def _actualizar_cuadricula_previsualizada(self):
+        if self.grupo_previsualizado is None:
+            return
+        grupos = self.grupos_actuales() + [self.grupo_previsualizado]
+        resaltados = [self.grupo_previsualizado] if self.previsualizacion_resaltada else []
+        self.cuadricula.actualizar(grupos, grupos_previsualizados=resaltados)
+
+    def _alternar_parpadeo_previsualizacion(self):
+        if self.grupo_previsualizado is None:
+            self.temporizador_previsualizacion.stop()
+            return
+        self.parpadeos_previsualizacion_restantes -= 1
+        if self.parpadeos_previsualizacion_restantes <= 0:
+            self.limpiar_previsualizacion()
+            return
+        self.previsualizacion_resaltada = not self.previsualizacion_resaltada
+        self._actualizar_cuadricula_previsualizada()
 
     def limpiar_previsualizacion(self):
+        self.temporizador_previsualizacion.stop()
         if self.grupo_previsualizado is None:
             return
         self.grupo_previsualizado = None
+        self.previsualizacion_resaltada = False
+        self.parpadeos_previsualizacion_restantes = 0
         self.actualizar_horario()
 
     @staticmethod
@@ -3675,7 +3923,18 @@ class VentanaPrincipal(QMainWindow):
 
         principales = self.grupos_elegibles_en_bloque("principal", dia, hora, duracion)
         libres = self.grupos_elegibles_en_bloque("libre", dia, hora, duracion)
-        if not principales and not libres:
+        grupos_actuales = self.grupos_actuales()
+        principales_bloqueados = grupos_en_conflicto_en_bloque(
+            [materia for materia in self.materias_para_mostrar.get("principal", [])
+             if not self.materia_ya_seleccionada(materia)],
+            grupos_actuales, dia, hora, duracion,
+        )
+        libres_bloqueados = grupos_en_conflicto_en_bloque(
+            [materia for materia in self.materias_para_mostrar.get("libre", [])
+             if not self.materia_ya_seleccionada(materia)],
+            grupos_actuales, dia, hora, duracion,
+        )
+        if not principales and not libres and not principales_bloqueados and not libres_bloqueados:
             QMessageBox.information(
                 self,
                 "Sin grupos disponibles",
@@ -3694,22 +3953,32 @@ class VentanaPrincipal(QMainWindow):
         encabezado = menu.addAction(f"{nombre_dia} · {hora:02d}:00–{hora + duracion:02d}:00")
         encabezado.setEnabled(False)
         menu.addSeparator()
+        def texto_origen(etiqueta, disponibles, bloqueados):
+            materias_bloqueadas = {
+                str(materia.get("codigo") or materia.get("nombre") or id(materia))
+                for materia, _ in bloqueados
+            }
+            return (
+                f"{etiqueta} ({len(disponibles)} grupos disponibles · "
+                f"{len(materias_bloqueadas)} materias no disponibles por cruces)"
+            )
+
         accion_principales = menu.addAction(
-            f"Materias principales ({len(principales)} grupo(s) disponible(s))"
+            texto_origen("Materias principales", principales, principales_bloqueados)
         )
-        accion_principales.setEnabled(bool(principales))
+        accion_principales.setEnabled(bool(principales or principales_bloqueados))
         accion_principales.triggered.connect(
             lambda: self.mostrar_grupos_por_origen_en_bloque(
-                "principal", dia, hora, duracion, principales
+                "principal", dia, hora, duracion, principales, principales_bloqueados
             )
         )
         accion_libres = menu.addAction(
-            f"Libres elecciones ({len(libres)} grupo(s) disponible(s))"
+            texto_origen("Libres elecciones", libres, libres_bloqueados)
         )
-        accion_libres.setEnabled(bool(libres))
+        accion_libres.setEnabled(bool(libres or libres_bloqueados))
         accion_libres.triggered.connect(
             lambda: self.mostrar_grupos_por_origen_en_bloque(
-                "libre", dia, hora, duracion, libres
+                "libre", dia, hora, duracion, libres, libres_bloqueados
             )
         )
         menu.exec(QCursor.pos())
@@ -3728,7 +3997,9 @@ class VentanaPrincipal(QMainWindow):
                     candidatos.append((materia, grupo))
         return candidatos
 
-    def mostrar_grupos_por_origen_en_bloque(self, origen, dia, hora, duracion, candidatos):
+    def mostrar_grupos_por_origen_en_bloque(
+        self, origen, dia, hora, duracion, candidatos, grupos_bloqueados=()
+    ):
         """Lista solo los grupos del origen elegido que coinciden con la celda."""
         nombre_origen = "Materias principales" if origen == "principal" else "Libres elecciones"
         nombre_dia = dict(DIAS).get(dia, dia.title())
@@ -3751,8 +4022,8 @@ class VentanaPrincipal(QMainWindow):
         descripcion = QLabel(
             f"Grupos con clase el {nombre_dia.lower()} entre las {hora:02d}:00 y "
             f"las {hora + duracion:02d}:00. "
-            "Se incluyen grupos sin cupos para que puedas revisar su horario; "
-            "se excluyen los que generen conflictos."
+            "Se incluyen grupos sin cupos. Los grupos que chocan con tu horario "
+            "se consultan en la sección desplegable del final."
         )
         descripcion.setWordWrap(True)
         descripcion.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 11px;")
@@ -3784,9 +4055,92 @@ class VentanaPrincipal(QMainWindow):
             codigo = QLabel(f"{materia.get('codigo', '')} · {materia.get('tipologia', '')}")
             codigo.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 10px;")
             layout.addWidget(codigo)
-            for grupo in entrada["grupos"]:
+            for grupo in sorted(entrada["grupos"], key=clave_orden_grupo):
                 layout.addWidget(self.crear_boton_grupo(origen, materia, grupo, dialogo, False))
             contenido.layout().addWidget(tarjeta)
+
+        bloqueados_por_materia = {}
+        for materia, grupo in grupos_bloqueados:
+            clave = str(materia.get("codigo") or materia.get("nombre") or id(materia))
+            bloqueados_por_materia.setdefault(
+                clave, {"materia": materia, "grupos": []}
+            )["grupos"].append(grupo)
+        boton_no_disponibles = QToolButton()
+        boton_no_disponibles.setText(
+            "No disponibles por cruces con otras materias "
+            f"({len(bloqueados_por_materia)})"
+        )
+        boton_no_disponibles.setCheckable(True)
+        boton_no_disponibles.setChecked(False)
+        boton_no_disponibles.setArrowType(Qt.ArrowType.RightArrow)
+        boton_no_disponibles.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        boton_no_disponibles.setCursor(Qt.PointingHandCursor)
+        boton_no_disponibles.setStyleSheet(
+            f"QToolButton {{ color: {COLOR_ROJO}; background-color: {COLOR_ROJO_FONDO}; "
+            f"border: 1px solid {COLOR_ROJO}; border-radius: 7px; padding: 9px; "
+            "font-weight: 700; text-align: left; } "
+            f"QToolButton:hover {{ background-color: {COLOR_SUPERFICIE_CLARA}; }}"
+        )
+        contenido.layout().addWidget(boton_no_disponibles)
+        cuerpo_no_disponibles = QWidget()
+        layout_no_disponibles = QVBoxLayout(cuerpo_no_disponibles)
+        layout_no_disponibles.setContentsMargins(4, 4, 4, 4)
+        layout_no_disponibles.setSpacing(6)
+        if not bloqueados_por_materia:
+            vacio = QLabel("No hay materias bloqueadas por cruces en esta franja.")
+            vacio.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; padding: 6px;")
+            layout_no_disponibles.addWidget(vacio)
+        for entrada in sorted(
+            bloqueados_por_materia.values(),
+            key=lambda actual: clave_alfabetica(actual["materia"].get("nombre", "")),
+        ):
+            materia = entrada["materia"]
+            grupos_texto = ", ".join(
+                str(grupo.get("numero", "?"))
+                for grupo in sorted(entrada["grupos"], key=clave_orden_grupo)
+            )
+            codigo = str(materia.get("codigo", "")).strip()
+            detalles = []
+            for grupo in entrada["grupos"]:
+                detalles.extend(self.detalles_conflicto_grupo(grupo))
+            detalles = list(dict.fromkeys(detalles))
+            razon = "\n".join(detalles) or "Cruza con el horario seleccionado."
+            tarjeta = QPushButton(
+                f"{materia.get('nombre', 'Materia')}\n"
+                f"{codigo} · Grupo(s) {grupos_texto}\n"
+                f"No disponible: {razon}"
+            )
+            tarjeta.setProperty("es_materia", True)
+            tarjeta.setProperty("texto_busqueda", tarjeta.text())
+            tarjeta.setMinimumHeight(max(51, len(razon.splitlines()) * 18 + 48))
+            tarjeta.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Preferred,
+            )
+            tarjeta.setCursor(Qt.PointingHandCursor)
+            tarjeta.setToolTip(
+                "Haz clic para previsualizar el primer grupo en conflicto. "
+                "La previsualización no modifica tu horario."
+            )
+            tarjeta.setStyleSheet(estilo_tarjeta_no_disponible())
+            grupo_a_previsualizar = sorted(
+                entrada["grupos"], key=clave_orden_grupo
+            )[0]
+            tarjeta.clicked.connect(
+                lambda _, m=materia, g=grupo_a_previsualizar, d=dialogo:
+                self.previsualizar_conflicto(m, g, d)
+            )
+            layout_no_disponibles.addWidget(tarjeta)
+        cuerpo_no_disponibles.setVisible(False)
+        contenido.layout().addWidget(cuerpo_no_disponibles)
+
+        def actualizar_seccion_no_disponibles(expandida):
+            cuerpo_no_disponibles.setVisible(expandida)
+            boton_no_disponibles.setArrowType(
+                Qt.ArrowType.DownArrow if expandida else Qt.ArrowType.RightArrow
+            )
+
+        boton_no_disponibles.toggled.connect(actualizar_seccion_no_disponibles)
         contenido.layout().addStretch()
         principal.addWidget(area, 1)
         cerrar = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)

@@ -1,3 +1,23 @@
+# Fénix 2.1.1
+
+- El selector de grupos ahora los ordena numéricamente (1, 2, 3… 10) en lugar
+  del orden alfabético que entregaba el SIA.
+- Al sugerir grupos para una franja horaria, se puede desplegar al final la lista
+  de materias que no están disponibles por cruces, junto con el horario que choca.
+- En «Mi Plan», las flechas de prerrequisitos solo conectan semestres consecutivos;
+  ya no saltan semestres ni trazan conexiones dentro del mismo semestre.
+- Las tarjetas de materias bloqueadas por cruces usan ahora el mismo estilo que
+  «No disponibles» en el menú lateral.
+- Al pulsar una de esas tarjetas se previsualiza el grupo en conflicto con tres
+  parpadeos; el grupo nunca se añade al horario.
+- Al pasar el cursor sobre un grupo en su selector, se destacan con un contorno
+  blanco las celdas que ocuparía, sin agregarlo al horario.
+- Los traslados entre campus muestran «Intercampus» centrado sobre cada par de
+  líneas amarillas; se dibuja sobre el horario usando la posición actual de las
+  celdas y no altera su distribución.
+- Las etiquetas Intercampus siguen centradas al mover el divisor del menú
+  izquierdo, redimensionar la ventana o desplazar el horario.
+
 # Fénix 2.0.8
 
 - En materias aprobadas, el buscador ahora muestra texto blanco sobre fondo oscuro.
