@@ -3,7 +3,7 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QDialogButtonBox
 
 from aplicacion.interfaz import DialogoPlan
 from dominio.plan_estudios import PlanEstudios, Semestre
@@ -40,6 +40,11 @@ class SelectorFacultadTests(unittest.TestCase):
         self.assertEqual(dialogo.selector_facultad.currentData(), "1102:3065")
         self.assertEqual(dialogo.selector.currentData(), "1102:3065:3705")
         self.assertEqual(dialogo.selector.count(), 2)
+        self.assertIsNotNone(dialogo.area_desplazable.widget())
+        self.assertIsInstance(dialogo.botones, QDialogButtonBox)
+        self.assertNotEqual(
+            dialogo.area_desplazable.widget(), dialogo.botones.parentWidget()
+        )
 
         dialogo.selector_facultad.setCurrentIndex(
             dialogo.selector_facultad.findData("1102:3068")

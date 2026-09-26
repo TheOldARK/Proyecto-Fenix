@@ -1,3 +1,12 @@
+# Fénix 2.0.6
+
+- El menú de carreras incluye los planes agregados de la Facultad de Ciencias.
+  Al iniciar, Fénix combina el catálogo incluido en la versión con el perfil
+  local para incorporar carreras nuevas sin borrar información existente.
+- El formulario de materias aprobadas ahora tiene desplazamiento vertical y un
+  límite de altura adaptado a la pantalla; el botón para confirmar permanece
+  visible.
+
 # Fénix 2.0.5
 
 - Ciencias aparece como una facultad seleccionable al configurar la carrera; el

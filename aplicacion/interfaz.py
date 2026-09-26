@@ -228,6 +228,9 @@ class DialogoPlan(QDialog):
         self.setWindowTitle("Configurar estudiante · Fénix")
         self.setModal(True)
         self.setMinimumWidth(760)
+        pantalla = QApplication.primaryScreen()
+        if pantalla is not None:
+            self.setMaximumHeight(int(pantalla.availableGeometry().height() * 0.9))
         self.setStyleSheet(
             f"""
             QDialog {{ background-color: {COLOR_SUPERFICIE}; }}
@@ -244,7 +247,19 @@ class DialogoPlan(QDialog):
             QPushButton:hover {{ background-color: #294A35; }}
             """
         )
-        layout = QVBoxLayout(self)
+        contenedor_dialogo = QVBoxLayout(self)
+        contenedor_dialogo.setContentsMargins(12, 12, 12, 10)
+        contenedor_dialogo.setSpacing(8)
+        self.area_desplazable = QScrollArea(self)
+        self.area_desplazable.setWidgetResizable(True)
+        self.area_desplazable.setFrameShape(QFrame.Shape.NoFrame)
+        self.area_desplazable.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.area_desplazable.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        contenido = QWidget()
+        self.area_desplazable.setWidget(contenido)
+        contenedor_dialogo.addWidget(self.area_desplazable, 1)
+
+        layout = QVBoxLayout(contenido)
         layout.setContentsMargins(28, 28, 28, 24)
         layout.setSpacing(12)
         titulo = QLabel("Configura tu avance académico")
@@ -330,7 +345,7 @@ class DialogoPlan(QDialog):
         columna_disponibles.addWidget(ayuda_disponibles)
         self.materias_disponibles = QListWidget()
         self.materias_disponibles.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.materias_disponibles.setMinimumHeight(250)
+        self.materias_disponibles.setMinimumHeight(170)
         columna_disponibles.addWidget(self.materias_disponibles)
         listas.addLayout(columna_disponibles, 1)
         controles = QVBoxLayout()
@@ -355,14 +370,14 @@ class DialogoPlan(QDialog):
         columna_elegidas.addWidget(ayuda_elegidas)
         self.materias_elegidas = QListWidget()
         self.materias_elegidas.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.materias_elegidas.setMinimumHeight(250)
+        self.materias_elegidas.setMinimumHeight(170)
         columna_elegidas.addWidget(self.materias_elegidas)
         listas.addLayout(columna_elegidas, 1)
         layout.addLayout(listas)
         self.botones = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
         self.boton_confirmar = self.botones.button(QDialogButtonBox.StandardButton.Ok)
         self.botones.accepted.connect(self.accept)
-        layout.addWidget(self.botones)
+        contenedor_dialogo.addWidget(self.botones)
         self.planes = planes
         self.oferta = oferta if isinstance(oferta, dict) else {}
         self.materias_conocidas = (
