@@ -4,8 +4,6 @@
             "clave": "1102:3065:3505",
             "codigo": "3505",
             "nombre": "Ingeniería Biológica",
-            "sede": "Medellín",
-            "nivel": "Profesional - Pregrado",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3065",
@@ -148,6 +146,8 @@
                     }
                 }
             },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
             "creditos_totales": 164,
             "malla_verificada": false,
             "fuente_oficial": "https://ciencias.medellin.unal.edu.co/125"
@@ -165,47 +165,111 @@
             "valor_sede": "6",
             "valor_facultad": "1",
             "valor_plan": "2",
-            "nombres_asignaturas": {},
+            "nombres_asignaturas": {
+                "3006931": "Introducción al Manejo de Datos Estadísticos",
+                "1000004": "Cálculo Diferencial",
+                "1000008": "Geometría Vectorial y Analítica",
+                "3006927": "Estadística Descriptiva y Exploratoria",
+                "1000005": "Cálculo Integral",
+                "1000003": "Álgebra Lineal",
+                "3006934": "Probabilidad",
+                "3006906": "Matemáticas Discretas",
+                "3006929": "Inferencia Estadística",
+                "3006926": "Estadística Bayesiana",
+                "3006933": "Muestreo Estadístico",
+                "3006918": "Análisis de Regresión",
+                "3006921": "Introducción al Análisis Multivariado",
+                "3009297": "Series de Tiempo Univariadas",
+                "3007340": "Diseño de Experimentos",
+                "3006940": "Trabajo de Grado",
+                "3006922": "Consultoría"
+            },
             "semestres": {
                 "1": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3006931",
+                        "1000004",
+                        "1000008"
+                    ],
                     "creditos": {}
                 },
                 "2": {
-                    "asignaturas": [],
-                    "creditos": {}
+                    "asignaturas": [
+                        "3006927",
+                        "1000005",
+                        "1000003"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 4
+                    }
                 },
                 "3": {
-                    "asignaturas": [],
-                    "creditos": {}
+                    "asignaturas": [
+                        "3006934",
+                        "3006906"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 7
+                    }
                 },
                 "4": {
-                    "asignaturas": [],
-                    "creditos": {}
+                    "asignaturas": [
+                        "3006929"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 11
+                    }
                 },
                 "5": {
-                    "asignaturas": [],
-                    "creditos": {}
+                    "asignaturas": [
+                        "3006926",
+                        "3006933",
+                        "3006918"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 3
+                    }
                 },
                 "6": {
-                    "asignaturas": [],
-                    "creditos": {}
+                    "asignaturas": [
+                        "3006921"
+                    ],
+                    "creditos": {
+                        "optativa_disciplinar": 8
+                    }
                 },
                 "7": {
-                    "asignaturas": [],
-                    "creditos": {}
+                    "asignaturas": [
+                        "3009297",
+                        "3007340"
+                    ],
+                    "creditos": {
+                        "fundamentacion_optativa": 4,
+                        "optativa_disciplinar": 4
+                    }
                 },
                 "8": {
                     "asignaturas": [],
-                    "creditos": {}
+                    "creditos": {
+                        "libre_eleccion": 12,
+                        "optativa_disciplinar": 4
+                    }
                 },
                 "9": {
                     "asignaturas": [],
-                    "creditos": {}
+                    "creditos": {
+                        "libre_eleccion": 12,
+                        "optativa_disciplinar": 4
+                    }
                 },
                 "10": {
-                    "asignaturas": [],
-                    "creditos": {}
+                    "asignaturas": [
+                        "3006940",
+                        "3006922"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 4
+                    }
                 }
             },
             "malla_verificada": false,
@@ -224,46 +288,121 @@
             "valor_sede": "6",
             "valor_facultad": "1",
             "valor_plan": "4",
-            "nombres_asignaturas": {},
+            "nombres_asignaturas": {
+                "1000008": "Geometría Vectorial y Analítica",
+                "1000004": "Cálculo Diferencial",
+                "3006851": "Introducción a la Ingeniería Física",
+                "1000003": "Álgebra Lineal",
+                "1000005": "Cálculo Integral",
+                "1000019": "Física Mecánica",
+                "1000007": "Ecuaciones Diferenciales",
+                "1000006": "Cálculo en Varias Variables",
+                "3006914": "Estadística I",
+                "1000017": "Física de Electricidad y Magnetismo",
+                "3006905": "Matemáticas Especiales",
+                "3007826": "Termodinámica General",
+                "3006829": "Química General",
+                "1000020": "Física de Oscilaciones, Ondas y Óptica",
+                "3010435": "Fundamentos de Programación",
+                "3006838": "Laboratorio de Introducción a la Bioquímica",
+                "3006837": "Introducción a la Bioquímica",
+                "1000018": "Física Moderna",
+                "3006872": "Taller I (Dibujo para Ingeniería)",
+                "3006861": "Metrología",
+                "3006841": "Biofísica",
+                "3006852": "Laboratorio de Física Moderna",
+                "3006873": "Taller II (Diseño Mecánico)",
+                "3006854": "Mecánica Cuántica",
+                "3006845": "Fundamentos de Ingeniería de Materiales",
+                "3006874": "Taller III (Circuitos y Dispositivos Electromagnéticos)",
+                "3010225": "Óptica",
+                "3006882": "Física de Radiaciones",
+                "3006875": "Taller IV (Electrónica Análoga)",
+                "3006843": "Estado Sólidos",
+                "3006876": "Taller V (Electrónica Digital y Microcontroladores)",
+                "3006944": "Trabajo de Grado"
+            },
             "semestres": {
                 "1": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "1000008",
+                        "1000004",
+                        "3006851"
+                    ],
                     "creditos": {}
                 },
                 "2": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "1000003",
+                        "1000005",
+                        "1000019"
+                    ],
                     "creditos": {}
                 },
                 "3": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "1000007",
+                        "1000006",
+                        "3006914",
+                        "1000017"
+                    ],
                     "creditos": {}
                 },
                 "4": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3006905",
+                        "3007826",
+                        "3006829",
+                        "1000020"
+                    ],
                     "creditos": {}
                 },
                 "5": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3010435",
+                        "3006838",
+                        "3006837",
+                        "1000018"
+                    ],
                     "creditos": {}
                 },
                 "6": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3006872",
+                        "3006861",
+                        "3006841",
+                        "3006852"
+                    ],
                     "creditos": {}
                 },
                 "7": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3006873",
+                        "3006854",
+                        "3006845"
+                    ],
                     "creditos": {}
                 },
                 "8": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3006874",
+                        "3010225",
+                        "3006882"
+                    ],
                     "creditos": {}
                 },
                 "9": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3006875",
+                        "3006843"
+                    ],
                     "creditos": {}
                 },
                 "10": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3006876",
+                        "3006944"
+                    ],
                     "creditos": {}
                 }
             },
@@ -283,34 +422,83 @@
             "valor_sede": "6",
             "valor_facultad": "1",
             "valor_plan": "5",
-            "nombres_asignaturas": {},
+            "nombres_asignaturas": {
+                "3010334": "Fundamentos de Matemáticas",
+                "1000004": "Cálculo Diferencial",
+                "1000003": "Álgebra Lineal",
+                "3010390": "Fundamentos de Matemáticas Discretas",
+                "1000005": "Cálculo Integral",
+                "1000019": "Física Mecánica",
+                "3010389": "Fundamentos de Análisis",
+                "1000007": "Ecuaciones Diferenciales",
+                "3010394": "Teoría básica de la probabilidad",
+                "3006994": "Introducción al análisis real",
+                "1000006": "Cálculo en Varias Variables",
+                "3006993": "Grupos y Anillos",
+                "3006892": "Integración y series",
+                "3006913": "Topología General",
+                "3006885": "Álgebra Multilineal y Formas Canónicas",
+                "3006887": "Análisis Vectorial",
+                "3006735": "Variable Compleja",
+                "3006911": "Teoría de Cuerpos",
+                "3006886": "Análisis Numérico",
+                "3006904": "Lógica Matemática",
+                "3006946": "Trabajo de grado"
+            },
             "semestres": {
                 "1": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3010334",
+                        "1000004",
+                        "1000003"
+                    ],
                     "creditos": {}
                 },
                 "2": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3010390",
+                        "1000005",
+                        "1000019"
+                    ],
                     "creditos": {}
                 },
                 "3": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3010389",
+                        "1000007",
+                        "3010394"
+                    ],
                     "creditos": {}
                 },
                 "4": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3006994",
+                        "1000006",
+                        "3006993"
+                    ],
                     "creditos": {}
                 },
                 "5": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3006892",
+                        "3006913",
+                        "3006885"
+                    ],
                     "creditos": {}
                 },
                 "6": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3006887",
+                        "3006735",
+                        "3006911"
+                    ],
                     "creditos": {}
                 },
                 "7": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3006886",
+                        "3006904"
+                    ],
                     "creditos": {}
                 },
                 "8": {
@@ -322,7 +510,9 @@
                     "creditos": {}
                 },
                 "10": {
-                    "asignaturas": [],
+                    "asignaturas": [
+                        "3006946"
+                    ],
                     "creditos": {}
                 }
             },
@@ -333,8 +523,6 @@
             "clave": "1102:3065:3647",
             "codigo": "3647",
             "nombre": "Ciencias de la Computación",
-            "sede": "Medellín",
-            "nivel": "Profesional - Pregrado",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3065",
@@ -431,6 +619,8 @@
                     "creditos": {}
                 }
             },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
             "malla_verificada": false,
             "fuente_oficial": "https://ciencias.medellin.unal.edu.co/121"
         },
@@ -495,8 +685,16 @@
             "fuente_oficial": "https://ciencias.medellin.unal.edu.co/128"
         },
         "1102:3068:3528": {
+            "clave": "1102:3068:3528",
             "codigo": "3528",
             "nombre": "Ingeniería Administrativa",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3068",
+            "facultad_nombre": "3068 FACULTAD DE MINAS",
+            "valor_sede": "6",
+            "valor_facultad": "6",
+            "valor_plan": "2",
             "nombres_asignaturas": {
                 "1000004": "Cálculo Diferencial",
                 "1000008": "Geometría Vectorial y Analítica",
@@ -639,19 +837,19 @@
             "nivel": "Profesional - Pregrado",
             "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
             "creditos_totales": 166,
-            "malla_verificada": true,
+            "malla_verificada": true
+        },
+        "1102:3068:3534": {
+            "clave": "1102:3068:3534",
+            "codigo": "3534",
+            "nombre": "Ingeniería en Sistemas e Informática",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3068",
             "facultad_nombre": "3068 FACULTAD DE MINAS",
             "valor_sede": "6",
             "valor_facultad": "6",
-            "valor_plan": "2",
-            "clave": "1102:3068:3528"
-        },
-        "1102:3068:3534": {
-            "codigo": "3534",
-            "nombre": "Ingeniería en Sistemas e Informática",
+            "valor_plan": "14",
             "nombres_asignaturas": {
                 "1000003": "Álgebra Lineal",
                 "1000005": "Cálculo Integral",
@@ -782,19 +980,19 @@
                         "libre_eleccion": 5
                     }
                 }
-            },
+            }
+        },
+        "1102:3068:3529": {
+            "clave": "1102:3068:3529",
+            "codigo": "3529",
+            "nombre": "Ingeniería Ambiental",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3068",
             "facultad_nombre": "3068 FACULTAD DE MINAS",
             "valor_sede": "6",
             "valor_facultad": "6",
-            "valor_plan": "14",
-            "clave": "1102:3068:3534"
-        },
-        "1102:3068:3529": {
-            "codigo": "3529",
-            "nombre": "Ingeniería Ambiental",
+            "valor_plan": "4",
             "nombres_asignaturas": {
                 "1000004": "Cálculo Diferencial",
                 "1000008": "Geometría Vectorial y Analítica",
@@ -936,19 +1134,19 @@
             },
             "sede": "Medellín",
             "nivel": "Profesional - Pregrado",
-            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
+            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado"
+        },
+        "1102:3068:3530": {
+            "clave": "1102:3068:3530",
+            "codigo": "3530",
+            "nombre": "Ingeniería Civil",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3068",
             "facultad_nombre": "3068 FACULTAD DE MINAS",
             "valor_sede": "6",
             "valor_facultad": "6",
-            "valor_plan": "4",
-            "clave": "1102:3068:3529"
-        },
-        "1102:3068:3530": {
-            "codigo": "3530",
-            "nombre": "Ingeniería Civil",
+            "valor_plan": "6",
             "nombres_asignaturas": {
                 "1000004": "Cálculo Diferencial",
                 "1000008": "Geometría Vectorial y Analítica",
@@ -1095,19 +1293,19 @@
             "nivel": "Profesional - Pregrado",
             "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
             "creditos_totales": 180,
-            "malla_verificada": true,
+            "malla_verificada": true
+        },
+        "1102:3068:3531": {
+            "clave": "1102:3068:3531",
+            "codigo": "3531",
+            "nombre": "Ingeniería de Control",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3068",
             "facultad_nombre": "3068 FACULTAD DE MINAS",
             "valor_sede": "6",
             "valor_facultad": "6",
-            "valor_plan": "6",
-            "clave": "1102:3068:3530"
-        },
-        "1102:3068:3531": {
-            "codigo": "3531",
-            "nombre": "Ingeniería de Control",
+            "valor_plan": "8",
             "nombres_asignaturas": {
                 "1000004": "Cálculo Diferencial",
                 "1000008": "Geometría Vectorial y Analítica",
@@ -1257,19 +1455,19 @@
             "nivel": "Profesional - Pregrado",
             "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
             "creditos_totales": 171,
-            "malla_verificada": true,
+            "malla_verificada": true
+        },
+        "1102:3068:3532": {
+            "clave": "1102:3068:3532",
+            "codigo": "3532",
+            "nombre": "Ingeniería de Minas y Metalurgia",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3068",
             "facultad_nombre": "3068 FACULTAD DE MINAS",
             "valor_sede": "6",
             "valor_facultad": "6",
-            "valor_plan": "8",
-            "clave": "1102:3068:3531"
-        },
-        "1102:3068:3532": {
-            "codigo": "3532",
-            "nombre": "Ingeniería de Minas y Metalurgia",
+            "valor_plan": "10",
             "nombres_asignaturas": {
                 "1000004": "Cálculo Diferencial",
                 "1000008": "Geometría Vectorial y Analítica",
@@ -1419,19 +1617,19 @@
             },
             "sede": "Medellín",
             "nivel": "Profesional - Pregrado",
-            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
+            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado"
+        },
+        "1102:3068:3533": {
+            "clave": "1102:3068:3533",
+            "codigo": "3533",
+            "nombre": "Ingeniería de Petróleos",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3068",
             "facultad_nombre": "3068 FACULTAD DE MINAS",
             "valor_sede": "6",
             "valor_facultad": "6",
-            "valor_plan": "10",
-            "clave": "1102:3068:3532"
-        },
-        "1102:3068:3533": {
-            "codigo": "3533",
-            "nombre": "Ingeniería de Petróleos",
+            "valor_plan": "12",
             "nombres_asignaturas": {
                 "1000004": "Cálculo Diferencial",
                 "1000008": "Geometría Vectorial y Analítica",
@@ -1444,7 +1642,6 @@
                 "3010469": "Procesos Sedimentarios y Geología de Yacimientos",
                 "1000006": "Cálculo en Varias Variables",
                 "1000007": "Ecuaciones Diferenciales",
-                "1000017": "Física, Electricidad y Magnetismo",
                 "3010478": "Termodinámica General",
                 "3007309": "Ciencia de los Materiales",
                 "3010651": "Estadística I",
@@ -1466,7 +1663,8 @@
                 "3010439": "Proyecto Integrado de Ingeniería",
                 "3010465": "Inyección de Agua",
                 "3007427": "Operaciones de Campo",
-                "3007486": "Trabajo de Grado"
+                "3007486": "Trabajo de Grado",
+                "1000017": "Física de Electricidad y Magnetismo"
             },
             "semestres": {
                 "1": {
@@ -1494,9 +1692,9 @@
                     "asignaturas": [
                         "1000006",
                         "1000007",
-                        "1000017",
                         "3007309",
-                        "3010478"
+                        "3010478",
+                        "1000017"
                     ],
                     "creditos": {}
                 },
@@ -1575,28 +1773,26 @@
             "sede": "Medellín",
             "nivel": "Profesional - Pregrado",
             "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
-            "creditos_totales": 172,
+            "creditos_totales": 172
+        },
+        "1102:3068:3535": {
+            "clave": "1102:3068:3535",
+            "codigo": "3535",
+            "nombre": "Ingeniería Eléctrica",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3068",
             "facultad_nombre": "3068 FACULTAD DE MINAS",
             "valor_sede": "6",
             "valor_facultad": "6",
-            "valor_plan": "12",
-            "clave": "1102:3068:3533"
-        },
-        "1102:3068:3535": {
-            "codigo": "3535",
-            "nombre": "Ingeniería Eléctrica",
+            "valor_plan": "16",
             "nombres_asignaturas": {
                 "1000004": "Cálculo Diferencial",
-                "1000008": "Geometría Analítica y Vectorial",
                 "1000005": "Cálculo Integral",
                 "1000003": "Álgebra Lineal",
                 "1000019": "Física Mecánica",
                 "1000007": "Ecuaciones Diferenciales",
                 "1000006": "Cálculo en Varias Variables",
-                "1000017": "Física, Electricidad y Magnetismo",
                 "3007756": "Laboratorio de Circuitos I",
                 "3006905": "Matemáticas Especiales",
                 "3007424": "Trabajo de Grado",
@@ -1626,14 +1822,16 @@
                 "3010482": "Diseño de Redes de Transmisión y Distribución",
                 "3010492": "Sistemas de Protecciones Eléctricas",
                 "3010439": "Proyecto Integrado de Ingeniería",
-                "3010481": "Análisis de Circuitos Eléctricos I"
+                "3010481": "Análisis de Circuitos Eléctricos I",
+                "1000008": "Geometría Vectorial y Analítica",
+                "1000017": "Física de Electricidad y Magnetismo"
             },
             "semestres": {
                 "1": {
                     "asignaturas": [
                         "1000004",
-                        "1000008",
-                        "3009531"
+                        "3009531",
+                        "1000008"
                     ],
                     "creditos": {
                         "libre_eleccion": 6
@@ -1654,9 +1852,9 @@
                     "asignaturas": [
                         "1000006",
                         "1000007",
-                        "1000017",
                         "3010435",
-                        "3010478"
+                        "3010478",
+                        "1000017"
                     ],
                     "creditos": {}
                 },
@@ -1737,19 +1935,19 @@
             "sede": "Medellín",
             "nivel": "Profesional - Pregrado",
             "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
-            "malla_verificada": true,
+            "malla_verificada": true
+        },
+        "1102:3068:3536": {
+            "clave": "1102:3068:3536",
+            "codigo": "3536",
+            "nombre": "Ingeniería Geológica",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3068",
             "facultad_nombre": "3068 FACULTAD DE MINAS",
             "valor_sede": "6",
             "valor_facultad": "6",
-            "valor_plan": "16",
-            "clave": "1102:3068:3535"
-        },
-        "1102:3068:3536": {
-            "codigo": "3536",
-            "nombre": "Ingeniería Geológica",
+            "valor_plan": "18",
             "nombres_asignaturas": {
                 "1000004": "Cálculo Diferencial",
                 "1000008": "Geometría Vectorial y Analítica",
@@ -1897,19 +2095,19 @@
             "nivel": "Profesional - Pregrado",
             "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
             "creditos_totales": 180,
-            "malla_verificada": true,
+            "malla_verificada": true
+        },
+        "1102:3068:3537": {
+            "clave": "1102:3068:3537",
+            "codigo": "3537",
+            "nombre": "Ingeniería Industrial",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3068",
             "facultad_nombre": "3068 FACULTAD DE MINAS",
             "valor_sede": "6",
             "valor_facultad": "6",
-            "valor_plan": "18",
-            "clave": "1102:3068:3536"
-        },
-        "1102:3068:3537": {
-            "codigo": "3537",
-            "nombre": "Ingeniería Industrial",
+            "valor_plan": "20",
             "nombres_asignaturas": {
                 "1000004": "Cálculo Diferencial",
                 "1000008": "Geometría Vectorial y Analítica",
@@ -1920,7 +2118,6 @@
                 "3007202": "Fundamentos de Economía",
                 "3010651": "Estadística I",
                 "1000007": "Ecuaciones Diferenciales",
-                "1000017": "Física, Electricidad y Magnetismo",
                 "3010425": "Teoría Administrativa y Organizacional",
                 "3006915": "Estadística II",
                 "3010478": "Termodinámica General",
@@ -1948,7 +2145,8 @@
                 "3010411": "Innovación y Gestión Tecnológica",
                 "3010439": "Proyecto Integrado de Ingeniería",
                 "3011166": "Fundamentos de Sistemas de Información e Inteligencia de Negocios",
-                "3007335": "Trabajo de Grado"
+                "3007335": "Trabajo de Grado",
+                "1000017": "Física de Electricidad y Magnetismo"
             },
             "semestres": {
                 "1": {
@@ -1975,9 +2173,9 @@
                 "3": {
                     "asignaturas": [
                         "1000007",
-                        "1000017",
                         "3010425",
-                        "3010651"
+                        "3010651",
+                        "1000017"
                     ],
                     "creditos": {
                         "fundamentacion_optativa": 4
@@ -2065,19 +2263,19 @@
             "nivel": "Profesional - Pregrado",
             "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
             "creditos_totales": 174,
-            "malla_verificada": true,
+            "malla_verificada": true
+        },
+        "1102:3068:3538": {
+            "clave": "1102:3068:3538",
+            "codigo": "3538",
+            "nombre": "Ingeniería Mecánica",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3068",
             "facultad_nombre": "3068 FACULTAD DE MINAS",
             "valor_sede": "6",
             "valor_facultad": "6",
-            "valor_plan": "20",
-            "clave": "1102:3068:3537"
-        },
-        "1102:3068:3538": {
-            "codigo": "3538",
-            "nombre": "Ingeniería Mecánica",
+            "valor_plan": "22",
             "nombres_asignaturas": {
                 "1000004": "Cálculo Diferencial",
                 "1000008": "Geometría Vectorial y Analítica",
@@ -2090,7 +2288,6 @@
                 "3007309": "Ciencia de Materiales",
                 "1000006": "Cálculo en Varias Variables",
                 "1000007": "Ecuaciones Diferenciales",
-                "1000017": "Física, Electricidad y Magnetismo",
                 "3010435": "Fundamentos de Programación",
                 "3010478": "Termodinámica General",
                 "3010434": "Estática",
@@ -2118,7 +2315,8 @@
                 "3010432": "Diseño Mecánico Integrado",
                 "3007440": "Trabajo de Grado",
                 "3010418": "Modelamiento: Electromecánica",
-                "3011065": "Diseño Mecánico Básico"
+                "3011065": "Diseño Mecánico Básico",
+                "1000017": "Física de Electricidad y Magnetismo"
             },
             "semestres": {
                 "1": {
@@ -2148,10 +2346,10 @@
                     "asignaturas": [
                         "1000006",
                         "1000007",
-                        "1000017",
                         "3010434",
                         "3010435",
-                        "3010478"
+                        "3010478",
+                        "1000017"
                     ],
                     "creditos": {}
                 },
@@ -2231,19 +2429,19 @@
             "sede": "Medellín",
             "nivel": "Profesional - Pregrado",
             "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
-            "malla_verificada": true,
+            "malla_verificada": true
+        },
+        "1102:3068:3539": {
+            "clave": "1102:3068:3539",
+            "codigo": "3539",
+            "nombre": "Ingeniería Química",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3068",
             "facultad_nombre": "3068 FACULTAD DE MINAS",
             "valor_sede": "6",
             "valor_facultad": "6",
-            "valor_plan": "22",
-            "clave": "1102:3068:3538"
-        },
-        "1102:3068:3539": {
-            "codigo": "3539",
-            "nombre": "Ingeniería Química",
+            "valor_plan": "24",
             "nombres_asignaturas": {
                 "1000004": "Cálculo Diferencial",
                 "1000008": "Geometría Vectorial y Analítica",
@@ -2383,15 +2581,7 @@
             },
             "sede": "Medellín",
             "nivel": "Profesional - Pregrado",
-            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado",
-            "sede_codigo": "1102",
-            "sede_nombre": "1102 SEDE MEDELLÍN",
-            "facultad_codigo": "3068",
-            "facultad_nombre": "3068 FACULTAD DE MINAS",
-            "valor_sede": "6",
-            "valor_facultad": "6",
-            "valor_plan": "24",
-            "clave": "1102:3068:3539"
+            "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado"
         }
     }
 }

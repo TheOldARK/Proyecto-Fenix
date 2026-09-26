@@ -263,32 +263,29 @@ class DialogoPlan(QDialog):
             f"color: {COLOR_VERDE}; font-size: 11px; font-weight: 700; margin-top: 5px;"
         )
         layout.addWidget(paso_plan)
-        self.selector = QComboBox()
-        self.selector.view().setStyleSheet(
+        estilo_selector = (
             f"background-color: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO}; "
             f"selection-background-color: {COLOR_VERDE}; selection-color: #FFFFFF;"
         )
-        self.selector.addItem("Selecciona tu plan de estudios…", None)
-        for codigo, plan in sorted(
-            planes.items(),
-            key=lambda item: (
-                clave_alfabetica(
-                    f"{item[1].nombre} {item[1].sede_nombre} {item[1].facultad_nombre}"
-                ),
-                -codigo_numerico_plan(item[1].codigo),
-                str(item[0]),
-            ),
+        self.selector_facultad = QComboBox()
+        self.selector_facultad.view().setStyleSheet(estilo_selector)
+        self.selector_facultad.addItem("Selecciona una facultad…", None)
+        facultades = {}
+        for plan in planes.values():
+            clave_facultad = f"{plan.sede_codigo}:{plan.facultad_codigo}"
+            nombre_facultad = " · ".join(
+                parte for parte in (plan.sede_nombre, plan.facultad_nombre) if parte
+            ) or "Facultad sin nombre"
+            facultades.setdefault(clave_facultad, nombre_facultad)
+        for clave_facultad, nombre_facultad in sorted(
+            facultades.items(), key=lambda item: clave_alfabetica(item[1])
         ):
-            ubicacion = " · ".join(
-                parte for parte in (
-                    plan.sede_nombre,
-                    plan.facultad_nombre,
-                ) if parte
-            )
-            etiqueta = f"{plan.nombre} · {plan.codigo}"
-            if ubicacion:
-                etiqueta += f" · {ubicacion}"
-            self.selector.addItem(etiqueta, codigo)
+            self.selector_facultad.addItem(nombre_facultad, clave_facultad)
+        layout.addWidget(self.selector_facultad)
+
+        self.selector = QComboBox()
+        self.selector.view().setStyleSheet(estilo_selector)
+        self.selector.addItem("Selecciona tu plan de estudios…", None)
         layout.addWidget(self.selector)
         paso_avance = QLabel("PASO 2 · Indica las materias que ya aprobaste")
         paso_avance.setStyleSheet(
@@ -381,12 +378,18 @@ class DialogoPlan(QDialog):
             codigo_base(codigo)
             for codigo in (estudiante or {}).get("materias_aprobadas", [])
         }
-        indice_plan_guardado = self.selector.findData(
-            (estudiante or {}).get("plan_estudios")
-        )
-        if indice_plan_guardado > 0:
-            self.selector.setCurrentIndex(indice_plan_guardado)
         self.aprobadas_iniciales = aprobadas
+        plan_guardado = str((estudiante or {}).get("plan_estudios") or "")
+        plan_preferido = planes.get(plan_guardado)
+        if plan_preferido is not None:
+            clave_facultad = f"{plan_preferido.sede_codigo}:{plan_preferido.facultad_codigo}"
+            indice_facultad = self.selector_facultad.findData(clave_facultad)
+            if indice_facultad > 0:
+                self.selector_facultad.setCurrentIndex(indice_facultad)
+        self._actualizar_carreras_facultad(plan_guardado)
+        self.selector_facultad.currentIndexChanged.connect(
+            lambda _indice: self._actualizar_carreras_facultad()
+        )
         self.selector.currentIndexChanged.connect(self.actualizar_materias)
         self.boton_agregar_materias.clicked.connect(self.agregar_materias)
         self.boton_quitar_materias.clicked.connect(self.quitar_materias)
@@ -398,6 +401,33 @@ class DialogoPlan(QDialog):
                 self.materias_elegidas, self.materias_disponibles, [item]
             )
         )
+        self.actualizar_materias()
+
+    def _actualizar_carreras_facultad(self, codigo_preferido=None):
+        """Muestra solo carreras de la facultad elegida, conservando el plan actual."""
+        clave_facultad = self.selector_facultad.currentData()
+        self.selector.blockSignals(True)
+        self.selector.clear()
+        self.selector.addItem("Selecciona tu carrera…", None)
+        opciones = [
+            (codigo, plan)
+            for codigo, plan in self.planes.items()
+            if clave_facultad is not None
+            and f"{plan.sede_codigo}:{plan.facultad_codigo}" == clave_facultad
+        ]
+        for codigo, plan in sorted(
+            opciones,
+            key=lambda item: (
+                clave_alfabetica(item[1].nombre),
+                -codigo_numerico_plan(item[1].codigo),
+                str(item[0]),
+            ),
+        ):
+            self.selector.addItem(f"{plan.nombre} · {plan.codigo}", codigo)
+        indice = self.selector.findData(codigo_preferido) if codigo_preferido else -1
+        if indice > 0:
+            self.selector.setCurrentIndex(indice)
+        self.selector.blockSignals(False)
         self.actualizar_materias()
 
     def codigo_plan(self):

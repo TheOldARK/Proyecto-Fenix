@@ -99,6 +99,32 @@ def _hora_legible(epoch) -> str:
         return "Desconocida"
 
 
+def planes_con_malla_pendiente(planes, codigos_omitidos):
+    """Devuelve planes de Medellín con ruta SIA lista, pero sin materias."""
+    valores_pendientes = {"PENDIENTE", "PENDIENTE_CONFIRMAR_EN_SIA", "POR_CONFIRMAR"}
+    salida = {}
+    for codigo in codigos_omitidos:
+        plan = planes.get(str(codigo))
+        if plan is None or str(plan.sede_codigo or "") != "1102":
+            continue
+        campos = (
+            plan.sede_codigo, plan.facultad_codigo, plan.codigo,
+            plan.valor_sede, plan.valor_facultad, plan.valor_plan,
+        )
+        if not all(
+            str(valor or "").strip()
+            and str(valor).strip().upper() not in valores_pendientes
+            for valor in campos
+        ):
+            continue
+        tiene_malla = bool(plan.nombres_asignaturas) and any(
+            semestre.asignaturas for semestre in plan.semestres
+        )
+        if not tiene_malla:
+            salida[str(codigo)] = plan
+    return salida
+
+
 class BloqueoGestor:
     """Impide abrir dos gestores y lanzar el mismo plan dos veces."""
 
@@ -448,8 +474,10 @@ def cargar_icono(app):
 class VentanaGestor(QWidget):
     def __init__(self, app):
         super().__init__()
-        disponibles, omitidos = seleccionar_planes_publicables(cargar_planes())
+        self.planes_catalogo = cargar_planes()
+        disponibles, omitidos = seleccionar_planes_publicables(self.planes_catalogo)
         self.planes = disponibles
+        self.planes_pendientes = planes_con_malla_pendiente(self.planes_catalogo, omitidos)
         self.planes_referencia = seleccionar_planes_referencia_libres(disponibles)
         self.omitidos = omitidos
         self.worker = None
@@ -527,7 +555,10 @@ class VentanaGestor(QWidget):
         self.progreso = QProgressBar()
         self.progreso.setRange(0, 100)
         self.progreso.setValue(0)
-        self.estado = QLabel(f"{len(disponibles)} carreras listas · {len(omitidos)} planes incompletos omitidos.")
+        self.estado = QLabel(
+            f"{len(disponibles)} carreras listas · "
+            f"{len(self.planes_pendientes)} con ruta SIA lista, pendientes de completar la malla."
+        )
         self.estado.setWordWrap(True)
         self.resumen_rendimiento = QLabel(self._texto_rendimiento())
         self.resumen_rendimiento.setWordWrap(True)
@@ -620,7 +651,11 @@ class VentanaGestor(QWidget):
     def recargar_planes(self):
         seleccion_previa = set(self.seleccionados())
         self.registros = leer_estadisticas()
-        self.planes, self.omitidos = seleccionar_planes_publicables(cargar_planes())
+        self.planes_catalogo = cargar_planes()
+        self.planes, self.omitidos = seleccionar_planes_publicables(self.planes_catalogo)
+        self.planes_pendientes = planes_con_malla_pendiente(
+            self.planes_catalogo, self.omitidos
+        )
         self.planes_referencia = seleccionar_planes_referencia_libres(self.planes)
         self._poblar_tabla(self.planes, seleccion_previa)
         self.selector_plan_sede.clear()
@@ -630,7 +665,10 @@ class VentanaGestor(QWidget):
                 str(codigo),
             )
         self.cantidad.setMaximum(max(1, len(self.planes) + bool(self.planes_referencia)))
-        self.estado.setText(f"{len(self.planes)} carreras listas · {len(self.omitidos)} planes incompletos omitidos.")
+        self.estado.setText(
+            f"{len(self.planes)} carreras listas · "
+            f"{len(self.planes_pendientes)} con ruta SIA lista, pendientes de completar la malla."
+        )
         self.boton_iniciar.setEnabled(bool(self.planes or self.planes_referencia))
 
     def _poblar_tabla(self, planes, seleccion_previa=None):
@@ -641,7 +679,9 @@ class VentanaGestor(QWidget):
         else:
             seleccion_previa = set(seleccion_previa)
         tiene_fila_sede = bool(self.planes_referencia)
-        self.tabla.setRowCount(len(planes) + (1 if tiene_fila_sede else 0))
+        self.tabla.setRowCount(
+            len(planes) + len(self.planes_pendientes) + (1 if tiene_fila_sede else 0)
+        )
         self.tabla.setColumnCount(6)
         self.tabla.setHorizontalHeaderLabels(["Carrera / activar", "Facultad", "Última actualización", "Estado", "Avance", "Última duración"])
         encabezado = self.tabla.horizontalHeader()
@@ -664,6 +704,13 @@ class VentanaGestor(QWidget):
                 key=lambda item: (item[1].facultad_nombre, item[1].nombre),
             )
         )
+        filas_ordenadas.extend(
+            (str(codigo), plan)
+            for codigo, plan in sorted(
+                self.planes_pendientes.items(),
+                key=lambda item: (item[1].facultad_nombre, item[1].nombre),
+            )
+        )
         for fila, (codigo, plan) in enumerate(filas_ordenadas):
             codigo = str(codigo)
             self.codigos_fila.append(codigo)
@@ -671,8 +718,15 @@ class VentanaGestor(QWidget):
             materia = QTableWidgetItem(
                 "Libre Elección de sede · Medellín" if es_sede else plan.nombre
             )
-            materia.setFlags(materia.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            materia.setCheckState(Qt.CheckState.Checked if codigo in seleccion_previa else Qt.CheckState.Unchecked)
+            esta_pendiente = not es_sede and codigo in self.planes_pendientes
+            if esta_pendiente:
+                materia.setToolTip(
+                    "La carrera tiene ruta SIA configurada, pero aún no tiene materias "
+                    "asignadas en su malla. Complétala en el editor de planes para activar su publicador."
+                )
+            else:
+                materia.setFlags(materia.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                materia.setCheckState(Qt.CheckState.Checked if codigo in seleccion_previa else Qt.CheckState.Unchecked)
             materia.setData(Qt.ItemDataRole.UserRole, codigo)
             if es_sede:
                 materia.setToolTip(
@@ -687,7 +741,10 @@ class VentanaGestor(QWidget):
             self.tabla.setItem(fila, 2, QTableWidgetItem(_hora_legible(registro.get("ultima_actualizacion_exitosa"))))
             self.tabla.setItem(
                 fila, 3,
-                QTableWidgetItem("Catálogo compartido" if es_sede else "Listo"),
+                QTableWidgetItem(
+                    "Catálogo compartido" if es_sede else
+                    "Pendiente: asigna materias a la malla" if esta_pendiente else "Listo"
+                ),
             )
             self.tabla.setItem(fila, 4, QTableWidgetItem("—"))
             duracion = registro.get("duracion_segundos")

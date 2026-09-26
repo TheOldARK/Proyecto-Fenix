@@ -1,3 +1,13 @@
+# Fénix 2.0.5
+
+- Ciencias aparece como una facultad seleccionable al configurar la carrera; el
+  menú de carreras se filtra por facultad y recuerda el plan del estudiante.
+- Se incluyen Estadística e Ingeniería Física, junto con los planes de Ciencias
+  de la Computación e Ingeniería Biológica ya registrados.
+- El gestor de publicadores incorpora las carreras nuevas automáticamente. Los
+  planes con ruta SIA lista pero sin materias se muestran como pendientes y no
+  se pueden iniciar accidentalmente.
+
 # Fénix 2.0.4
 
 - Al buscar una asignatura, Fénix muestra una sección dinámica de “No disponibles”
