@@ -1,0 +1,96 @@
+name: Publicar paquetes nativos verificados 2.1.1
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [release-multiplataforma-2.1.1]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publicar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Fenix-macos-arm64
+          run-id: 36259067322
+          github-token: ${{ github.token }}
+          path: paquetes/macos-arm64
+      - uses: actions/download-artifact@v4
+        with:
+          name: Fenix-macos-x64
+          run-id: 36259067322
+          github-token: ${{ github.token }}
+          path: paquetes/macos-x64
+      - uses: actions/download-artifact@v4
+        with:
+          name: Fenix-linux-x64
+          run-id: 36261671358
+          github-token: ${{ github.token }}
+          path: paquetes/linux-x64
+      - name: Verificar y añadir archivos sin reemplazar los existentes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          import hashlib, json, os
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+          from urllib.parse import urlencode
+
+          base = 'https://api.github.com/repos/TheOldARK/Proyecto-Fenix'
+          headers = {'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                     'Accept': 'application/vnd.github+json', 'User-Agent': 'Fenix-release'}
+          def api(url):
+              with urlopen(Request(url, headers=headers), timeout=60) as r:
+                  return json.load(r)
+          release = api(base + '/releases/tags/v2.1.1')
+          assert release['id'] == 397279983 and not release['draft'] and not release['prerelease']
+          existentes = {a['name']: a for a in release['assets']}
+          originales = {a['name']: (a['id'], a['size'], a.get('digest')) for a in release['assets']}
+          esperados = {
+              'Fenix-2.1.1-macos-arm64.zip': '202acb2c9571d0552a46a3a4d8a7edeb82f0910c77631d5ff1325b713c707503',
+              'Fenix-2.1.1-macos-x64.zip': '58fffd1f9c213a5940c0a98233ea5d7896d1b0069fe2d62e3c5affd3bd905cef',
+              'Fenix-2.1.1-linux-x64.tar.gz': '9230b1c0c43c042406760b4668745f2125f66ba7517138bb0409fa8dcd760980',
+          }
+          archivos = []
+          for nombre, esperado in esperados.items():
+              rutas = list(Path('paquetes').rglob(nombre))
+              assert len(rutas) == 1, nombre
+              ruta = rutas[0]
+              with ruta.open('rb') as f:
+                  assert hashlib.file_digest(f, 'sha256').hexdigest() == esperado, nombre
+              sha = ruta.with_name(nombre + '.sha256')
+              assert sha.read_text().split()[0] == esperado
+              archivos.extend([ruta, sha])
+          for nombre in ('LEEME_MACOS.txt', 'LEEME_LINUX.txt'):
+              rutas = list(Path('paquetes').rglob(nombre))
+              assert rutas and all(r.read_bytes() == rutas[0].read_bytes() for r in rutas), nombre
+              archivos.append(rutas[0])
+
+          upload = release['upload_url'].split('{')[0]
+          for ruta in archivos:
+              with ruta.open('rb') as f:
+                  digest = 'sha256:' + hashlib.file_digest(f, 'sha256').hexdigest()
+              if ruta.name in existentes:
+                  a = existentes[ruta.name]
+                  assert a['size'] == ruta.stat().st_size and a.get('digest') == digest, ruta.name
+                  print('Ya publicado y verificado:', ruta.name, flush=True)
+                  continue
+              print('Publicando:', ruta.name, flush=True)
+              h = dict(headers, **{'Content-Type': 'application/octet-stream', 'Content-Length': str(ruta.stat().st_size)})
+              with ruta.open('rb') as f:
+                  with urlopen(Request(upload + '?' + urlencode({'name': ruta.name}), data=f, headers=h, method='POST'), timeout=300) as r:
+                      a = json.load(r)
+              assert a['size'] == ruta.stat().st_size and a.get('digest') == digest, ruta.name
+              print('SHA-256 correcto:', ruta.name, flush=True)
+
+          final = {a['name']: a for a in api(base + '/releases/tags/v2.1.1')['assets']}
+          for nombre, identidad in originales.items():
+              a = final[nombre]
+              assert (a['id'], a['size'], a.get('digest')) == identidad, nombre
+          print('Archivos publicados. Los assets existentes permanecen intactos.')
