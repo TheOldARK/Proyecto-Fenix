@@ -65,6 +65,16 @@ class InstaladorNativoTests(unittest.TestCase):
         with self.assertRaises(n.Cancelado):
             n.consultar_release('linux-x64', self.cancelar)
 
+    def test_token_de_pruebas_solo_para_api_github(self):
+        with patch.dict(os.environ, {'FENIX_INSTALLER_GITHUB_TOKEN': 'token-de-prueba'}), \
+                patch.object(n, 'build_opener') as construir:
+            n.abrir_url('https://api.github.com/repos/TheOldARK/Proyecto-Fenix/releases')
+            solicitud = construir.return_value.open.call_args.args[0]
+            self.assertEqual(solicitud.get_header('Authorization'), 'Bearer token-de-prueba')
+            n.abrir_url('https://github.com/TheOldARK/Proyecto-Fenix/releases/download/v2.1.1/paquete.zip')
+            solicitud = construir.return_value.open.call_args.args[0]
+            self.assertIsNone(solicitud.get_header('Authorization'))
+
     def test_checksum_complementario(self):
         dato = release('2.1.1')
         asset = dato['assets'][0]

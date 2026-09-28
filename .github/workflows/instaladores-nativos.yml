@@ -47,9 +47,13 @@ jobs:
         run: python -B herramientas/construir_instalador_nativo.py
       - name: Prueba gráfica con descarga real en Mac
         if: runner.os == 'macOS'
+        env:
+          FENIX_INSTALLER_GITHUB_TOKEN: ${{ github.token }}
         run: python -B herramientas/probar_instalador_nativo.py
       - name: Prueba gráfica con descarga real en Linux
         if: runner.os == 'Linux'
+        env:
+          FENIX_INSTALLER_GITHUB_TOKEN: ${{ github.token }}
         run: QT_QPA_PLATFORM=xcb xvfb-run -a python -B herramientas/probar_instalador_nativo.py
       - name: Guardar instalador de prueba (no es una release)
         uses: actions/upload-artifact@v4

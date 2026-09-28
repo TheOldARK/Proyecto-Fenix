@@ -65,15 +65,23 @@ class SoloHTTPS(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         if urlsplit(newurl).scheme != 'https':
             raise RuntimeError('Se rechazó una redirección sin HTTPS.')
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
+        siguiente = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if siguiente and urlsplit(newurl).hostname != urlsplit(req.full_url).hostname:
+            siguiente.remove_header('Authorization')
+        return siguiente
 
 
 def abrir_url(url, timeout=25):
     if urlsplit(url).scheme != 'https':
         raise RuntimeError('La descarga debe utilizar HTTPS.')
     opener = build_opener(HTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())), SoloHTTPS())
-    return opener.open(Request(url, headers={'User-Agent': 'Fenix-Installer-Nativo',
-                                           'Accept': 'application/vnd.github+json'}), timeout=timeout)
+    headers = {'User-Agent': 'Fenix-Installer-Nativo', 'Accept': 'application/vnd.github+json'}
+    # GitHub Actions comparte IP entre muchos proyectos y agota pronto el límite anónimo.
+    # El token temporal solo se usa en las pruebas: nunca se incluye en el ejecutable.
+    token = os.environ.get('FENIX_INSTALLER_GITHUB_TOKEN')
+    if token and urlsplit(url).hostname == 'api.github.com':
+        headers['Authorization'] = f'Bearer {token}'
+    return opener.open(Request(url, headers=headers), timeout=timeout)
 
 
 def seleccionar_release(releases, sistema):
