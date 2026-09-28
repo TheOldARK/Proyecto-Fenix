@@ -1,4 +1,4 @@
-INSTALADORES DESCARGABLES DE FÉNIX — EDICIÓN DE PRUEBA, SIN PUBLICAR EN RELEASES
+INSTALADORES DESCARGABLES DE FÉNIX
 
 Mac: elige macos-arm64 para Apple Silicon, macos-x64 para Intel (macOS 14+).
 Descomprime el ZIP y abre Instalar Fenix.app. La firma es local: todavía no
@@ -28,6 +28,7 @@ FUNCIONAMIENTO
   cierre queda bloqueado brevemente para no dejar la aplicación a medias.
 
 Cierra Fénix antes de instalar encima. No ejecutes dos instaladores a la vez.
-El instalador requiere Internet; no incluye la aplicación ni Chromium.
+El instalador se publica en GitHub Releases y requiere Internet; no incluye
+la aplicación ni Chromium.
 Esto no incorpora actualización automática dentro del cliente Mac/Linux:
 puedes volver a ejecutar este instalador para obtener una versión nueva.
