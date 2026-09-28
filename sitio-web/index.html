@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111614">
+  <meta name="description" content="Fénix te ayuda a explorar materias, comparar grupos y armar tu horario en la Universidad Nacional de Colombia, Sede Medellín. Descarga la versión para Windows, macOS o Linux.">
+  <title>Fénix — Tu horario toma forma</title>
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#descargas">Ir a las descargas</a>
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="#inicio" aria-label="Fénix, ir al inicio"><span class="brand-mark"><img src="assets/logo.png" width="44" height="44" alt=""></span><span>Fénix<span class="brand-period">.</span></span></a>
+      <nav aria-label="Navegación principal"><a href="#como-funciona">Cómo funciona</a><a href="#descargas">Descargar</a><a class="nav-github" href="https://github.com/TheOldARK/Proyecto-Fenix" target="_blank" rel="noopener noreferrer">Ver proyecto ↗</a></nav>
+    </header>
+
+    <main id="inicio">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="eyebrow-line"></span> HECHO PARA LA SEDE MEDELLÍN</p>
+          <h1 id="hero-title">Tu semestre<br>toma <em>forma.</em></h1>
+          <p class="hero-intro">Explora materias, compara grupos y construye un horario que funcione para ti. Fénix pone las opciones sobre la mesa antes de que elijas.</p>
+          <div class="hero-actions"><a class="primary-action" href="#descargas">Descargar Fénix <span aria-hidden="true">↘</span></a><a class="text-action" href="#como-funciona">Conoce la aplicación <span aria-hidden="true">→</span></a></div>
+          <p class="hero-note"><span class="status-dot" aria-hidden="true"></span> Para estudiantes de la Universidad Nacional de Colombia</p>
+        </div>
+        <div class="hero-art" aria-hidden="true"><div class="art-grid">
+          <span class="grid-label">LUN</span><span class="grid-label">MAR</span><span class="grid-label">MIÉ</span>
+          <span class="slot slot-a"><i></i> Cálculo Integral<small>08:00 · 10:00</small></span><span class="slot slot-b"><i></i> Estructura de Datos<small>08:00 · 10:00</small></span><span class="slot slot-c"><i></i> Álgebra Lineal<small>10:00 · 12:00</small></span>
+          <span class="slot slot-empty"></span><span class="slot slot-d"><i></i> Base de Datos I<small>10:00 · 12:00</small></span><span class="slot slot-empty"></span>
+          <span class="slot slot-e"><i></i> Física Mecánica<small>14:00 · 16:00</small></span><span class="slot slot-empty"></span><span class="slot slot-f"><i></i> Programación<small>14:00 · 16:00</small></span>
+        </div><div class="art-stamp">MENOS ADIVINAR.<br>MÁS ELEGIR.</div></div>
+      </section>
+
+      <section class="download-section" id="descargas" aria-labelledby="download-title">
+        <div class="section-heading"><div><p class="eyebrow">01 / EMPIEZA AQUÍ</p><h2 id="download-title">Elige tu sistema.</h2></div><p>Sin instalar Python. Descarga Fénix para tu equipo y comienza a organizar tu horario.</p></div>
+        <div class="download-grid">
+          <article class="download-card" data-os="windows"><div class="card-top"><span class="os-icon" aria-hidden="true">⊞</span><span class="card-index">01</span></div><h3>Windows</h3><p class="card-description">Instalador para Windows de 64 bits. La opción más directa para comenzar.</p><div class="card-spacer"></div><p class="file-note" id="windows-file">Fenix-2.1.1-windows-x64-setup.exe</p><a class="download-button" id="windows-download" href="https://github.com/TheOldARK/Proyecto-Fenix/releases/download/v2.1.1/Fenix-2.1.1-windows-x64-setup.exe">Descargar instalador <span aria-hidden="true">↗</span></a></article>
+          <article class="download-card" data-os="macos"><div class="card-top"><span class="os-icon apple" aria-hidden="true">⌘</span><span class="card-index">02</span></div><h3>macOS</h3><p class="card-description">Elige el procesador de tu Mac. Descomprime el ZIP y abre Instalar Fenix.app; descargará la versión compatible más reciente. Requiere macOS 14 o posterior. Aún no está notarizado por Apple.</p><fieldset class="chip-choice"><legend>Procesador</legend><label><input type="radio" name="mac-chip" value="arm64" checked><span>Apple Silicon</span></label><label><input type="radio" name="mac-chip" value="x64"><span>Intel</span></label></fieldset><p class="file-note" id="macos-file">Fenix-Instalador-macos-arm64.zip</p><a class="download-button" id="macos-download" href="https://github.com/TheOldARK/Proyecto-Fenix/releases/download/v2.1.1/Fenix-Instalador-macos-arm64.zip">Descargar instalador <span aria-hidden="true">↗</span></a></article>
+          <article class="download-card" data-os="linux"><div class="card-top"><span class="os-icon linux" aria-hidden="true">✳</span><span class="card-index">03</span></div><h3>Linux</h3><p class="card-description">Instalador x64 para Ubuntu 22.04/24.04. Extrae el archivo y ejecuta Instalar-Fenix, sin sudo; descargará la versión compatible más reciente.</p><div class="card-spacer"></div><p class="file-note" id="linux-file">Fenix-Instalador-linux-x64.tar.gz</p><a class="download-button" id="linux-download" href="https://github.com/TheOldARK/Proyecto-Fenix/releases/download/v2.1.1/Fenix-Instalador-linux-x64.tar.gz">Descargar instalador <span aria-hidden="true">↗</span></a></article>
+        </div>
+        <p class="download-meta"><span id="release-status">Versión 2.1.1 · archivos publicados en GitHub</span> <a href="https://github.com/TheOldARK/Proyecto-Fenix/releases" target="_blank" rel="noopener noreferrer">Ver todas las versiones ↗</a></p>
+      </section>
+
+      <section class="how-section" id="como-funciona" aria-labelledby="how-title"><div class="how-intro"><p class="eyebrow">02 / DE LA OFERTA A TU HORARIO</p><h2 id="how-title">Todo más claro<br><em>de un vistazo.</em></h2></div><div class="steps"><div class="step"><span>01</span><div><h3>Encuentra tus materias</h3><p>Elige tu plan y revisa las asignaturas y grupos disponibles para armar tu semestre.</p></div></div><div class="step"><span>02</span><div><h3>Compara antes de decidir</h3><p>Visualiza horarios, detecta cruces y ten a la vista los trayectos entre campus.</p></div></div><div class="step"><span>03</span><div><h3>Vuelve donde quedaste</h3><p>Tu selección se conserva para que puedas seguir ajustándola después.</p></div></div></div></section>
+    </main>
+    <footer class="site-footer"><span>FÉNIX <span class="footer-flame">◆</span> HAZ ESPACIO PARA LO QUE SIGUE</span><p>Proyecto independiente para estudiantes de la UNAL. No es un sitio oficial de la Universidad Nacional de Colombia.</p><a href="https://github.com/TheOldARK/Proyecto-Fenix" target="_blank" rel="noopener noreferrer">GitHub ↗</a></footer>
+  </div>
+</body>
+</html>
