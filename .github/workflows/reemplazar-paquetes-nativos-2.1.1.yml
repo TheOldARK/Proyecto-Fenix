@@ -1,0 +1,159 @@
+name: Reemplazar paquetes 2.1.1 verificados
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  compilar_windows:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Compilar y diagnosticar cliente Windows
+        shell: pwsh
+        run: .\construir_windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Fenix-windows-x64-limpio
+          path: |
+            dist/Fenix-2.1.1-windows-x64.zip
+            dist/Fenix-2.1.1-windows-x64-setup.exe
+            LEEME.txt
+          if-no-files-found: error
+
+  publicar:
+    needs: compilar_windows
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Fenix-windows-x64-limpio
+          path: paquetes/windows-x64
+      - uses: actions/download-artifact@v4
+        with:
+          name: Fenix-macos-arm64
+          run-id: 36631525198
+          github-token: ${{ github.token }}
+          path: paquetes/macos-arm64
+      - uses: actions/download-artifact@v4
+        with:
+          name: Fenix-macos-x64
+          run-id: 36631525198
+          github-token: ${{ github.token }}
+          path: paquetes/macos-x64
+      - uses: actions/download-artifact@v4
+        with:
+          name: Fenix-linux-x64
+          run-id: 36631528135
+          github-token: ${{ github.token }}
+          path: paquetes/linux-x64
+      - name: Verificar y reemplazar archivos nativos con respaldo
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import shutil
+          import tarfile
+          from urllib.parse import urlencode
+          from urllib.request import Request, urlopen
+          import zipfile
+
+          repo = 'https://api.github.com/repos/TheOldARK/Proyecto-Fenix'
+          headers = {'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                     'Accept': 'application/vnd.github+json',
+                     'User-Agent': 'Fenix-publicacion'}
+          def api(url, method='GET'):
+              with urlopen(Request(url, headers=headers, method=method), timeout=60) as response:
+                  return json.load(response) if method == 'GET' else None
+          for run_id in (36631525198, 36631528135):
+              run = api(f'{repo}/actions/runs/{run_id}')
+              assert run['head_sha'] == '39e1e04ab3609730d58d46fbbeddad92800bcd71'
+              assert run['conclusion'] == 'success'
+
+          items = [
+              Path('paquetes/windows-x64/dist/Fenix-2.1.1-windows-x64.zip'),
+              Path('paquetes/windows-x64/dist/Fenix-2.1.1-windows-x64-setup.exe'),
+              Path('paquetes/macos-arm64/dist/macos/Fenix-2.1.1-macos-arm64.zip'),
+              Path('paquetes/macos-x64/dist/macos/Fenix-2.1.1-macos-x64.zip'),
+              Path('paquetes/linux-x64/dist/linux/Fenix-2.1.1-linux-x64.tar.gz'),
+          ]
+          forbidden = {'herramientas', 'boto3', 'botocore', 's3transfer', 'jmespath',
+                       'fenixgestor.exe', 'fenixpublicador.exe'}
+          archivos = []
+          for package in items:
+              checksum = package.with_name(package.name + '.sha256')
+              with package.open('rb') as source:
+                  digest = hashlib.file_digest(source, 'sha256').hexdigest()
+              if checksum.exists():
+                  assert digest == checksum.read_text().split()[0], package
+              if package.suffix == '.zip':
+                  with zipfile.ZipFile(package) as archive:
+                      names = archive.namelist()
+              elif package.name.endswith('.tar.gz'):
+                  with tarfile.open(package, 'r:gz') as archive:
+                      names = archive.getnames()
+              else:
+                  names = []  # El instalador autocontenido no es un archivo comprimido.
+              assert not any(forbidden.intersection(part.casefold() for part in name.split('/'))
+                             for name in names), package
+              archivos.append(package)
+              if checksum.exists():
+                  archivos.append(checksum)
+
+          release = api(repo + '/releases/tags/v2.1.1')
+          assert release['id'] == 397279983 and not release['draft']
+          upload_url = release['upload_url'].split('{', 1)[0]
+          existentes = {asset['name']: asset for asset in release['assets']}
+          backup_dir = Path('respaldos')
+          backup_dir.mkdir()
+
+          def upload(path):
+              with path.open('rb') as source:
+                  digest = hashlib.file_digest(source, 'sha256').hexdigest()
+              h = dict(headers, **{'Content-Type': 'application/octet-stream',
+                                   'Content-Length': str(path.stat().st_size)})
+              url = upload_url + '?' + urlencode({'name': path.name})
+              with path.open('rb') as source:
+                  with urlopen(Request(url, data=source, headers=h, method='POST'), timeout=900) as response:
+                      result = json.load(response)
+              assert result['digest'] == 'sha256:' + digest and result['size'] == path.stat().st_size
+              return result
+
+          for path in archivos:
+              original = existentes.get(path.name)
+              if original is None:
+                  assert path.name == 'Fenix-2.1.1-windows-x64.zip', path.name
+                  new = upload(path)
+                  print('Archivo Windows restaurado y verificado:', new['name'], new['digest'], flush=True)
+                  continue
+              backup = backup_dir / path.name
+              with urlopen(Request(original['browser_download_url']), timeout=300) as source:
+                  with backup.open('wb') as target:
+                      shutil.copyfileobj(source, target, 1024 * 1024)
+              with backup.open('rb') as source:
+                  assert original['digest'] == 'sha256:' + hashlib.file_digest(source, 'sha256').hexdigest()
+              api(repo + '/releases/assets/' + str(original['id']), method='DELETE')
+              try:
+                  new = upload(path)
+              except Exception:
+                  print('Restaurando archivo anterior:', path.name, flush=True)
+                  current = api(repo + '/releases/tags/v2.1.1')
+                  for asset in current['assets']:
+                      if asset['name'] == path.name:
+                          api(repo + '/releases/assets/' + str(asset['id']), method='DELETE')
+                  upload(backup)
+                  raise
+              print('Nuevo archivo verificado:', new['name'], new['digest'], flush=True)
