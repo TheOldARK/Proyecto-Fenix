@@ -1,0 +1,125 @@
+name: Reemplazar instaladores nativos 2.1.1 verificados
+
+on:
+  push:
+    branches: [instaladores-nativos]
+    paths: [.github/workflows/reemplazar-instaladores-2.1.1.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publicar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Instalador-macos-arm64
+          run-id: 36635372850
+          github-token: ${{ github.token }}
+          path: paquetes/macos-arm64
+      - uses: actions/download-artifact@v4
+        with:
+          name: Instalador-macos-x64
+          run-id: 36635372850
+          github-token: ${{ github.token }}
+          path: paquetes/macos-x64
+      - uses: actions/download-artifact@v4
+        with:
+          name: Instalador-linux-x64
+          run-id: 36635372850
+          github-token: ${{ github.token }}
+          path: paquetes/linux-x64
+      - name: Verificar y reemplazar instaladores con respaldo
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import shutil
+          import tarfile
+          from urllib.parse import urlencode
+          from urllib.request import Request, urlopen
+          import zipfile
+
+          repo = 'https://api.github.com/repos/TheOldARK/Proyecto-Fenix'
+          headers = {'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                     'Accept': 'application/vnd.github+json',
+                     'User-Agent': 'Fenix-publicacion'}
+          def api(url, method='GET'):
+              with urlopen(Request(url, headers=headers, method=method), timeout=60) as response:
+                  return json.load(response) if method == 'GET' else None
+
+          run = api(repo + '/actions/runs/36635372850')
+          assert run['head_sha'] == 'c7533428c59bae9103c986840b3adbe72f2db554'
+          assert run['conclusion'] == 'success'
+          nombres = (
+              ('macos-arm64', 'Fenix-Instalador-macos-arm64.zip'),
+              ('macos-x64', 'Fenix-Instalador-macos-x64.zip'),
+              ('linux-x64', 'Fenix-Instalador-linux-x64.tar.gz'),
+          )
+          archivos = []
+          for plataforma, nombre in nombres:
+              rutas = list(Path('paquetes', plataforma).rglob(nombre))
+              assert len(rutas) == 1, (plataforma, nombre, rutas)
+              paquete = rutas[0]
+              checksum = paquete.with_name(paquete.name + '.sha256')
+              with paquete.open('rb') as source:
+                  digest = hashlib.file_digest(source, 'sha256').hexdigest()
+              assert checksum.read_text().split()[0] == digest, paquete
+              if paquete.suffix == '.zip':
+                  with zipfile.ZipFile(paquete) as archive:
+                      entradas = archive.namelist()
+              else:
+                  with tarfile.open(paquete, 'r:gz') as archive:
+                      entradas = archive.getnames()
+              assert not any(any(parte.casefold() in {'fenixgestor.exe', 'fenixpublicador.exe',
+                                                       'boto3', 'botocore'}
+                                     for parte in entrada.split('/')) for entrada in entradas)
+              archivos.extend((paquete, checksum))
+
+          release = api(repo + '/releases/tags/v2.1.1')
+          assert release['id'] == 397279983 and not release['draft']
+          upload_url = release['upload_url'].split('{', 1)[0]
+          existentes = {asset['name']: asset for asset in release['assets']}
+          respaldos = Path('respaldos')
+          respaldos.mkdir()
+
+          def upload(path):
+              with path.open('rb') as source:
+                  digest = hashlib.file_digest(source, 'sha256').hexdigest()
+              h = dict(headers, **{'Content-Type': 'application/octet-stream',
+                                   'Content-Length': str(path.stat().st_size)})
+              url = upload_url + '?' + urlencode({'name': path.name})
+              with path.open('rb') as source:
+                  with urlopen(Request(url, data=source, headers=h, method='POST'), timeout=900) as response:
+                      result = json.load(response)
+              assert result['digest'] == 'sha256:' + digest and result['size'] == path.stat().st_size
+              return result
+
+          for path in archivos:
+              original = existentes[path.name]
+              backup = respaldos / path.name
+              with urlopen(Request(original['browser_download_url']), timeout=300) as source:
+                  with backup.open('wb') as target:
+                      shutil.copyfileobj(source, target, 1024 * 1024)
+              with backup.open('rb') as source:
+                  assert original['digest'] == 'sha256:' + hashlib.file_digest(source, 'sha256').hexdigest()
+              api(repo + '/releases/assets/' + str(original['id']), method='DELETE')
+              try:
+                  new = upload(path)
+              except Exception:
+                  print('Restaurando instalador anterior:', path.name, flush=True)
+                  current = api(repo + '/releases/tags/v2.1.1')
+                  for asset in current['assets']:
+                      if asset['name'] == path.name:
+                          api(repo + '/releases/assets/' + str(asset['id']), method='DELETE')
+                  upload(backup)
+                  raise
+              print('Instalador verificado:', new['name'], new['digest'], flush=True)
