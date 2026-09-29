@@ -12,6 +12,7 @@ import threading
 import time
 import traceback
 from zipfile import ZipFile
+from servicios.paquete_cliente import validar_archivos_cliente
 
 MANIFIESTO = "fenix-manifest.json"
 
@@ -60,6 +61,7 @@ def leer_paquete(archivo):
     esperados = manifiesto["files"]
     if not isinstance(esperados, dict) or not esperados:
         raise ValueError("Manifiesto vacío.")
+    validar_archivos_cliente(esperados)
     for nombre, datos in esperados.items():
         if nombre_seguro(nombre) != nombre or len(datos["sha256"]) != 64 or datos["size"] < 0:
             raise ValueError("Entrada de manifiesto inválida.")

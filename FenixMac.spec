@@ -2,7 +2,7 @@
 import platform
 import sys
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_all, copy_metadata
+from PyInstaller.utils.hooks import copy_metadata
 
 if sys.platform != 'darwin':
     raise RuntimeError('Este archivo debe ejecutarse en macOS.')
@@ -15,21 +15,17 @@ datos = [(str(raiz / 'recursos'), 'recursos'),
          (str(raiz / 'LEEME_MACOS.txt'), '.')]
 for nombre in ('catalogo_sia.json', 'planes_estudio.json', 'configuracion_libre_eleccion.json'):
     datos.append((str(raiz / 'datos' / nombre), 'datos'))
-binarios = []
-ocultos = []
-for paquete in ('boto3', 'botocore', 's3transfer', 'jmespath'):
-    d, b, h = collect_all(paquete)
-    datos.extend(d)
-    binarios.extend(b)
-    ocultos.extend(h)
 for paquete in ('PySide6-Essentials', 'shiboken6', 'playwright', 'beautifulsoup4',
-                'soupsieve', 'pyee', 'greenlet', 'typing-extensions', 'certifi',
-                'boto3', 'botocore', 's3transfer', 'jmespath'):
+                'soupsieve', 'pyee', 'greenlet', 'typing-extensions', 'certifi'):
     datos.extend(copy_metadata(paquete))
 
-a = Analysis([str(raiz / 'main.py')], pathex=[str(raiz)],
-             binaries=binarios, datas=datos, hiddenimports=ocultos,
-             hookspath=[], runtime_hooks=[], excludes=[], noarchive=False)
+a = Analysis([str(raiz / 'aplicacion' / 'cliente_main.py')], pathex=[str(raiz)],
+             binaries=[], datas=datos, hiddenimports=[], hookspath=[], runtime_hooks=[],
+             excludes=['herramientas', 'boto3', 'botocore', 's3transfer', 'jmespath'], noarchive=False)
+privados = ('herramientas', 'boto3', 'botocore', 's3transfer', 'jmespath')
+incluidos = [nombre for nombre, *_ in a.pure if any(nombre == p or nombre.startswith(p + '.') for p in privados)]
+if incluidos:
+    raise RuntimeError(f'El cliente contiene módulos privados: {incluidos[:10]}')
 # Se añade Chromium al bundle después de compilar, conservando su estructura.
 a.datas = [e for e in a.datas if '/.local-browsers/' not in e[0].replace('\\', '/')]
 a.binaries = [e for e in a.binaries if '/.local-browsers/' not in e[0].replace('\\', '/')]

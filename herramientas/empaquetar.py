@@ -6,6 +6,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from configuracion import VERSION
 from servicios.instalador import MANIFIESTO, sha256, leer_paquete
+from servicios.paquete_cliente import validar_archivos_cliente
 
 
 def empaquetar(raiz):
@@ -13,6 +14,7 @@ def empaquetar(raiz):
     for ruta in sorted(raiz.rglob('*')):
         if ruta.is_file() and ruta.name != MANIFIESTO:
             archivos[ruta.relative_to(raiz).as_posix()] = {'size': ruta.stat().st_size, 'sha256': sha256(ruta)}
+    validar_archivos_cliente(archivos)
     manifiesto = {'schema': 1, 'version': VERSION, 'files': archivos}
     (raiz / MANIFIESTO).write_text(json.dumps(manifiesto, indent=2), encoding='utf-8')
     destino = raiz.parent / f'Fenix-{VERSION}-windows-x64.zip'

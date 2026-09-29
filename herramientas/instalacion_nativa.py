@@ -25,6 +25,7 @@ import uuid
 import zipfile
 
 import certifi
+from servicios.paquete_cliente import validar_archivos_cliente
 
 API = 'https://api.github.com/repos/TheOldARK/Proyecto-Fenix/releases'
 PREFIJO_DESCARGA = 'https://github.com/TheOldARK/Proyecto-Fenix/releases/download/'
@@ -200,6 +201,7 @@ def extraer(paquete, carpeta, sistema, cancelar, progreso):
                 enlaces.add(ruta)
             tamano = m.file_size if es_zip else m.size
             entradas.append((m, ruta, modo, tipo, tamano))
+        validar_archivos_cliente(str(ruta) for _, ruta, _, _, _ in entradas)
         total = sum(e[4] for e in entradas)
         if len(entradas) > 100000 or total > MAX_EXTRAIDO:
             raise RuntimeError('El contenido del paquete supera el límite de seguridad.')

@@ -34,6 +34,7 @@ def main():
     raiz = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(raiz))
     from configuracion import VERSION
+    from servicios.paquete_cliente import validar_archivos_cliente
     import playwright
 
     salida, trabajo = raiz / 'dist/linux', raiz / 'build/linux'
@@ -54,6 +55,8 @@ def main():
     paquete = salida / f'Fenix-{VERSION}-linux-x64.tar.gz'
     with tarfile.open(paquete, 'w:gz', compresslevel=6) as archivo:
         archivo.add(app, arcname='Fenix')
+    with tarfile.open(paquete, 'r:gz') as archivo:
+        validar_archivos_cliente(miembro.name for miembro in archivo.getmembers())
     # Volver a ejecutar la copia extraída, sin depender del directorio de build.
     with tempfile.TemporaryDirectory(prefix='fenix-linux-extraido-') as temporal:
         with tarfile.open(paquete, 'r:gz') as archivo:

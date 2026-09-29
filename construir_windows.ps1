@@ -60,15 +60,6 @@ try {
     & $pythonFenix -m PyInstaller --clean --noconfirm --distpath $Salida --workpath (Join-Path $Entorno 'build-updater') (Join-Path $PSScriptRoot 'Updater.spec')
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo construir el instalador independiente.' }
     Copy-Item -LiteralPath (Join-Path $Salida 'FenixUpdater') -Destination (Join-Path $carpetaFenix 'updater') -Recurse
-    & $pythonFenix -m PyInstaller --clean --noconfirm --distpath $Salida --workpath (Join-Path $Entorno 'build-publisher') (Join-Path $PSScriptRoot 'Publicador.spec')
-    if ($LASTEXITCODE -ne 0) { throw 'No se pudo construir FenixPublicador.exe.' }
-    # El publicador comparte el runtime de Fénix. Esto evita duplicar Qt y,
-    # sobre todo, garantiza que use las mismas DLL nativas ya validadas por el
-    # diagnóstico de Fenix.exe.
-    Copy-Item -LiteralPath (Join-Path $Salida 'FenixPublicador.exe') -Destination (Join-Path $carpetaFenix 'FenixPublicador.exe') -Force
-    & $pythonFenix -m PyInstaller --clean --noconfirm --distpath $Salida --workpath (Join-Path $Entorno 'build-manager') (Join-Path $PSScriptRoot 'Gestor.spec')
-    if ($LASTEXITCODE -ne 0) { throw 'No se pudo construir FenixGestor.exe.' }
-    Copy-Item -LiteralPath (Join-Path $Salida 'FenixGestor.exe') -Destination (Join-Path $carpetaFenix 'FenixGestor.exe') -Force
     $env:FENIX_DATA_DIR = Join-Path $Entorno ('diagnostico-' + [guid]::NewGuid().ToString('N'))
     $diagnosticoFenix = Start-Process -FilePath (Join-Path $carpetaFenix 'Fenix.exe') -ArgumentList '--diagnostico' -WindowStyle Hidden -PassThru
     if (-not $diagnosticoFenix.WaitForExit(60000)) {

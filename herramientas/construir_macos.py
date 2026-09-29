@@ -16,6 +16,7 @@ def main():
     raiz = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(raiz))
     from configuracion import VERSION
+    from servicios.paquete_cliente import validar_archivos_cliente
     import playwright
     from PIL import Image
 
@@ -58,6 +59,9 @@ def main():
     paquete = salida / f'Fenix-{VERSION}-macos-{arquitectura}.zip'
     subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent',
                     str(app), str(paquete)], check=True)
+    import zipfile
+    with zipfile.ZipFile(paquete) as archivo:
+        validar_archivos_cliente(archivo.namelist())
     # Reabrir el ZIP como lo haría un Mac: comprobar firma tras la extracción.
     with tempfile.TemporaryDirectory(prefix='fenix-macos-extraido-') as extraido:
         subprocess.run(['ditto', '-x', '-k', str(paquete), extraido], check=True)

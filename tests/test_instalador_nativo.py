@@ -118,6 +118,12 @@ class InstaladorNativoTests(unittest.TestCase):
         carpeta = self.extraer_zip([('Fenix.app/Contents/MacOS/Fenix', b'binario', stat.S_IFREG | 0o755)])
         self.assertEqual((carpeta / 'Contents/MacOS/Fenix').read_bytes(), b'binario')
 
+    def test_rechaza_publicador_antes_de_extraer(self):
+        with self.assertRaisesRegex(ValueError, 'publicador'):
+            self.extraer_zip([('Fenix.app/Contents/Frameworks/herramientas/publicador_worker.pyc',
+                               b'privado', stat.S_IFREG | 0o644)])
+        self.assertFalse((self.raiz / 'extraido/Fenix.app').exists())
+
     def test_zip_traversal_y_duplicados(self):
         for entradas in [[('../fuera', b'X', 0o644)], [('Fenix.app/../../fuera', b'X', 0o644)],
                          [('/Fenix.app/file', b'X', 0o644)], [('Otra.app/file', b'X', 0o644)],

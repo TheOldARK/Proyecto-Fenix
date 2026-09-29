@@ -152,6 +152,8 @@ class Instalador(tk.Tk):
                 temporal = Path(tempfile.mkdtemp(prefix="fenix-instala-"))
                 try:
                     with zipfile.ZipFile(paquete) as archivo:
+                        from servicios.instalador import leer_paquete
+                        leer_paquete(archivo)
                         raiz = temporal / "Fenix"
                         miembros = archivo.infolist()
                         total_archivos = max(1, len(miembros))
