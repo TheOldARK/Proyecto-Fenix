@@ -2,6 +2,9 @@ name: Reemplazar paquetes 2.1.1 verificados
 
 on:
   workflow_dispatch:
+  push:
+    branches: [instaladores-nativos]
+    paths: [.github/workflows/reemplazar-paquetes-nativos-2.1.1.yml]
 
 permissions:
   contents: write
