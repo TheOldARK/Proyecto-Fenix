@@ -6,6 +6,7 @@ publicador privado conserva su propio punto de entrada en ``main.py``.
 
 import asyncio
 from datetime import datetime, timedelta, timezone
+import logging
 import sys
 import time
 
@@ -124,9 +125,11 @@ def ejecutar_actualizacion():
             print(">>> Datos obtenidos desde Cloudflare; no se inician workers SIA.", flush=True)
             return
         except DatosNoPublicadosError as error:
+            logging.getLogger("fenix").warning("El plan no está publicado en Cloudflare: %s", error)
             print(f">>> {error} Se consultará el SIA con los workers del cliente.", flush=True)
             plan_no_publicado = True
         except Exception as error:
+            logging.getLogger("fenix").exception("Falló la actualización desde Cloudflare")
             print(f">>> Cloudflare no disponible: {error}", flush=True)
             if cargar_materias() and cargar_oferta().get("materias"):
                 guardar_estado("completada", "Usando la última copia local de datos académicos.", 100)

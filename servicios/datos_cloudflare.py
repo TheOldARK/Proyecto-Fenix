@@ -68,7 +68,8 @@ def _descargar(url: str, destino: Path, timeout: int = 30) -> None:
 def sincronizar_planes_cloudflare(url_base: str | None = None) -> int:
     """Añade al catálogo local los planes publicados en el manifiesto R2."""
     base = (url_base or os.environ.get("FENIX_DATOS_CLOUDFLARE") or URL_DATOS_CLOUDFLARE).rstrip("/")
-    temporal = Path(tempfile.mkdtemp(prefix="fenix-planes-cloudflare-"))
+    CARPETA_DATOS.mkdir(parents=True, exist_ok=True)
+    temporal = Path(tempfile.mkdtemp(prefix=".fenix-planes-cloudflare-", dir=CARPETA_DATOS))
     try:
         manifiesto_ruta = temporal / "manifest.json"
         _descargar(f"{base}/manifest.json", manifiesto_ruta, timeout=8)
@@ -112,7 +113,10 @@ def actualizar_desde_cloudflare(
     arranque pueda conservar los datos locales y decidir si necesita SIA.
     """
     base = (url_base or os.environ.get("FENIX_DATOS_CLOUDFLARE") or URL_DATOS_CLOUDFLARE).rstrip("/")
-    temporal = Path(tempfile.mkdtemp(prefix="fenix-cloudflare-"))
+    # /tmp puede pertenecer a otro volumen en Linux; Path.replace() solo
+    # funciona de forma atómica cuando ambos archivos comparten volumen.
+    CARPETA_DATOS.mkdir(parents=True, exist_ok=True)
+    temporal = Path(tempfile.mkdtemp(prefix=".fenix-cloudflare-", dir=CARPETA_DATOS))
     try:
         manifiesto_ruta = temporal / "manifest.json"
         _descargar(f"{base}/manifest.json", manifiesto_ruta)
