@@ -117,7 +117,10 @@ class AnchoSelectorGruposTests(unittest.TestCase):
         boton = BotonGrupoHorario("Grupo 1\n" + "  |  ".join(sesiones), {})
         metricas = boton.fontMetrics()
         ancho_sesion = max(metricas.horizontalAdvance(sesion) for sesion in sesiones)
-        ancho_dos = metricas.horizontalAdvance("  |  ".join(sesiones[:2]))
+        ancho_dos = max(
+            metricas.horizontalAdvance("  |  ".join(sesiones[:2])),
+            metricas.horizontalAdvance("  |  ".join(sesiones[2:])),
+        )
         boton._ajustar_texto(1000)
         self.assertEqual(len(boton.text().splitlines()), 2)
         boton._ajustar_texto(ancho_dos + 1)

@@ -163,7 +163,7 @@ class BarraDialogo(QFrame):
         cerrar.setToolTip("Cerrar ventana")
         cerrar.setStyleSheet(
             f"QPushButton {{ color: {COLOR_TEXTO}; background: transparent; "
-            "border: none; font-size: 20px; padding: 0; }} "
+            "border: none; font-size: 20px; padding: 0; } "
             f"QPushButton:hover {{ background: {COLOR_ROJO_FONDO}; "
             f"color: {COLOR_ROJO}; border-radius: 4px; }}"
         )
@@ -1628,7 +1628,7 @@ class VentanaPlanEstudios(QDialog):
         tarjeta.setStyleSheet(
             f"QFrame#tarjetaMateriaPlan {{ background-color: {fondo}; "
             f"border: 1px solid {COLOR_LINEA}; border-left: 4px solid {acento}; "
-            "border-radius: 7px; }}"
+            "border-radius: 7px; }"
         )
         layout = QVBoxLayout(tarjeta)
         layout.setContentsMargins(9, 6, 7, 6)
@@ -2164,7 +2164,7 @@ class VentanaAvanceAcademico(QDialog):
             boton.setStyleSheet(
                 f"QPushButton {{ background: {COLOR_SUPERFICIE_CLARA}; "
                 f"color: {COLOR_TEXTO}; border: 1px solid {COLOR_LINEA}; "
-                "border-radius: 6px; padding: 7px 12px; }} "
+                "border-radius: 6px; padding: 7px 12px; } "
                 f"QPushButton:hover {{ border-color: {COLOR_VERDE}; }}"
             )
             acciones.addWidget(boton)
@@ -2190,7 +2190,7 @@ class VentanaAvanceAcademico(QDialog):
         self.barra_consulta.setStyleSheet(
             f"QProgressBar {{ background: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO}; "
             f"border: 1px solid {COLOR_LINEA}; border-radius: 5px; min-height: 16px; "
-            "text-align: center; }} "
+            "text-align: center; } "
             f"QProgressBar::chunk {{ background: {COLOR_VERDE}; border-radius: 4px; }}"
         )
         self.barra_consulta.hide()
@@ -3319,9 +3319,9 @@ class DialogoEsperaActualizacion(QDialog):
         self.progreso.setStyleSheet(
             f"QProgressBar {{ color: {COLOR_TEXTO}; background-color: {COLOR_BARRA}; "
             f"border: 1px solid {COLOR_LINEA}; border-radius: 6px; "
-            "text-align: center; font-size: 12px; font-weight: 700; }} "
+            "text-align: center; font-size: 12px; font-weight: 700; } "
             f"QProgressBar::chunk {{ background-color: {COLOR_VERDE}; "
-            "border-radius: 5px; }}"
+            "border-radius: 5px; }"
         )
         layout.addWidget(self.progreso)
         self.tiempo = QLabel("Calculando tiempo restante…")
@@ -4812,7 +4812,7 @@ class VentanaPrincipal(QMainWindow):
             desplegable_descripcion.setStyleSheet(
                 f"QToolButton {{ background-color: {COLOR_SUPERFICIE_CLARA}; "
                 f"color: {COLOR_TEXTO}; border: 1px solid {COLOR_LINEA}; "
-                "border-radius: 5px; padding: 6px; text-align: left; }}"
+                "border-radius: 5px; padding: 6px; text-align: left; }"
             )
             contenido.layout().addWidget(desplegable_descripcion)
             cuerpo_descripcion = QWidget()
@@ -4863,7 +4863,7 @@ class VentanaPrincipal(QMainWindow):
             desplegable_prerrequisitos.setStyleSheet(
                 f"QToolButton {{ background-color: {COLOR_SUPERFICIE_CLARA}; "
                 f"color: {COLOR_TEXTO}; border: 1px solid {COLOR_LINEA}; "
-                "border-radius: 5px; padding: 6px; text-align: left; }}"
+                "border-radius: 5px; padding: 6px; text-align: left; }"
             )
             contenido.layout().addWidget(desplegable_prerrequisitos)
             cuerpo_prerrequisitos = QWidget()
@@ -5578,7 +5578,7 @@ class VentanaPrincipal(QMainWindow):
             boton.setStyleSheet(
                 f"QPushButton {{ background-color: {COLOR_SUPERFICIE_CLARA}; "
                 f"color: {COLOR_TEXTO}; border: 1px solid {COLOR_LINEA}; "
-                "border-radius: 6px; padding: 10px 12px; text-align: left; }} "
+                "border-radius: 6px; padding: 10px 12px; text-align: left; } "
                 f"QPushButton:hover {{ border-color: {COLOR_VERDE}; "
                 f"background-color: {COLOR_VERDE_FONDO}; }} "
                 f"QPushButton:disabled {{ color: {COLOR_TEXTO_SECUNDARIO}; "

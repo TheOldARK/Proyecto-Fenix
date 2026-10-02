@@ -45,6 +45,7 @@ class LinuxTests(unittest.TestCase):
                            'Fenix-2.1.2-linux-x64.tar.gz')]}]
         with patch.object(sys, 'platform', 'linux'), \
              patch.object(actualizador.platform, 'machine', return_value='x86_64'), \
+             patch.object(actualizador, 'VERSION', '2.1.1'), \
              patch.object(actualizador, 'urlopen', return_value=io.BytesIO(json.dumps(releases).encode())):
             release = actualizador.consultar_ultima_version()
             self.assertEqual(release['asset'], 'Fenix-2.1.2-linux-x64.tar.gz')

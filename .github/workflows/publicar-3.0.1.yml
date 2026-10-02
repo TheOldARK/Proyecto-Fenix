@@ -19,6 +19,12 @@ jobs:
       - name: Compilar y diagnosticar
         shell: pwsh
         run: .\construir_windows.ps1
+      - name: Mostrar diagnóstico si falla Windows
+        if: failure()
+        shell: pwsh
+        run: |
+          Get-ChildItem -LiteralPath .venv-distribucion -Recurse -File -Filter diagnostico_instalacion.json -ErrorAction SilentlyContinue |
+            ForEach-Object { Get-Content -LiteralPath $_.FullName }
       - uses: actions/upload-artifact@v4
         with:
           name: paquete-windows
