@@ -1,0 +1,38 @@
+name: Construir MSIX para Microsoft Store
+
+on:
+  push:
+    branches: [msix-store]
+    paths:
+      - '.github/workflows/msix-store.yml'
+      - 'msix/**'
+      - 'aplicacion/**'
+      - 'infraestructura/**'
+      - 'recursos/**'
+      - 'configuracion.py'
+      - 'construir_windows.ps1'
+      - 'requirements-build.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  construir:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Construir y validar el MSIX
+        shell: pwsh
+        run: .\msix\construir_msix.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Fenix-MSIX-Microsoft-Store
+          path: dist/store/Fenix-*-windows-x64-store.msix
+          if-no-files-found: error
+          retention-days: 30

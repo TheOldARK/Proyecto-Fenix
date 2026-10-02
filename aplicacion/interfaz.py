@@ -33,7 +33,7 @@ if str(BASE_DIR) not in sys.path:
 from infraestructura.almacenamiento.estado_actualizacion import cargar_estado, guardar_estado
 from infraestructura.almacenamiento.json_atomico import cargar_json, guardar_json_atomico
 from aplicacion.arranque import comando_fenix, preparar_entorno
-from configuracion import ARCHIVO_AVANCE_ACADEMICO, CARPETA_DATOS, VERSION
+from configuracion import ARCHIVO_AVANCE_ACADEMICO, CARPETA_DATOS, ES_EDICION_STORE, VERSION
 from infraestructura.almacenamiento.cancelacion_actualizacion import solicitar_cancelacion
 from infraestructura.almacenamiento.datos_estudiante import borrar_datos_estudiante
 from infraestructura.almacenamiento.estudiante import cargar_estudiante, guardar_estudiante
@@ -2478,7 +2478,8 @@ class BarraTitulo(QFrame):
         menu_archivo.addAction("Exportar estado (.fnx)", ventana.exportar_estado_fnx)
         menu_archivo.addAction("Importar estado (.fnx)", ventana.importar_estado_fnx)
         menu_archivo.addSeparator()
-        menu_archivo.addAction("Buscar actualización de Fénix", ventana.buscar_actualizacion_aplicacion)
+        if not ES_EDICION_STORE:
+            menu_archivo.addAction("Buscar actualización de Fénix", ventana.buscar_actualizacion_aplicacion)
         menu_archivo.addSeparator()
         menu_archivo.addAction("Tomar captura al horario", ventana.tomar_captura_horario)
         boton_archivo.setMenu(menu_archivo)
