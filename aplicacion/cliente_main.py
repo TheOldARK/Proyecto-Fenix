@@ -6,6 +6,7 @@ publicador privado conserva su propio punto de entrada en ``main.py``.
 
 import asyncio
 from datetime import datetime, timedelta, timezone
+import logging
 import sys
 import time
 
@@ -124,9 +125,11 @@ def ejecutar_actualizacion():
             print(">>> Datos obtenidos desde Cloudflare; no se inician workers SIA.", flush=True)
             return
         except DatosNoPublicadosError as error:
+            logging.getLogger("fenix").warning("El plan no está publicado en Cloudflare: %s", error)
             print(f">>> {error} Se consultará el SIA con los workers del cliente.", flush=True)
             plan_no_publicado = True
         except Exception as error:
+            logging.getLogger("fenix").exception("Falló la actualización desde Cloudflare")
             print(f">>> Cloudflare no disponible: {error}", flush=True)
             if cargar_materias() and cargar_oferta().get("materias"):
                 guardar_estado("completada", "Usando la última copia local de datos académicos.", 100)
@@ -147,7 +150,7 @@ def ejecutar_actualizacion():
         if normales_listas and not libres_guardadas and not plan_no_publicado:
             guardar_estado(
                 "actualizando",
-                "Materias normales disponibles; actualizando Libre Elección en segundo plano…",
+                "Obligatorias y optativas disponibles; actualizando Libre Elección en segundo plano…",
                 0,
             )
             try:
@@ -163,13 +166,13 @@ def ejecutar_actualizacion():
             except Exception as error:
                 print(
                     f"⚠ No se pudo priorizar Libre Elección: {error}. "
-                    "Continuando con materias normales...",
+                    "Continuando con obligatorias y optativas...",
                     flush=True,
                 )
             else:
                 guardar_estado(
                     "completada",
-                    "Materias normales disponibles; Libre Elección continúa en segundo plano.",
+                    "Obligatorias y optativas disponibles; Libre Elección continúa en segundo plano.",
                     100,
                 )
                 return

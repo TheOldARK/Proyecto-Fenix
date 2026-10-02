@@ -27,7 +27,7 @@ import os
 import sys
 from pathlib import Path
 
-VERSION = "2.1.1"
+VERSION = "3.0.1"
 URL_DATOS_CLOUDFLARE = "https://pub-c4af9a6ed2d249a290ff6c850b8dac15.r2.dev"
 
 
@@ -84,6 +84,10 @@ ARCHIVO_OFERTA = (
 ARCHIVO_ESTUDIANTE = (
     CARPETA_DATOS / "estudiante.json"
 )
+
+# Historial de calificaciones importado voluntariamente desde Mi historia académica.
+# Nunca contiene cookies ni credenciales del SIA.
+ARCHIVO_AVANCE_ACADEMICO = CARPETA_DATOS / "avance_academico.json"
 
 
 # Materias disponibles para Libre Elección.

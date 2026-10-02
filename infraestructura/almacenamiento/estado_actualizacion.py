@@ -1,6 +1,7 @@
 """Estado persistente de la actualización del catálogo del SIA."""
 
 from datetime import datetime
+import os
 
 from configuracion import ARCHIVO_ESTADO_ACTUALIZACION, CARPETA_DATOS
 from infraestructura.almacenamiento.json_atomico import cargar_json, guardar_json_atomico
@@ -16,6 +17,8 @@ def guardar_estado(estado, mensaje, progreso=None, **detalles):
         "actualizado_en": datetime.now().isoformat(timespec="seconds")
     }
     datos.update({clave: valor for clave, valor in detalles.items() if valor is not None})
+    if os.environ.get("FENIX_PUBLICADOR_INTENTO_ID"):
+        datos["intento_id"] = os.environ["FENIX_PUBLICADOR_INTENTO_ID"]
     guardar_json_atomico(ARCHIVO_ESTADO_ACTUALIZACION, datos)
 
 

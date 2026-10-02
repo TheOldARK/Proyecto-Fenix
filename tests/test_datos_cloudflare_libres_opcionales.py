@@ -36,8 +36,10 @@ class LibresEleccionCloudflareOpcionalesTests(unittest.TestCase):
             destino_libres = raiz / "libres_eleccion.json"
             ruta_manifiesto_local = raiz / "manifest_cloudflare.json"
             datos_temporales = raiz / "datos"
+            directorios_descarga = []
 
             def descargar(url, destino, timeout=30):
+                directorios_descarga.append(destino.parent)
                 if url.endswith("/manifest.json"):
                     destino.write_text(json.dumps(manifiesto), encoding="utf-8")
                 elif url.endswith("/materias.json"):
@@ -79,6 +81,10 @@ class LibresEleccionCloudflareOpcionalesTests(unittest.TestCase):
                 resultado["planes"][codigo_plan]["archivos"],
             )
             self.assertTrue(ruta_manifiesto_local.is_file())
+            self.assertTrue(directorios_descarga)
+            self.assertTrue(all(carpeta.parent == datos_temporales
+                                for carpeta in directorios_descarga))
+            self.assertFalse(any(datos_temporales.glob(".fenix-cloudflare-*")))
 
 
 if __name__ == "__main__":

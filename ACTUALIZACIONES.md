@@ -1,3 +1,14 @@
+# Fénix 3.0.1
+
+- Mi Avance muestra la historia académica consultada con autorización del estudiante,
+  las calificaciones por materia y los promedios P.A.P.A. y P.A.P.I.
+- El horario y Mi Plan incorporan las mejoras recientes de selección de grupos,
+  nivelación, búsqueda y presentación visual.
+- Al pulsar una materia seleccionada en el menú izquierdo se puede cambiar su grupo;
+  la × de su tarjeta permite retirarla del horario.
+- Los paquetes para Windows, macOS y Linux se publican por separado. Cada cliente
+  y cada instalador detecta únicamente las versiones compatibles con su equipo.
+
 # Fénix 2.1.1
 
 - El selector de grupos ahora los ordena numéricamente (1, 2, 3… 10) en lugar

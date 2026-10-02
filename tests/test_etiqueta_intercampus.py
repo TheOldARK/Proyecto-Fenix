@@ -5,8 +5,10 @@ from types import SimpleNamespace
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication, QHBoxLayout, QSplitter, QWidget
+from PySide6.QtGui import QHelpEvent, QMouseEvent, QPixmap
+from PySide6.QtCore import QEvent, QObject, QPointF, Qt
 
-from aplicacion.interfaz import BLOQUES_HORARIO, COLOR_AMARILLO, VentanaPrincipal
+from aplicacion.interfaz import BLOQUES_HORARIO, COLOR_AMARILLO, RUTA_BUS_INTERCAMPUS, VentanaPrincipal
 
 
 class EtiquetaIntercampusTests(unittest.TestCase):
@@ -67,6 +69,9 @@ class EtiquetaIntercampusTests(unittest.TestCase):
         self.app.processEvents()
 
         capa = cuadricula.capa_intercampus
+        self.assertFalse(capa.icono_bus.isNull())
+        self.assertTrue(capa.icono_bus.hasAlphaChannel())
+        self.assertLess(capa.icono_bus.height(), QPixmap(str(RUTA_BUS_INTERCAMPUS)).height())
         etiquetas = dict(capa.rectangulos_etiquetas())
         self.assertEqual(set(etiquetas), {
             ("LUNES", 16 * 60), ("JUEVES", 12 * 60),
@@ -74,6 +79,8 @@ class EtiquetaIntercampusTests(unittest.TestCase):
         self.assertTrue(capa.isVisible())
         self.assertEqual(cuadricula.cuadricula.indexOf(capa), -1)
         self.comprobar_centrado(cuadricula)
+        self.comprobar_aviso(cuadricula)
+        self.comprobar_movimiento_sin_parpadeo(cuadricula)
 
         # Arrastrar el divisor cambia el ancho de las columnas en tiempo real.
         anchos = []
@@ -100,6 +107,111 @@ class EtiquetaIntercampusTests(unittest.TestCase):
         cuadricula.actualizar([])
         self.app.processEvents()
         self.assertFalse(capa.rectangulos_etiquetas())
+        self.assertFalse(capa.aviso.isVisible())
+
+    def comprobar_aviso(self, cuadricula):
+        capa = cuadricula.capa_intercampus
+        clave = ("LUNES", 16 * 60)
+        rectangulo = dict(capa.rectangulos_etiquetas())[clave]
+        self.assertIn("#1C1B14", capa.aviso.styleSheet())
+        self.assertIn(f"1px solid {COLOR_AMARILLO}", capa.aviso.styleSheet())
+        self.assertTrue(capa.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents))
+        ancla = capa.mapToGlobal(rectangulo.topRight().toPoint())
+        puntos = [rectangulo.center(), rectangulo.topLeft() + QPointF(1, 1),
+                  rectangulo.bottomRight() - QPointF(1, 1)]
+        anterior = cuadricula.celdas_por_bloque[("LUNES", 14, 2)]
+        siguiente = cuadricula.celdas_por_bloque[("LUNES", 16, 2)]
+        puntos.extend([
+            QPointF(anterior.x() + 8, anterior.y() + anterior.height() - 1),
+            QPointF(siguiente.x() + 8, siguiente.y() + 1),
+        ])
+        posicion = None
+        for punto in puntos:
+            with self.subTest(punto=punto):
+                global_pos = capa.mapToGlobal(punto.toPoint())
+                ayuda = QHelpEvent(QEvent.Type.ToolTip, cuadricula.mapFromGlobal(global_pos), global_pos)
+                QApplication.sendEvent(cuadricula, ayuda)
+                self.app.processEvents()
+                self.assertTrue(capa.aviso.isVisible())
+                self.assertEqual(capa.aviso.text(), capa.limites[clave])
+                disponible = QApplication.screenAt(ancla).availableGeometry()
+                x = max(disponible.left(), min(ancla.x(), disponible.right() - capa.aviso.width() + 1))
+                y = max(disponible.top(), min(ancla.y() - capa.aviso.height(), disponible.bottom() - capa.aviso.height() + 1))
+                self.assertEqual(capa.aviso.x(), x)
+                self.assertEqual(capa.aviso.y(), y)
+                if posicion is not None:
+                    self.assertEqual(capa.aviso.pos(), posicion)
+                posicion = capa.aviso.pos()
+                render = capa.aviso.grab().toImage()
+                self.assertEqual(render.pixelColor(4, render.height() // 2).name().upper(), "#1C1B14")
+                self.assertEqual(render.pixelColor(0, render.height() // 2).name().upper(), COLOR_AMARILLO)
+        # Cambiar al otro aviso actualiza el contenido, sin fijarlo al anterior.
+        otra_clave = ("JUEVES", 12 * 60)
+        otro = dict(capa.rectangulos_etiquetas())[otra_clave]
+        global_pos = capa.mapToGlobal(otro.center().toPoint())
+        QApplication.sendEvent(cuadricula, QHelpEvent(QEvent.Type.ToolTip, cuadricula.mapFromGlobal(global_pos), global_pos))
+        self.assertEqual(capa.aviso.text(), capa.limites[otra_clave])
+        # Al abandonar líneas y recuadro se oculta, sin capturar los clics.
+        fuera = QPointF(cuadricula.celdas_por_bloque[("MARTES", 6, 2)].geometry().center())
+        movimiento = QMouseEvent(QEvent.Type.MouseMove, fuera,
+            QPointF(cuadricula.mapToGlobal(fuera.toPoint())), Qt.MouseButton.NoButton,
+            Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        QApplication.sendEvent(cuadricula, movimiento)
+        self.assertFalse(capa.aviso.isVisible())
+
+    def comprobar_movimiento_sin_parpadeo(self, cuadricula):
+        capa = cuadricula.capa_intercampus
+        rectangulo = dict(capa.rectangulos_etiquetas())[("LUNES", 16 * 60)]
+        anterior = cuadricula.celdas_por_bloque[("LUNES", 14, 2)]
+        siguiente = cuadricula.celdas_por_bloque[("LUNES", 16, 2)]
+
+        class Registro(QObject):
+            def __init__(self):
+                super().__init__()
+                self.ocultaciones = 0
+            def eventFilter(self, objeto, evento):
+                if evento.type() == QEvent.Type.Hide:
+                    self.ocultaciones += 1
+                return False
+
+        registro = Registro()
+        capa.aviso.installEventFilter(registro)
+        receptores = [anterior, cuadricula, cuadricula.parentWidget(), cuadricula.window()]
+        puntos = [QPointF(x, rectangulo.center().y())
+                  for x in range(round(rectangulo.left() + 1), round(rectangulo.right()))]
+        puntos.extend(QPointF(anterior.x() + 10, y)
+                      for y in range(anterior.geometry().bottom() - 1, siguiente.y() + 3))
+        try:
+            # Simula el mismo MouseMove propagado de la celda a sus ancestros,
+            # sin inyectar nuevos eventos ToolTip para reabrirlo.
+            for punto in puntos:
+                global_pos = capa.mapToGlobal(punto.toPoint())
+                for receptor in receptores:
+                    evento = QMouseEvent(QEvent.Type.MouseMove,
+                        QPointF(receptor.mapFromGlobal(global_pos)), QPointF(global_pos),
+                        Qt.MouseButton.NoButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+                    QApplication.sendEvent(receptor, evento)
+                    self.app.processEvents()
+                    self.assertTrue(capa.aviso.isVisible())
+            self.assertEqual(registro.ocultaciones, 0)
+            # Una acción que se oculta dentro de una tarjeta tampoco es salir.
+            accion = QWidget(anterior)
+            accion.setGeometry(20, 20, 10, 10)
+            accion.show()
+            self.app.processEvents()
+            accion.hide()
+            self.app.processEvents()
+            self.assertTrue(capa.aviso.isVisible())
+            self.assertEqual(registro.ocultaciones, 0)
+            fuera = cuadricula.celdas_por_bloque[("MARTES", 6, 2)].geometry().center()
+            global_pos = cuadricula.mapToGlobal(fuera)
+            QApplication.sendEvent(cuadricula, QMouseEvent(QEvent.Type.MouseMove,
+                QPointF(fuera), QPointF(global_pos), Qt.MouseButton.NoButton,
+                Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier))
+            self.assertFalse(capa.aviso.isVisible())
+            self.assertEqual(registro.ocultaciones, 1)
+        finally:
+            capa.aviso.removeEventFilter(registro)
 
     def comprobar_centrado(self, cuadricula):
         capa = cuadricula.capa_intercampus
@@ -135,6 +247,18 @@ class EtiquetaIntercampusTests(unittest.TestCase):
                 ).name().upper(),
                 COLOR_AMARILLO,
             )
+            # El símbolo ocupa solo el centro; no debe quedar el texto largo
+            # a los lados ni un fondo opaco alrededor de la silueta del bus.
+            centro = rectangulo.center()
+            oscuros = []
+            for x in range(round(rectangulo.left() + 6), round(rectangulo.right() - 6)):
+                for y in range(round(rectangulo.top() + 3), round(rectangulo.bottom() - 3)):
+                    color = imagen.pixelColor(round(x + capa.x()), round(y + capa.y()))
+                    if color.red() < 80 and color.green() < 80 and color.blue() < 80:
+                        oscuros.append((x, y))
+            self.assertGreater(len(oscuros), 5)
+            self.assertTrue(all(abs(x - centro.x()) < 20 for x, _ in oscuros))
+            self.assertIn("Traslado", celda_anterior.toolTip())
 
 
 if __name__ == "__main__":

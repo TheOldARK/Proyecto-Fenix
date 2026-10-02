@@ -5,12 +5,52 @@ import os
 import tempfile
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 
 BLOQUEO_ESCRITURAS = threading.RLock()
-INTENTOS_REEMPLAZO = 8
+INTENTOS_REEMPLAZO = 50
 ESPERA_REEMPLAZO = 0.08
+
+
+@contextmanager
+def bloquear_json(ruta, timeout=15):
+    """Exclusión entre procesos por destino; el SO libera el lock al salir.
+
+    El archivo de bloqueo permanece: borrarlo abriría una carrera entre dos
+    procesos con handles a archivos distintos. No contiene datos académicos.
+    """
+    ruta = Path(ruta)
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    with ruta.with_name(f".{ruta.name}.lock").open("a+b") as archivo:
+        archivo.seek(0, os.SEEK_END)
+        if archivo.tell() == 0:
+            archivo.write(b" ")
+            archivo.flush()
+        inicio = time.monotonic()
+        while True:
+            try:
+                archivo.seek(0)
+                if os.name == "nt":
+                    import msvcrt
+                    msvcrt.locking(archivo.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(archivo.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() - inicio >= timeout:
+                    raise TimeoutError(f"Timeout esperando escritura de {ruta.name}")
+                time.sleep(ESPERA_REEMPLAZO)
+        try:
+            yield
+        finally:
+            archivo.seek(0)
+            if os.name == "nt":
+                msvcrt.locking(archivo.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(archivo.fileno(), fcntl.LOCK_UN)
 
 
 def cargar_json(ruta, predeterminado=None):
@@ -32,7 +72,7 @@ def guardar_json_atomico(ruta, datos):
     ruta.parent.mkdir(parents=True, exist_ok=True)
     temporal = None
 
-    with BLOQUEO_ESCRITURAS:
+    with BLOQUEO_ESCRITURAS, bloquear_json(ruta):
         try:
             # Cada proceso obtiene un nombre distinto. Esto es importante en
             # Windows, donde varios workers no pueden compartir el mismo .tmp.
@@ -68,5 +108,5 @@ def guardar_json_atomico(ruta, datos):
             if temporal is not None:
                 try:
                     temporal.unlink()
-                except FileNotFoundError:
+                except OSError:
                     pass

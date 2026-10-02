@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 import unicodedata
+from playwright.async_api import TimeoutError as TimeoutPlaywright
 
 from configuracion import (
     ARCHIVO_CATALOGO_SIA as RUTA_CATALOGO_SIA,
@@ -1243,8 +1244,20 @@ class CatalogoSIA:
                 await self.seleccionar_nativamente(
                     selector, valor, esperar_adf=esperar_adf
                 )
+                # ADF puede reasignar un value a otra facultad entre resolver
+                # el código y pulsar la opción. Comprobar solo el value no
+                # basta: confirmar la identidad académica seleccionada.
+                await self.page.wait_for_function(
+                    """({selector, codigo}) => {
+                        const elemento = document.querySelector(selector);
+                        const opcion = elemento && !elemento.disabled && elemento.selectedOptions[0];
+                        return opcion && opcion.textContent.trim().split(/\\s+/, 2)[0] === codigo;
+                    }""",
+                    arg={"selector": selector, "codigo": codigo_academico},
+                    timeout=5000,
+                )
                 return valor
-            except ValueError as error:
+            except (ValueError, TimeoutPlaywright) as error:
                 ultimo_error = error
                 if intento >= 3:
                     raise
@@ -1408,6 +1421,19 @@ class CatalogoSIA:
     # SELECCIONAR PLAN
     # =========================================================
 
+    async def esperar_codigo_disponible(self, selector, codigo, timeout=10000):
+        """Una opción vacía o la lista anterior de ADF no son un plan listo."""
+        await self.page.wait_for_function(
+            """({selector, codigo}) => {
+                const elemento = document.querySelector(selector);
+                return elemento && !elemento.disabled && [...elemento.options].some(opcion => {
+                    const partes = opcion.textContent.trim().split(/\\s+/, 2);
+                    return !opcion.disabled && partes.length === 2 && partes[0] === codigo;
+                });
+            }""",
+            arg={"selector": selector, "codigo": str(codigo)}, timeout=timeout,
+        )
+
     async def seleccionar_plan(
         self,
         nombre_plan=None
@@ -1444,36 +1470,34 @@ class CatalogoSIA:
                 # No exigimos que el texto sea idéntico: el SIA a veces
                 # antepone la sede/facultad o cambia espacios y mayúsculas.
                 # Esperamos opciones y validamos por el código del plan.
-                await self.esperar_selector_con_opciones(
-                    self.SELECTOR_PLAN,
-                    cantidad_minima=1
-                )
+                await self.esperar_codigo_disponible(self.SELECTOR_PLAN, codigo_plan)
                 # El código es la identidad fiable del plan. El texto puede
                 # cambiar de formato entre sesiones del SIA.
                 await self.seleccionar_por_codigo(
                     self.SELECTOR_PLAN,
                     codigo_plan,
-                    esperar_adf=False
+                    esperar_adf=True
                 )
                 break
-            except ValueError as error:
+            except (ValueError, TimeoutPlaywright) as error:
                 ultimo_error = error
                 if intento >= self.MAXIMO_INTENTOS_PLAN:
-                    raise
+                    raise ValueError(
+                        f"No se pudo cargar o seleccionar el plan {codigo_plan} "
+                        f"({self.nombre_plan}) en la facultad {self.codigo_facultad} "
+                        f"tras {self.MAXIMO_INTENTOS_PLAN} intentos. "
+                        "El SIA no completó la actualización del desplegable. "
+                        "Vuelve a intentar la consulta."
+                    ) from error
                 print(
                     f">>> [PLAN] No apareció el plan en el intento "
-                    f"{intento}; se vuelve a pulsar Mostrar y se reintenta."
+                    f"{intento}; se vuelve a seleccionar la facultad y se reintenta."
                 )
-                boton = self.page.get_by_text("Mostrar", exact=True).first
-                try:
-                    await boton.wait_for(state="visible", timeout=5000)
-                    await boton.click()
-                except Exception:
-                    # Algunas vistas renderizan el botón como input.
-                    boton = self.page.locator(
-                        'input[type="submit"], button'
-                    ).filter(has_text="Mostrar").first
-                    await boton.click(timeout=5000)
+                # Mostrar solo se utiliza al enviar la consulta después de
+                # elegir plan y tipología; no carga el catálogo de carreras.
+                await self.seleccionar_por_codigo(
+                    self.SELECTOR_FACULTAD, self.codigo_facultad, esperar_adf=True,
+                )
                 await self.page.wait_for_timeout(500)
         else:
             raise ultimo_error

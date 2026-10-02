@@ -36,6 +36,10 @@
 # cerrar todo Chromium.
 #
 
+import asyncio
+
+TIEMPO_MAXIMO_CIERRE = 15
+
 from playwright.async_api import (
     Browser,
     BrowserContext,
@@ -202,7 +206,7 @@ class NavegadorSIA:
             return
 
         try:
-            await contexto.close()
+            await asyncio.wait_for(contexto.close(), timeout=TIEMPO_MAXIMO_CIERRE)
 
         except Exception as error:
             print(
@@ -306,7 +310,7 @@ class NavegadorSIA:
         if self.browser is not None:
 
             try:
-                await self.browser.close()
+                await asyncio.wait_for(self.browser.close(), timeout=TIEMPO_MAXIMO_CIERRE)
 
             except Exception as error:
                 print(

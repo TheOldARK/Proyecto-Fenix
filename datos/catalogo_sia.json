@@ -112,6 +112,89 @@
                                     "codigo": "3705"
                                 }
                             ]
+                        },
+                        {
+                            "value": "5",
+                            "nombre": "3067 FACULTAD DE CIENCIAS HUMANAS Y ECONÓMICAS",
+                            "codigo": "3067",
+                            "planes_estudio": [
+                                {
+                                    "value": "0",
+                                    "nombre": "3512 Ciencia Política",
+                                    "codigo": "3512"
+                                },
+                                {
+                                    "value": "1",
+                                    "nombre": "3513 Economía",
+                                    "codigo": "3513"
+                                },
+                                {
+                                    "value": "2",
+                                    "nombre": "3514 Historia",
+                                    "codigo": "3514"
+                                }
+                            ]
+                        },
+                        {
+                            "value": "0",
+                            "nombre": "3064 FACULTAD DE ARQUITECTURA",
+                            "codigo": "3064",
+                            "planes_estudio": [
+                                {
+                                    "value": "1",
+                                    "nombre": "3502 Artes Plásticas",
+                                    "codigo": "3502"
+                                },
+                                {
+                                    "value": "2",
+                                    "nombre": "3503 Construcción",
+                                    "codigo": "3503"
+                                },
+                                {
+                                    "value": "0",
+                                    "nombre": "3501 Arquitectura",
+                                    "codigo": "3501"
+                                }
+                            ]
+                        },
+                        {
+                            "value": "2",
+                            "nombre": "3442 FACULTAD DE CIENCIAS AGRARIAS",
+                            "codigo": "3442",
+                            "planes_estudio": [
+                                {
+                                    "value": "0",
+                                    "nombre": "3508 Ingeniería Agrícola",
+                                    "codigo": "3508"
+                                },
+                                {
+                                    "value": "1",
+                                    "nombre": "3509 Ingeniería Agronómica",
+                                    "codigo": "3509"
+                                },
+                                {
+                                    "value": "2",
+                                    "nombre": "3510 Ingeniería Forestal",
+                                    "codigo": "3510"
+                                },
+                                {
+                                    "value": "3",
+                                    "nombre": "3511 Zootecnia",
+                                    "codigo": "3511"
+                                }
+                            ]
+                        },
+                        {
+                            "value": "4",
+                            "nombre": "3516 FACULTAD DE CIENCIAS DE LA VIDA",
+                            "codigo": "3516",
+                            "planes_estudio": [
+                                {
+                                    "value": "0",
+                                    "nombre": "3706 Farmacia",
+                                    "codigo": "3706"
+                                }
+                            ]
                         }
                     ]
                 }

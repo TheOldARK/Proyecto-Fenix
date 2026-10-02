@@ -1,6 +1,7 @@
 """Limpieza coordinada de los documentos que pertenecen a un estudiante."""
 
 from configuracion import (
+    ARCHIVO_AVANCE_ACADEMICO,
     ARCHIVO_CANCELACION_ACTUALIZACION,
     ARCHIVO_ESTADO_ACTUALIZACION,
     ARCHIVO_ESTUDIANTE,
@@ -12,6 +13,7 @@ from configuracion import (
 
 ARCHIVOS_DEL_ESTUDIANTE = (
     ARCHIVO_ESTUDIANTE,
+    ARCHIVO_AVANCE_ACADEMICO,
     ARCHIVO_MATERIAS,
     ARCHIVO_OFERTA,
     ARCHIVO_LIBRES_ELECCION,

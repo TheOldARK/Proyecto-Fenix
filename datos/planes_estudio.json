@@ -156,8 +156,6 @@
             "clave": "1102:3065:3504",
             "codigo": "3504",
             "nombre": "Estadística",
-            "sede": "Medellín",
-            "nivel": "Profesional - Pregrado",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3065",
@@ -272,6 +270,8 @@
                     }
                 }
             },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
             "malla_verificada": false,
             "fuente_oficial": "https://registroymatricula.medellin.unal.edu.co/dato-de-contacto-areas-curriculares.html"
         },
@@ -279,8 +279,6 @@
             "clave": "1102:3065:3506",
             "codigo": "3506",
             "nombre": "Ingeniería Física",
-            "sede": "Medellín",
-            "nivel": "Profesional - Pregrado",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3065",
@@ -406,6 +404,8 @@
                     "creditos": {}
                 }
             },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
             "malla_verificada": false,
             "fuente_oficial": "https://ciencias.medellin.unal.edu.co/126"
         },
@@ -413,8 +413,6 @@
             "clave": "1102:3065:3507",
             "codigo": "3507",
             "nombre": "Matemáticas",
-            "sede": "Medellín",
-            "nivel": "Profesional - Pregrado",
             "sede_codigo": "1102",
             "sede_nombre": "1102 SEDE MEDELLÍN",
             "facultad_codigo": "3065",
@@ -516,6 +514,8 @@
                     "creditos": {}
                 }
             },
+            "sede": "Medellín",
+            "nivel": "Profesional - Pregrado",
             "malla_verificada": false,
             "fuente_oficial": "https://ciencias.medellin.unal.edu.co/127"
         },
@@ -1642,6 +1642,7 @@
                 "3010469": "Procesos Sedimentarios y Geología de Yacimientos",
                 "1000006": "Cálculo en Varias Variables",
                 "1000007": "Ecuaciones Diferenciales",
+                "1000017": "Física, Electricidad y Magnetismo",
                 "3010478": "Termodinámica General",
                 "3007309": "Ciencia de los Materiales",
                 "3010651": "Estadística I",
@@ -1663,8 +1664,7 @@
                 "3010439": "Proyecto Integrado de Ingeniería",
                 "3010465": "Inyección de Agua",
                 "3007427": "Operaciones de Campo",
-                "3007486": "Trabajo de Grado",
-                "1000017": "Física de Electricidad y Magnetismo"
+                "3007486": "Trabajo de Grado"
             },
             "semestres": {
                 "1": {
@@ -1692,9 +1692,9 @@
                     "asignaturas": [
                         "1000006",
                         "1000007",
+                        "1000017",
                         "3007309",
-                        "3010478",
-                        "1000017"
+                        "3010478"
                     ],
                     "creditos": {}
                 },
@@ -1788,11 +1788,13 @@
             "valor_plan": "16",
             "nombres_asignaturas": {
                 "1000004": "Cálculo Diferencial",
+                "1000008": "Geometría Analítica y Vectorial",
                 "1000005": "Cálculo Integral",
                 "1000003": "Álgebra Lineal",
                 "1000019": "Física Mecánica",
                 "1000007": "Ecuaciones Diferenciales",
                 "1000006": "Cálculo en Varias Variables",
+                "1000017": "Física, Electricidad y Magnetismo",
                 "3007756": "Laboratorio de Circuitos I",
                 "3006905": "Matemáticas Especiales",
                 "3007424": "Trabajo de Grado",
@@ -1822,16 +1824,14 @@
                 "3010482": "Diseño de Redes de Transmisión y Distribución",
                 "3010492": "Sistemas de Protecciones Eléctricas",
                 "3010439": "Proyecto Integrado de Ingeniería",
-                "3010481": "Análisis de Circuitos Eléctricos I",
-                "1000008": "Geometría Vectorial y Analítica",
-                "1000017": "Física de Electricidad y Magnetismo"
+                "3010481": "Análisis de Circuitos Eléctricos I"
             },
             "semestres": {
                 "1": {
                     "asignaturas": [
                         "1000004",
-                        "3009531",
-                        "1000008"
+                        "1000008",
+                        "3009531"
                     ],
                     "creditos": {
                         "libre_eleccion": 6
@@ -1852,9 +1852,9 @@
                     "asignaturas": [
                         "1000006",
                         "1000007",
+                        "1000017",
                         "3010435",
-                        "3010478",
-                        "1000017"
+                        "3010478"
                     ],
                     "creditos": {}
                 },
@@ -2118,6 +2118,7 @@
                 "3007202": "Fundamentos de Economía",
                 "3010651": "Estadística I",
                 "1000007": "Ecuaciones Diferenciales",
+                "1000017": "Física, Electricidad y Magnetismo",
                 "3010425": "Teoría Administrativa y Organizacional",
                 "3006915": "Estadística II",
                 "3010478": "Termodinámica General",
@@ -2145,8 +2146,7 @@
                 "3010411": "Innovación y Gestión Tecnológica",
                 "3010439": "Proyecto Integrado de Ingeniería",
                 "3011166": "Fundamentos de Sistemas de Información e Inteligencia de Negocios",
-                "3007335": "Trabajo de Grado",
-                "1000017": "Física de Electricidad y Magnetismo"
+                "3007335": "Trabajo de Grado"
             },
             "semestres": {
                 "1": {
@@ -2173,9 +2173,9 @@
                 "3": {
                     "asignaturas": [
                         "1000007",
+                        "1000017",
                         "3010425",
-                        "3010651",
-                        "1000017"
+                        "3010651"
                     ],
                     "creditos": {
                         "fundamentacion_optativa": 4
@@ -2288,6 +2288,7 @@
                 "3007309": "Ciencia de Materiales",
                 "1000006": "Cálculo en Varias Variables",
                 "1000007": "Ecuaciones Diferenciales",
+                "1000017": "Física, Electricidad y Magnetismo",
                 "3010435": "Fundamentos de Programación",
                 "3010478": "Termodinámica General",
                 "3010434": "Estática",
@@ -2315,8 +2316,7 @@
                 "3010432": "Diseño Mecánico Integrado",
                 "3007440": "Trabajo de Grado",
                 "3010418": "Modelamiento: Electromecánica",
-                "3011065": "Diseño Mecánico Básico",
-                "1000017": "Física de Electricidad y Magnetismo"
+                "3011065": "Diseño Mecánico Básico"
             },
             "semestres": {
                 "1": {
@@ -2346,10 +2346,10 @@
                     "asignaturas": [
                         "1000006",
                         "1000007",
+                        "1000017",
                         "3010434",
                         "3010435",
-                        "3010478",
-                        "1000017"
+                        "3010478"
                     ],
                     "creditos": {}
                 },
@@ -2582,6 +2582,951 @@
             "sede": "Medellín",
             "nivel": "Profesional - Pregrado",
             "fuente_oficial": "https://minas.medellin.unal.edu.co/formacion/pregrado"
+        },
+        "1102:3067:3512": {
+            "clave": "1102:3067:3512",
+            "codigo": "3512",
+            "nombre": "Ciencia Política",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3067",
+            "facultad_nombre": "3067 FACULTAD DE CIENCIAS HUMANAS Y ECONÓMICAS",
+            "valor_sede": "6",
+            "valor_facultad": "5",
+            "valor_plan": "0",
+            "nombres_asignaturas": {},
+            "semestres": {
+                "1": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "2": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "3": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "6": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "7": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "8": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "9": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "10": {
+                    "asignaturas": [],
+                    "creditos": {}
+                }
+            },
+            "fuente_oficial": "https://registroymatricula.medellin.unal.edu.co/dato-de-contacto-areas-curriculares.html"
+        },
+        "1102:3067:3513": {
+            "clave": "1102:3067:3513",
+            "codigo": "3513",
+            "nombre": "Economía",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3067",
+            "facultad_nombre": "3067 FACULTAD DE CIENCIAS HUMANAS Y ECONÓMICAS",
+            "valor_sede": "6",
+            "valor_facultad": "5",
+            "valor_plan": "1",
+            "nombres_asignaturas": {
+                "1000004": "Cálculo Diferencial",
+                "3006642": "Historia del Pensamiento Económico",
+                "3007202": "Fundamentos de Economía",
+                "1000005": "Cálculo Integral",
+                "3007204": "Historia Económica de Colombia",
+                "3007205": "Historia Económica Mundial",
+                "3009743": "Microeconomía I",
+                "1000003": "Álgebra Lineal",
+                "3007195": "Economía Política",
+                "3009951": "Macroeconomía I",
+                "3009953": "Microeconomía II",
+                "3007193": "Economía Matemática",
+                "3007196": "Economía Política II",
+                "3007208": "Macroeconomía II",
+                "3009952": "Microeconomía III",
+                "3009791": "Introducción a las Finanzas",
+                "3006914": "Estadística I",
+                "3007297": "Ingeniería Económica",
+                "3007209": "Macroeconomía III",
+                "3009948": "Econometría I",
+                "3007200": "Evaluación Económica de Proyectos",
+                "3009699": "Dinámica Económica",
+                "3007219": "Teorías del Comercio Internacional",
+                "3009947": "Econometría II",
+                "3007183": "Desarrollo Económico",
+                "3007197": "Economía Pública",
+                "3007189": "Economía Colombiana",
+                "3009954": "Seminario de Investigación",
+                "3007221": "Trabajo de Grado"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000004",
+                        "3006642",
+                        "3007202"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 8
+                    }
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000005",
+                        "3007204",
+                        "3007205",
+                        "3009743"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 4
+                    }
+                },
+                "3": {
+                    "asignaturas": [
+                        "1000003",
+                        "3007195",
+                        "3009951",
+                        "3009953"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 2
+                    }
+                },
+                "4": {
+                    "asignaturas": [
+                        "3007193",
+                        "3007196",
+                        "3007208",
+                        "3009952",
+                        "3009791"
+                    ],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [
+                        "3006914",
+                        "3007297",
+                        "3007209"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3,
+                        "fundamentacion_optativa": 3
+                    }
+                },
+                "6": {
+                    "asignaturas": [
+                        "3009948",
+                        "3007200",
+                        "3009699",
+                        "3007219"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3
+                    }
+                },
+                "7": {
+                    "asignaturas": [
+                        "3009947",
+                        "3007183",
+                        "3007197"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 3,
+                        "optativa_disciplinar": 3
+                    }
+                },
+                "8": {
+                    "asignaturas": [
+                        "3007189",
+                        "3009954"
+                    ],
+                    "creditos": {
+                        "libre_eleccion": 7,
+                        "optativa_disciplinar": 3
+                    }
+                },
+                "9": {
+                    "asignaturas": [
+                        "3007221"
+                    ],
+                    "creditos": {}
+                }
+            },
+            "fuente_oficial": "https://registroymatricula.medellin.unal.edu.co/dato-de-contacto-areas-curriculares.html"
+        },
+        "1102:3067:3514": {
+            "clave": "1102:3067:3514",
+            "codigo": "3514",
+            "nombre": "Historia",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3067",
+            "facultad_nombre": "3067 FACULTAD DE CIENCIAS HUMANAS Y ECONÓMICAS",
+            "valor_sede": "6",
+            "valor_facultad": "5",
+            "valor_plan": "2",
+            "nombres_asignaturas": {
+                "3007262": "Paleografía y Diplomática",
+                "3007273": "Taller del Historiador",
+                "3010890": "El texto histórico: lectura y escritura",
+                "3007277": "Teorías de la Historia e Historiografía I",
+                "3007237": "Historia de América II",
+                "3007236": "Historia de América I",
+                "3007251": "Historia de Colombia I",
+                "3007259": "Lenguaje e Interpretación",
+                "3007274": "Teorías de la Sociedad y la Cultura I",
+                "3009491": "Historia de América III",
+                "3007252": "Historia de Colombia II",
+                "3007369": "Teorías de la Historia e Historiografía II",
+                "3007253": "Historia de Colombia III",
+                "3009492": "Teorías de la Sociedad y la Cultura II",
+                "3007254": "Historia de Colombia IV",
+                "3007278": "Teorías de la Historia e Historiografía III",
+                "3007255": "Historia de Colombia V",
+                "3007279": "Teorías de la Historia e Historiografía IV",
+                "3007280": "Trabajo de Grado"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "3007262",
+                        "3007273",
+                        "3010890",
+                        "3007236"
+                    ],
+                    "creditos": {}
+                },
+                "2": {
+                    "asignaturas": [
+                        "3007277",
+                        "3007237",
+                        "3007251",
+                        "3007259"
+                    ],
+                    "creditos": {}
+                },
+                "3": {
+                    "asignaturas": [
+                        "3007274",
+                        "3009491",
+                        "3007252"
+                    ],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [
+                        "3007369",
+                        "3007253"
+                    ],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [
+                        "3009492",
+                        "3007254"
+                    ],
+                    "creditos": {}
+                },
+                "6": {
+                    "asignaturas": [
+                        "3007278",
+                        "3007255"
+                    ],
+                    "creditos": {}
+                },
+                "7": {
+                    "asignaturas": [
+                        "3007279"
+                    ],
+                    "creditos": {}
+                },
+                "8": {
+                    "asignaturas": [
+                        "3007280"
+                    ],
+                    "creditos": {}
+                }
+            },
+            "fuente_oficial": "https://registroymatricula.medellin.unal.edu.co/dato-de-contacto-areas-curriculares.html"
+        },
+        "1102:3064:3501": {
+            "clave": "1102:3064:3501",
+            "codigo": "3501",
+            "nombre": "Arquitectura",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3064",
+            "facultad_nombre": "3064 FACULTAD DE ARQUITECTURA",
+            "valor_sede": "6",
+            "valor_facultad": "0",
+            "valor_plan": "0",
+            "nombres_asignaturas": {
+                "3011119": "Proyectos 1",
+                "3011120": "Proyectos 2",
+                "3011121": "Proyectos 3",
+                "3011122": "Proyectos 4",
+                "3011123": "Proyectos 5",
+                "3011124": "Proyectos 6",
+                "3011125": "Proyectos 7",
+                "3011126": "Proyectos 8",
+                "3011127": "Proyectos 9",
+                "3006605": "Introducción Historia y Teoría",
+                "3011177": "Tecnología del proyecto 1",
+                "3006615": "Representación del Proyecto 1",
+                "3006601": "Historia y Teoría 1",
+                "3006600": "Urbanística 1",
+                "3006622": "Tecnología del Proyecto 2",
+                "3006616": "Representación del Proyecto 2",
+                "3006602": "Historia y Teoría 2",
+                "3006627": "Urbanística 2",
+                "3006623": "Tecnología del Proyecto 3",
+                "3006617": "Representación del Proyecto 3",
+                "3006603": "Historia y Teoría 3",
+                "3006793": "Urbanística 3",
+                "3006624": "Tecnología del Proyecto 4",
+                "3006618": "Representación del Proyecto 4",
+                "3006604": "Historia y Teoría 4",
+                "3006628": "Urbanística 4",
+                "3006625": "Tecnología del Proyecto 5",
+                "3006619": "Representación del Proyecto 5",
+                "3006792": "Seminario de Investigación",
+                "3006629": "Urbanística 5",
+                "3007372": "Tecnología del Proyecto 6",
+                "3006620": "Representación del Proyecto 6",
+                "3006794": "Trabajo de Grado"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "3011119",
+                        "3006605",
+                        "3011177",
+                        "3006615"
+                    ],
+                    "creditos": {}
+                },
+                "2": {
+                    "asignaturas": [
+                        "3011120",
+                        "3006601",
+                        "3006600",
+                        "3006622",
+                        "3006616"
+                    ],
+                    "creditos": {}
+                },
+                "3": {
+                    "asignaturas": [
+                        "3011121",
+                        "3006602",
+                        "3006627",
+                        "3006623",
+                        "3006617"
+                    ],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [
+                        "3011122",
+                        "3006603",
+                        "3006793",
+                        "3006624",
+                        "3006618"
+                    ],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [
+                        "3011123",
+                        "3006604",
+                        "3006628",
+                        "3006625",
+                        "3006619"
+                    ],
+                    "creditos": {}
+                },
+                "6": {
+                    "asignaturas": [
+                        "3011124",
+                        "3006792",
+                        "3006629",
+                        "3007372",
+                        "3006620"
+                    ],
+                    "creditos": {}
+                },
+                "7": {
+                    "asignaturas": [
+                        "3011125"
+                    ],
+                    "creditos": {}
+                },
+                "8": {
+                    "asignaturas": [
+                        "3011126"
+                    ],
+                    "creditos": {}
+                },
+                "9": {
+                    "asignaturas": [
+                        "3011127"
+                    ],
+                    "creditos": {}
+                },
+                "10": {
+                    "asignaturas": [
+                        "3006794"
+                    ],
+                    "creditos": {}
+                }
+            }
+        },
+        "1102:3064:3502": {
+            "clave": "1102:3064:3502",
+            "codigo": "3502",
+            "nombre": "Artes Plásticas",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3064",
+            "facultad_nombre": "3064 FACULTAD DE ARQUITECTURA",
+            "valor_sede": "6",
+            "valor_facultad": "0",
+            "valor_plan": "1",
+            "nombres_asignaturas": {
+                "3010734": "Básico Imagen I",
+                "3009857": "Taller I",
+                "3009837": "Básico Espacio I",
+                "3006669": "Historia del Arte I",
+                "3009858": "Taller II",
+                "3010698": "Historia del Arte II",
+                "3009859": "Taller III",
+                "3006671": "Historia del Arte III",
+                "3009855": "Seminario de Investigación I",
+                "3009860": "Taller IV",
+                "3009854": "Seminario I",
+                "3009861": "Taller V",
+                "3006700": "Seminario II",
+                "3009862": "Taller VI",
+                "3006701": "Seminario III",
+                "3009856": "Seminario de Investigación II",
+                "3009863": "Taller VII",
+                "3000857": "Trabajo de Campo I"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "3010734",
+                        "3009857",
+                        "3009837",
+                        "3006669"
+                    ],
+                    "creditos": {}
+                },
+                "2": {
+                    "asignaturas": [
+                        "3009858",
+                        "3010698"
+                    ],
+                    "creditos": {}
+                },
+                "3": {
+                    "asignaturas": [
+                        "3009859",
+                        "3006671"
+                    ],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [
+                        "3009855",
+                        "3009860",
+                        "3009854"
+                    ],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [
+                        "3009861",
+                        "3006700"
+                    ],
+                    "creditos": {}
+                },
+                "6": {
+                    "asignaturas": [
+                        "3009862",
+                        "3006701"
+                    ],
+                    "creditos": {}
+                },
+                "7": {
+                    "asignaturas": [
+                        "3009856",
+                        "3009863"
+                    ],
+                    "creditos": {}
+                },
+                "8": {
+                    "asignaturas": [
+                        "3000857"
+                    ],
+                    "creditos": {}
+                }
+            }
+        },
+        "1102:3064:3503": {
+            "clave": "1102:3064:3503",
+            "codigo": "3503",
+            "nombre": "Construcción",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3064",
+            "facultad_nombre": "3064 FACULTAD DE ARQUITECTURA",
+            "valor_sede": "6",
+            "valor_facultad": "0",
+            "valor_plan": "2",
+            "nombres_asignaturas": {
+                "1000004": "Cálculo Diferencial",
+                "1000008": "Geometría Vectorial y Analítica",
+                "3010345": "Representación del Proyecto 1 - CNT",
+                "3010319": "Construcción I",
+                "3006739": "Química de los Materiales",
+                "1000019": "Física Mecánica",
+                "3010346": "Representación del Proyecto 2 - CNT",
+                "3006605": "Introducción Historia y Teoría",
+                "3010283": "Construcción II",
+                "3006741": "Materiales I",
+                "3006712": "Análisis Estructural I - CNT",
+                "3007380": "Geología Aplicada",
+                "3010347": "Representación del Proyecto 3 - CNT",
+                "3006745": "Hábitat I",
+                "3006719": "Construcción III",
+                "3006780": "Materiales II",
+                "3006713": "Análisis Estructural II - CNT",
+                "3007401": "Topografía",
+                "3006760": "Legislación Laboral y Pública",
+                "3006746": "Hábitat II",
+                "3006720": "Construcción IV",
+                "3006781": "Materiales III",
+                "3006740": "Fundamentos de Instalaciones Técnicas",
+                "3006762": "Programación de Obras I",
+                "3006772": "Taller I - CNT",
+                "3006722": "Construcción V",
+                "3006782": "Materiales IV",
+                "3006732": "Costos y Presupuestos I",
+                "3006773": "Taller II - CNT",
+                "3006723": "Construcción VI",
+                "3010220": "Patología I",
+                "3006729": "Controles de Obra I",
+                "3006774": "Taller III - CNT",
+                "3006724": "Construcción VII",
+                "3006787": "Patología II",
+                "3006768": "Sistemas de Gestión",
+                "3006743": "Gestión Integrada de Proyectos I",
+                "3010221": "Patología III",
+                "3006715": "Trabajo de Grado"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000004",
+                        "1000008",
+                        "3010345",
+                        "3010319",
+                        "3006739"
+                    ],
+                    "creditos": {}
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000019",
+                        "3010346",
+                        "3006605",
+                        "3010283",
+                        "3006741"
+                    ],
+                    "creditos": {}
+                },
+                "3": {
+                    "asignaturas": [
+                        "3006712",
+                        "3007380",
+                        "3010347",
+                        "3006745",
+                        "3006719",
+                        "3006780"
+                    ],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [
+                        "3006713",
+                        "3007401",
+                        "3006760",
+                        "3006746",
+                        "3006720",
+                        "3006781"
+                    ],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [
+                        "3006740",
+                        "3006762",
+                        "3006772",
+                        "3006722",
+                        "3006782"
+                    ],
+                    "creditos": {}
+                },
+                "6": {
+                    "asignaturas": [
+                        "3006732",
+                        "3006773",
+                        "3006723",
+                        "3010220"
+                    ],
+                    "creditos": {}
+                },
+                "7": {
+                    "asignaturas": [
+                        "3006729",
+                        "3006774",
+                        "3006724",
+                        "3006787"
+                    ],
+                    "creditos": {}
+                },
+                "8": {
+                    "asignaturas": [
+                        "3006768",
+                        "3006743",
+                        "3010221"
+                    ],
+                    "creditos": {}
+                },
+                "9": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "10": {
+                    "asignaturas": [
+                        "3006715"
+                    ],
+                    "creditos": {}
+                }
+            }
+        },
+        "1102:3442:3508": {
+            "clave": "1102:3442:3508",
+            "codigo": "3508",
+            "nombre": "Ingeniería Agrícola",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3442",
+            "facultad_nombre": "3442 FACULTAD DE CIENCIAS AGRARIAS",
+            "valor_sede": "6",
+            "valor_facultad": "2",
+            "valor_plan": "0",
+            "nombres_asignaturas": {},
+            "semestres": {
+                "1": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "2": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "3": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "6": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "7": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "8": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "9": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "10": {
+                    "asignaturas": [],
+                    "creditos": {}
+                }
+            }
+        },
+        "1102:3442:3509": {
+            "clave": "1102:3442:3509",
+            "codigo": "3509",
+            "nombre": "Ingeniería Agronómica",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3442",
+            "facultad_nombre": "3442 FACULTAD DE CIENCIAS AGRARIAS",
+            "valor_sede": "6",
+            "valor_facultad": "2",
+            "valor_plan": "1",
+            "nombres_asignaturas": {
+                "1000001": "Matemáticas Básicas",
+                "1000002": "Lecto-Escritura",
+                "1000009": "Biología General",
+                "3006829": "Química General",
+                "3007046": "Introducción a las Ciencias Agronómicas",
+                "1000004": "Cálculo Diferencial"
+            },
+            "semestres": {
+                "1": {
+                    "asignaturas": [
+                        "1000001",
+                        "1000002",
+                        "1000009",
+                        "3006829",
+                        "3007046"
+                    ],
+                    "creditos": {}
+                },
+                "2": {
+                    "asignaturas": [
+                        "1000004"
+                    ],
+                    "creditos": {}
+                },
+                "3": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "6": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "7": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "8": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "9": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "10": {
+                    "asignaturas": [],
+                    "creditos": {}
+                }
+            }
+        },
+        "1102:3442:3510": {
+            "clave": "1102:3442:3510",
+            "codigo": "3510",
+            "nombre": "Ingeniería Forestal",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3442",
+            "facultad_nombre": "3442 FACULTAD DE CIENCIAS AGRARIAS",
+            "valor_sede": "6",
+            "valor_facultad": "2",
+            "valor_plan": "2",
+            "nombres_asignaturas": {},
+            "semestres": {
+                "1": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "2": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "3": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "6": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "7": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "8": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "9": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "10": {
+                    "asignaturas": [],
+                    "creditos": {}
+                }
+            }
+        },
+        "1102:3442:3511": {
+            "clave": "1102:3442:3511",
+            "codigo": "3511",
+            "nombre": "Zootecnia",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3442",
+            "facultad_nombre": "3442 FACULTAD DE CIENCIAS AGRARIAS",
+            "valor_sede": "6",
+            "valor_facultad": "2",
+            "valor_plan": "3",
+            "nombres_asignaturas": {},
+            "semestres": {
+                "1": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "2": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "3": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "6": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "7": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "8": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "9": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "10": {
+                    "asignaturas": [],
+                    "creditos": {}
+                }
+            }
+        },
+        "1102:3516:3706": {
+            "clave": "1102:3516:3706",
+            "codigo": "3706",
+            "nombre": "Farmacia",
+            "sede_codigo": "1102",
+            "sede_nombre": "1102 SEDE MEDELLÍN",
+            "facultad_codigo": "3516",
+            "facultad_nombre": "3516 FACULTAD DE CIENCIAS DE LA VIDA",
+            "valor_sede": "6",
+            "valor_facultad": "4",
+            "valor_plan": "0",
+            "nombres_asignaturas": {},
+            "semestres": {
+                "1": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "2": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "3": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "4": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "5": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "6": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "7": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "8": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "9": {
+                    "asignaturas": [],
+                    "creditos": {}
+                },
+                "10": {
+                    "asignaturas": [],
+                    "creditos": {}
+                }
+            }
         }
     }
 }

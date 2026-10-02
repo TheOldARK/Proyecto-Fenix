@@ -11,15 +11,18 @@ import re
 import sys
 import time
 import unicodedata
+from datetime import date
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, QTimer, Signal, QUrl, QLockFile, QThread, qInstallMessageHandler
-from PySide6.QtGui import QColor, QCursor, QDesktopServices, QFont, QFontMetrics, QIcon, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, Qt, QTimer, Signal, QUrl, QLockFile, QThread, qInstallMessageHandler
+from PySide6.QtGui import QColor, QCursor, QDesktopServices, QFont, QFontDatabase, QFontMetrics, QIcon, QPainter, QPainterPath, QPen, QPixmap, QRegion
 from PySide6.QtWidgets import (
     QApplication, QAbstractItemView, QComboBox, QDialog, QDialogButtonBox,
     QFrame, QGridLayout, QHBoxLayout, QLayout, QLabel, QListWidget, QListWidgetItem,
     QFileDialog, QLineEdit, QMainWindow, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea,
-    QSizePolicy, QSplitter, QStackedLayout, QTextEdit, QToolButton, QVBoxLayout, QWidget,
+    QDoubleSpinBox,
+    QSizeGrip, QSizePolicy, QSplitter, QStackedLayout, QTextEdit, QToolButton, QVBoxLayout, QWidget,
+    QWidgetAction,
 )
 
 
@@ -28,12 +31,13 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from infraestructura.almacenamiento.estado_actualizacion import cargar_estado, guardar_estado
+from infraestructura.almacenamiento.json_atomico import cargar_json, guardar_json_atomico
 from aplicacion.arranque import comando_fenix, preparar_entorno
-from configuracion import CARPETA_DATOS, VERSION
+from configuracion import ARCHIVO_AVANCE_ACADEMICO, CARPETA_DATOS, VERSION
 from infraestructura.almacenamiento.cancelacion_actualizacion import solicitar_cancelacion
 from infraestructura.almacenamiento.datos_estudiante import borrar_datos_estudiante
 from infraestructura.almacenamiento.estudiante import cargar_estudiante, guardar_estudiante
-from infraestructura.almacenamiento.materias import cargar_materias, preparar_materias_para_plan
+from infraestructura.almacenamiento.materias import cargar_materias, cargar_plan_materias, preparar_materias_para_plan
 from infraestructura.almacenamiento.materias_libre_eleccion import cargar_libres_eleccion
 from infraestructura.almacenamiento.oferta_academica import cargar_oferta, preparar_oferta_para_plan
 from infraestructura.almacenamiento.plan_estudios import cargar_planes
@@ -51,18 +55,45 @@ from servicios.elegibilidad import buscar_materias_no_disponibles
 from servicios.elegibilidad import materias_visibles
 from servicios.elegibilidad import motivo_materia_no_mostrable
 from servicios.elegibilidad import advertencias_materia
-from servicios.tipos_materia import clasificar_tipo_materia
+from servicios.tipos_materia import clasificar_tipo_materia, es_materia_nivelacion
 from servicios.prerrequisitos import descripcion_tipo
+from servicios.historia_academica import periodos_visibles_avance, promedio_ponderado_periodo
+from aplicacion.trabajador_avance import TrabajadorAvanceAcademico
 
 
 RUTA_LOGO = BASE_DIR / "recursos" / "logo.png"
 RUTA_QR_DONACIONES = BASE_DIR / "recursos" / "qr_donaciones.png"
 RUTA_GRACIAS = BASE_DIR / "recursos" / "gracias2.png"
+RUTA_BUS_INTERCAMPUS = BASE_DIR / "recursos" / "bus.png"
+CARPETA_FUENTES = BASE_DIR / "recursos" / "fuentes"
+FUENTE_INTERFAZ = "Source Sans Pro"
 CORREO_CONTACTO = "mialvarezr@unal.edu.co"
 URL_DONACIONES = "https://example.com/donaciones"
 URL_PROFESORES_RECOMENDADOS = (
     "https://www.instagram.com/unmedopina/"
 )
+
+
+def cargar_fuente_interfaz(app):
+    """Instala la tipografía incluida y la aplica sin alterar el tamaño base."""
+    familias = set()
+    for nombre in (
+        "SourceSansPro-Regular.ttf",
+        "SourceSansPro-SemiBold.ttf",
+        "SourceSansPro-Bold.ttf",
+    ):
+        ruta = CARPETA_FUENTES / nombre
+        if not ruta.is_file():
+            continue
+        identificador = QFontDatabase.addApplicationFont(str(ruta))
+        if identificador >= 0:
+            familias.update(QFontDatabase.applicationFontFamilies(identificador))
+    if FUENTE_INTERFAZ not in familias:
+        return False
+    fuente = app.font()
+    fuente.setFamily(FUENTE_INTERFAZ)
+    app.setFont(fuente)
+    return True
 
 # Paleta neutra: verde = permitido, amarillo = advertencia y rojo = bloqueo.
 COLOR_FONDO = "#141414"
@@ -78,8 +109,221 @@ COLOR_ROJO = "#EF6670"
 COLOR_ROJO_FONDO = "#3A2024"
 COLOR_AMARILLO = "#F2C14E"
 COLOR_AMARILLO_FONDO = "#493C1C"
+COLOR_NARANJA_FENIX = "#FD5D09"
 COLOR_PREVISUALIZACION = "#4A4A4A"
 COLOR_PREVISUALIZACION_TEXTO = "#E0E0E0"
+
+ESTILO_BARRAS_DESPLAZAMIENTO = (
+    "QScrollBar:vertical { background: #1C1C1C; width: 10px; margin: 0; }"
+    "QScrollBar::handle:vertical { background: #4B4B4B; border-radius: 5px; "
+    "min-height: 24px; }"
+    "QScrollBar::handle:vertical:hover { background: #686868; }"
+    "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+    "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: #1C1C1C; }"
+    "QScrollBar:horizontal { background: #1C1C1C; height: 10px; margin: 0; }"
+    "QScrollBar::handle:horizontal { background: #4B4B4B; border-radius: 5px; "
+    "min-width: 24px; }"
+    "QScrollBar::handle:horizontal:hover { background: #686868; }"
+    "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }"
+    "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: #1C1C1C; }"
+)
+
+
+class BarraDialogo(QFrame):
+    """Encabezado propio para mover y cerrar diálogos sin barra de Windows."""
+
+    def __init__(self, dialogo):
+        super().__init__(dialogo)
+        self.dialogo = dialogo
+        self._origen_arrastre = None
+        self._bordes_redimension = frozenset()
+        self._posicion_redimension = None
+        self._geometria_redimension = None
+        self.setObjectName("barraDialogoFenix")
+        self.setFixedHeight(32)
+        self.setStyleSheet(
+            "QFrame#barraDialogoFenix { background-color: #303030; "
+            "border: none; border-bottom: 1px solid #414141; }"
+        )
+        dialogo.installEventFilter(self)
+        dialogo.setMouseTracking(True)
+        self.setMouseTracking(True)
+        fila = QHBoxLayout(self)
+        fila.setContentsMargins(9, 2, 4, 2)
+        titulo = QLabel(dialogo.windowTitle())
+        titulo.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        titulo.setStyleSheet(
+            f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 11px; border: none;"
+        )
+        fila.addWidget(titulo, 1)
+        cerrar = QPushButton("×")
+        cerrar.setObjectName("cerrarDialogoFenix")
+        cerrar.setFixedSize(25, 25)
+        cerrar.setCursor(Qt.CursorShape.PointingHandCursor)
+        cerrar.setToolTip("Cerrar ventana")
+        cerrar.setStyleSheet(
+            f"QPushButton {{ color: {COLOR_TEXTO}; background: transparent; "
+            "border: none; font-size: 20px; padding: 0; }} "
+            f"QPushButton:hover {{ background: {COLOR_ROJO_FONDO}; "
+            f"color: {COLOR_ROJO}; border-radius: 4px; }}"
+        )
+        cerrar.clicked.connect(dialogo.reject)
+        fila.addWidget(cerrar)
+
+    def eventFilter(self, objeto, evento):
+        dialogo = getattr(self, "dialogo", None)
+        if dialogo is not None and objeto is dialogo:
+            tipo = evento.type()
+            if tipo in (QEvent.Type.Resize, QEvent.Type.Show):
+                self.setGeometry(0, 0, dialogo.width(), self.height())
+                self.raise_()
+            elif tipo == QEvent.Type.MouseButtonPress and self._iniciar_redimension(
+                evento, evento.position().toPoint()
+            ):
+                return True
+            elif tipo == QEvent.Type.MouseMove:
+                if self._mover_redimension(evento):
+                    return True
+                self._mostrar_cursor_borde(dialogo, evento.position().toPoint())
+            elif tipo == QEvent.Type.MouseButtonRelease:
+                self._terminar_redimension()
+            elif tipo == QEvent.Type.Leave and not self._bordes_redimension:
+                dialogo.unsetCursor()
+        return super().eventFilter(objeto, evento)
+
+    def _bordes_en(self, posicion):
+        bordes = set()
+        if posicion.x() < 7:
+            bordes.add("izquierda")
+        elif posicion.x() >= self.dialogo.width() - 7:
+            bordes.add("derecha")
+        if posicion.y() < 7:
+            bordes.add("arriba")
+        elif posicion.y() >= self.dialogo.height() - 7:
+            bordes.add("abajo")
+        return frozenset(bordes)
+
+    def _mostrar_cursor_borde(self, widget, posicion):
+        bordes = self._bordes_en(posicion)
+        if len(bordes) == 2:
+            diagonal_principal = bordes in (
+                frozenset(("izquierda", "arriba")),
+                frozenset(("derecha", "abajo")),
+            )
+            cursor = (
+                Qt.CursorShape.SizeFDiagCursor if diagonal_principal
+                else Qt.CursorShape.SizeBDiagCursor
+            )
+        elif "izquierda" in bordes or "derecha" in bordes:
+            cursor = Qt.CursorShape.SizeHorCursor
+        elif bordes:
+            cursor = Qt.CursorShape.SizeVerCursor
+        else:
+            widget.unsetCursor()
+            return
+        widget.setCursor(cursor)
+
+    def _iniciar_redimension(self, evento, posicion):
+        if evento.button() != Qt.MouseButton.LeftButton:
+            return False
+        bordes = self._bordes_en(posicion)
+        if not bordes:
+            return False
+        self._bordes_redimension = bordes
+        self._posicion_redimension = evento.globalPosition().toPoint()
+        self._geometria_redimension = QRect(self.dialogo.geometry())
+        evento.accept()
+        return True
+
+    def _mover_redimension(self, evento):
+        if not self._bordes_redimension:
+            return False
+        desplazamiento = evento.globalPosition().toPoint() - self._posicion_redimension
+        inicial = self._geometria_redimension
+        ancho_minimo = max(1, self.dialogo.minimumWidth())
+        alto_minimo = max(1, self.dialogo.minimumHeight())
+        ancho_maximo = self.dialogo.maximumWidth()
+        alto_maximo = self.dialogo.maximumHeight()
+        ancho = inicial.width()
+        alto = inicial.height()
+        if "izquierda" in self._bordes_redimension:
+            ancho = max(ancho_minimo, min(ancho_maximo, ancho - desplazamiento.x()))
+        elif "derecha" in self._bordes_redimension:
+            ancho = max(ancho_minimo, min(ancho_maximo, ancho + desplazamiento.x()))
+        if "arriba" in self._bordes_redimension:
+            alto = max(alto_minimo, min(alto_maximo, alto - desplazamiento.y()))
+        elif "abajo" in self._bordes_redimension:
+            alto = max(alto_minimo, min(alto_maximo, alto + desplazamiento.y()))
+        izquierda = inicial.right() - ancho + 1 if "izquierda" in self._bordes_redimension else inicial.left()
+        arriba = inicial.bottom() - alto + 1 if "arriba" in self._bordes_redimension else inicial.top()
+        self.dialogo.setGeometry(izquierda, arriba, ancho, alto)
+        evento.accept()
+        return True
+
+    def _terminar_redimension(self):
+        self._bordes_redimension = frozenset()
+        self._posicion_redimension = None
+        self._geometria_redimension = None
+
+    def mousePressEvent(self, evento):
+        if evento.button() == Qt.MouseButton.LeftButton:
+            if self._iniciar_redimension(evento, self.mapTo(self.dialogo, evento.position().toPoint())):
+                return
+            self._origen_arrastre = evento.globalPosition().toPoint() - self.dialogo.pos()
+            evento.accept()
+            return
+        super().mousePressEvent(evento)
+
+    def mouseMoveEvent(self, evento):
+        if self._mover_redimension(evento):
+            return
+        if self._origen_arrastre is not None and evento.buttons() & Qt.MouseButton.LeftButton:
+            self.dialogo.move(evento.globalPosition().toPoint() - self._origen_arrastre)
+            evento.accept()
+            return
+        self._mostrar_cursor_borde(self, self.mapTo(self.dialogo, evento.position().toPoint()))
+        super().mouseMoveEvent(evento)
+
+    def mouseReleaseEvent(self, evento):
+        self._origen_arrastre = None
+        self._terminar_redimension()
+        super().mouseReleaseEvent(evento)
+
+
+def preparar_dialogo_sin_barra(dialogo, disposicion, redimensionable=True):
+    """Conserva un cierre visible y una zona de arrastre al ocultar la barra nativa."""
+    dialogo.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
+    barra = BarraDialogo(dialogo)
+    barra.setGeometry(0, 0, dialogo.width(), barra.height())
+    barra.show()
+    disposicion.insertSpacing(0, barra.height())
+    if redimensionable:
+        disposicion.addWidget(QSizeGrip(dialogo), 0, Qt.AlignmentFlag.AlignRight)
+
+
+def centrar_contenido_si_no_hay_barra(area, disposicion, margen_con_barra, separacion_barra):
+    """Devuelve al contenido el espacio reservado para la barra cuando esta desaparece."""
+    barra = area.verticalScrollBar()
+    contenido = area.widget().layout()
+
+    def actualizar():
+        con_barra = barra.maximum() > 0
+        margen_derecho = margen_con_barra if con_barra else 20
+        separacion = separacion_barra if con_barra else 0
+        margenes = disposicion.contentsMargins()
+        if margenes.right() != margen_derecho:
+            disposicion.setContentsMargins(
+                margenes.left(), margenes.top(), margen_derecho, margenes.bottom()
+            )
+        margenes_contenido = contenido.contentsMargins()
+        if margenes_contenido.right() != separacion:
+            contenido.setContentsMargins(
+                margenes_contenido.left(), margenes_contenido.top(),
+                separacion, margenes_contenido.bottom(),
+            )
+
+    barra.rangeChanged.connect(lambda *_: actualizar())
+    actualizar()
 
 ANCHO_VENTANA = 1280
 ALTO_VENTANA = 720
@@ -151,6 +395,56 @@ def grupos_en_conflicto_en_bloque(materias, grupos_actuales, dia, hora, duracion
             if not elegible and motivo == "Conflicto de horario":
                 bloqueados.append((materia, grupo))
     return bloqueados
+
+
+def buscar_grupos_en_bloque(
+    materias, consulta, dia, hora, duracion, aprobadas, seleccionadas, grupos_actuales
+):
+    """Clasifica cada grupo encontrado; una materia puede estar en ambas listas."""
+    consulta = clave_alfabetica(consulta).strip()
+    if not consulta:
+        return []
+    resultados = []
+    vistos = set()
+    for materia in materias:
+        codigo = codigo_base(materia.get("codigo"))
+        if not codigo or codigo in vistos:
+            continue
+        vistos.add(codigo)
+        if consulta not in clave_alfabetica(
+            f"{materia.get('nombre', '')} {materia.get('codigo', '')} {codigo}"
+        ):
+            continue
+        motivo_academico = motivo_materia_no_mostrable(
+            materia, aprobadas, seleccionadas
+        )
+        disponibles = []
+        no_disponibles = []
+        for grupo in sorted(materia.get("grupos") or [], key=clave_orden_grupo):
+            motivos = []
+            if motivo_academico:
+                motivos.append(motivo_academico)
+            if not grupo_ocupa_bloque(grupo, dia, hora, duracion):
+                motivos.append("No tiene clase en la franja seleccionada")
+            elegible, motivo_grupo = grupo_es_elegible(grupo, grupos_actuales)
+            if not elegible:
+                motivos.append(motivo_grupo)
+            if motivos:
+                no_disponibles.append({"grupo": grupo, "motivo": ". ".join(motivos)})
+            else:
+                disponibles.append(grupo)
+        if not disponibles and not no_disponibles:
+            no_disponibles.append({
+                "grupo": None,
+                "motivo": ". ".join(filter(None, (
+                    motivo_academico, "No tiene grupos publicados en la oferta actual"
+                ))),
+            })
+        resultados.append({
+            "materia": materia, "disponibles": disponibles,
+            "no_disponibles": no_disponibles,
+        })
+    return sorted(resultados, key=lambda item: clave_alfabetica(item["materia"].get("nombre")))
 
 
 def subtipo_materia(materia):
@@ -324,6 +618,7 @@ class DialogoPlan(QDialog):
         contenedor_dialogo = QVBoxLayout(self)
         contenedor_dialogo.setContentsMargins(12, 12, 12, 10)
         contenedor_dialogo.setSpacing(8)
+        preparar_dialogo_sin_barra(self, contenedor_dialogo, redimensionable=False)
         self.area_desplazable = QScrollArea(self)
         self.area_desplazable.setWidgetResizable(True)
         self.area_desplazable.setFrameShape(QFrame.Shape.NoFrame)
@@ -457,6 +752,7 @@ class DialogoPlan(QDialog):
         self.boton_confirmar = self.botones.button(QDialogButtonBox.StandardButton.Ok)
         self.botones.accepted.connect(self.accept)
         contenedor_dialogo.addWidget(self.botones)
+        contenedor_dialogo.addWidget(QSizeGrip(self), 0, Qt.AlignmentFlag.AlignRight)
         self.planes = planes
         self.oferta = oferta if isinstance(oferta, dict) else {}
         self.materias_conocidas = (
@@ -474,6 +770,11 @@ class DialogoPlan(QDialog):
         }
         self.aprobadas_iniciales = aprobadas
         plan_guardado = str((estudiante or {}).get("plan_estudios") or "")
+        # Nivelación se marca una sola vez al elegir un plan nuevo. Si el
+        # estudiante la desmarca, filtros y búsquedas no deben volver a ganarla.
+        self._nivelaciones_inicializadas_por_plan = (
+            {plan_guardado} if plan_guardado in planes else set()
+        )
         plan_preferido = planes.get(plan_guardado)
         if plan_preferido is not None:
             clave_facultad = f"{plan_preferido.sede_codigo}:{plan_preferido.facultad_codigo}"
@@ -559,7 +860,9 @@ class DialogoPlan(QDialog):
             for codigo in semestre.asignaturas
         }
         nivelaciones = self.codigos_nivelacion(plan, codigos_plan)
-        seleccionadas.update(nivelaciones)
+        if codigo_plan not in self._nivelaciones_inicializadas_por_plan:
+            seleccionadas.update(nivelaciones)
+            self._nivelaciones_inicializadas_por_plan.add(codigo_plan)
         # Normalmente solo se muestran materias pertenecientes al plan
         # elegido. En la primera ejecución no hay catálogo SIA suficiente,
         # así que solo se permite trabajar con las obligatorias de la malla.
@@ -846,17 +1149,15 @@ class CapaConexionesPlan(QWidget):
                 continue
             mismo_semestre = origen.parentWidget() is destino.parentWidget()
             estilos = {
-                "M": (COLOR_ROJO if mismo_semestre else COLOR_VERDE, Qt.PenStyle.SolidLine),
-                "O": ("#65A9E8", Qt.PenStyle.DashLine),
-                "E": ("#46C8C5", Qt.PenStyle.DashLine),
-                "A": (COLOR_ROJO, Qt.PenStyle.DashDotLine),
-                "Y": (COLOR_AMARILLO, Qt.PenStyle.DashLine),
+                "M": Qt.PenStyle.SolidLine,
+                "O": Qt.PenStyle.DashLine,
+                "E": Qt.PenStyle.DotLine,
+                "A": Qt.PenStyle.DashDotLine,
+                "Y": Qt.PenStyle.DashDotDotLine,
             }
-            color, estilo = estilos.get(
-                tipo, (QColor(COLOR_VERDE).lighter(115), Qt.PenStyle.SolidLine)
-            )
+            estilo = estilos.get(tipo, Qt.PenStyle.SolidLine)
             pintor.setPen(QPen(
-                QColor(color), 2, estilo,
+                QColor(COLOR_NARANJA_FENIX), 2, estilo,
                 Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin,
             ))
             if mismo_semestre:
@@ -928,6 +1229,7 @@ class VentanaPlanEstudios(QDialog):
         principal = QVBoxLayout(self)
         principal.setContentsMargins(20, 18, 20, 16)
         principal.setSpacing(12)
+        preparar_dialogo_sin_barra(self, principal, redimensionable=False)
         encabezado = QHBoxLayout()
         encabezado.setSpacing(12)
         textos = QVBoxLayout()
@@ -950,10 +1252,10 @@ class VentanaPlanEstudios(QDialog):
         encabezado.addWidget(self.resumen)
         principal.addLayout(encabezado)
         self.ayuda = QLabel(
-            "Tipos de relación: M verde (aprobación previa), O azul (requisito para calificar), "
-            "E turquesa (previa o simultánea), A roja (incompatibilidad) y Y amarilla "
-            "(mismo semestre, interpretación provisional). Una relación M dentro del mismo "
-            "semestre se marca roja porque requiere aprobación previa."
+            "Conexiones naranjas: M continua (aprobación previa), O discontinua "
+            "(requisito para calificar), E punteada (previa o simultánea), "
+            "A raya-punto (incompatibilidad) y Y raya-punto-punto "
+            "(mismo semestre, interpretación provisional)."
         )
         self.ayuda.setWordWrap(True)
         self.ayuda.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 11px;")
@@ -972,6 +1274,7 @@ class VentanaPlanEstudios(QDialog):
         botones = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         botones.rejected.connect(self.hide)
         principal.addWidget(botones)
+        principal.addWidget(QSizeGrip(self), 0, Qt.AlignmentFlag.AlignRight)
         self.reconstruir()
 
     def showEvent(self, evento):
@@ -1050,7 +1353,100 @@ class VentanaPlanEstudios(QDialog):
                 seleccionadas,
             )
         )
+        # materias.json puede conocer una nivelación aunque no tenga grupos
+        # publicados en la oferta actual. También debe verse en Mi Plan.
+        nivelaciones_por_codigo = {
+            codigo_base(materia.get("codigo", codigo)): materia
+            for codigo, materia in (self.ventana_principal.materias_locales or {}).items()
+            if isinstance(materia, dict) and es_materia_nivelacion(materia)
+        }
+        nivelaciones_por_codigo.update({
+            codigo_base(materia.get("codigo")): materia
+            for materia in self.ventana_principal.materias_por_origen.get("principal", [])
+            if es_materia_nivelacion(materia)
+        })
+        nivelaciones = list(nivelaciones_por_codigo.values())
+        if nivelaciones:
+            self.diagrama.addWidget(
+                self._crear_seccion_nivelacion(
+                    sorted(nivelaciones, key=lambda materia: clave_alfabetica(materia.get("nombre"))),
+                    aprobadas,
+                    seleccionadas,
+                )
+            )
         self.diagrama.addStretch()
+
+    def _crear_seccion_nivelacion(self, materias, aprobadas, seleccionadas):
+        """Muestra Nivelación debajo de la malla con las mismas tarjetas interactivas."""
+        seccion = QFrame()
+        seccion.setObjectName("seccionPlan")
+        seccion.setStyleSheet(
+            f"QFrame#seccionPlan {{ background-color: {COLOR_SUPERFICIE}; "
+            f"border: 1px solid {COLOR_LINEA}; border-radius: 11px; }}"
+        )
+        layout = QVBoxLayout(seccion)
+        layout.setContentsMargins(12, 11, 12, 13)
+        layout.setSpacing(9)
+        cabecera = QHBoxLayout()
+        cabecera.setContentsMargins(0, 0, 0, 0)
+        titulo = QLabel("NIVELACIÓN")
+        titulo.setStyleSheet(
+            f"background: transparent; color: {COLOR_VERDE}; "
+            "font-size: 14px; font-weight: 900; border: none;"
+        )
+        cabecera.addWidget(titulo)
+        cabecera.addSpacing(14)
+        codigos_nivelacion = {
+            codigo_base(materia.get("codigo")) for materia in materias
+        }
+        todas_aprobadas = codigos_nivelacion.issubset(aprobadas)
+        boton_todas = QPushButton(
+            "Desmarcar todas" if todas_aprobadas else "Marcar todas"
+        )
+        boton_todas.setObjectName("botonTodasNivelaciones")
+        boton_todas.setCursor(Qt.CursorShape.PointingHandCursor)
+        boton_todas.setStyleSheet(
+            f"QPushButton {{ background-color: {COLOR_SUPERFICIE_CLARA}; "
+            f"color: {COLOR_TEXTO}; border: 1px solid {COLOR_LINEA}; "
+            "border-radius: 5px; padding: 5px 9px; font-size: 10px; font-weight: 700; } "
+            f"QPushButton:hover {{ border-color: {COLOR_VERDE}; }}"
+        )
+        boton_todas.clicked.connect(
+            lambda: self.ventana_principal.cambiar_materias_aprobadas_desde_plan(
+                codigos_nivelacion, not todas_aprobadas
+            )
+        )
+        cabecera.addWidget(boton_todas)
+        cabecera.addStretch(1)
+        layout.addLayout(cabecera)
+        descripcion = QLabel(
+            "Estas materias aparecen aprobadas por defecto en un perfil nuevo. "
+            "Puedes marcar o desmarcar cada una con su casilla."
+        )
+        descripcion.setWordWrap(True)
+        descripcion.setStyleSheet(
+            f"background: transparent; color: {COLOR_TEXTO_SECUNDARIO}; "
+            "font-size: 10px; border: none;"
+        )
+        layout.addWidget(descripcion)
+        contenedor_tarjetas = QWidget()
+        contenedor_tarjetas.setStyleSheet("background: transparent; border: none;")
+        contenedor_tarjetas.setFixedWidth(5 * 222)
+        cuadricula = QGridLayout(contenedor_tarjetas)
+        cuadricula.setContentsMargins(0, 0, 0, 0)
+        cuadricula.setSpacing(8)
+        for columna in range(5):
+            cuadricula.setColumnMinimumWidth(columna, 214)
+        for indice, materia in enumerate(materias):
+            codigo = codigo_base(materia.get("codigo"))
+            tarjeta = self._crear_tarjeta_materia(
+                materia, codigo in aprobadas, codigo in seleccionadas
+            )
+            tarjeta.setFixedWidth(214)
+            cuadricula.addWidget(tarjeta, indice // 5, indice % 5)
+        layout.addWidget(contenedor_tarjetas)
+        seccion.setMinimumWidth(5 * 222 + 24)
+        return seccion
 
     @staticmethod
     def _ordenar_por_conexiones(materias_por_semestre, cantidad_semestres):
@@ -1158,7 +1554,7 @@ class VentanaPlanEstudios(QDialog):
         base.setStyleSheet("QWidget#basePlan { background: transparent; border: none; }")
         fila = QHBoxLayout(base)
         fila.setContentsMargins(0, 0, 0, 0)
-        fila.setSpacing(8)
+        fila.setSpacing(11)
         tarjetas_por_codigo = {}
         for numero in range(1, cantidad_semestres + 1):
             columna_widget = QFrame()
@@ -1201,7 +1597,7 @@ class VentanaPlanEstudios(QDialog):
         superpuestas.addWidget(base)
         superpuestas.addWidget(capa)
         superpuestas.setCurrentWidget(capa)
-        ancho_lienzo = cantidad_semestres * 222
+        ancho_lienzo = cantidad_semestres * 214 + (cantidad_semestres - 1) * 11
         lienzo.setMinimumWidth(ancho_lienzo)
         layout.addWidget(lienzo)
         seccion.setMinimumWidth(ancho_lienzo + 24)
@@ -1300,6 +1696,759 @@ class VentanaPlanEstudios(QDialog):
         self.ventana_principal.cambiar_materia_aprobada_desde_plan(codigo, aprobado)
 
 
+class TarjetaAvance(QFrame):
+    pulsada = Signal()
+
+    def mouseReleaseEvent(self, evento):
+        if evento.button() == Qt.MouseButton.LeftButton and self.rect().contains(evento.pos()):
+            self.pulsada.emit()
+        super().mouseReleaseEvent(evento)
+
+
+class VentanaPromedioActual(QDialog):
+    notas_cambiadas = Signal(dict)
+
+    @staticmethod
+    def _estilo_oscuro():
+        return (
+            f"QDialog#ventanaPromedioActual {{ background-color: {COLOR_FONDO}; color: {COLOR_TEXTO}; }}"
+            f"QDialog#ventanaPromedioActual QLabel {{ color: {COLOR_TEXTO}; "
+            "background: transparent; border: none; }"
+            f"QDialog#ventanaPromedioActual QScrollArea {{ background: {COLOR_SUPERFICIE}; "
+            f"border: 1px solid {COLOR_LINEA}; border-radius: 6px; }}"
+            f"QDialog#ventanaPromedioActual QScrollArea > QWidget > QWidget {{ "
+            f"background: {COLOR_SUPERFICIE}; }}"
+            f"QDialog#ventanaPromedioActual QLineEdit, "
+            f"QDialog#ventanaPromedioActual QComboBox, "
+            f"QDialog#ventanaPromedioActual QSpinBox, "
+            f"QDialog#ventanaPromedioActual QDoubleSpinBox {{ "
+            f"background: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO}; "
+            f"border: 1px solid {COLOR_LINEA}; border-radius: 5px; padding: 5px; "
+            "selection-background-color: #396A4B; }"
+            f"QDialog#ventanaPromedioActual QComboBox QAbstractItemView {{ "
+            f"background: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO}; "
+            f"border: 1px solid {COLOR_LINEA}; selection-background-color: #396A4B; }}"
+            f"QDialog#ventanaPromedioActual QPushButton {{ "
+            f"background: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO}; "
+            f"border: 1px solid {COLOR_LINEA}; border-radius: 5px; padding: 6px 10px; }}"
+            f"QDialog#ventanaPromedioActual QPushButton:hover {{ border-color: {COLOR_VERDE}; }}"
+            + ESTILO_BARRAS_DESPLAZAMIENTO
+        )
+
+    def __init__(self, datos, parent=None):
+        super().__init__(parent)
+        self.periodo = f"{date.today().year}-{1 if date.today().month <= 6 else 2}S"
+        self.setWindowTitle(f"Promedios · {self.periodo}")
+        self.setObjectName("ventanaPromedioActual")
+        self.resize(650, 580)
+        self.setStyleSheet(self._estilo_oscuro())
+        self.datos = datos
+        detalles = datos.get("calificaciones_detalle", [])
+        self.materias = {(str(m.get("periodo")), str(m.get("codigo"))): m
+                         for m in detalles if m.get("periodo") == self.periodo and m.get("codigo")}
+        catalogo = cargar_materias() if cargar_plan_materias() == datos.get("plan_estudios") else {}
+        self.creditos_materias = {}
+        for clave, materia in self.materias.items():
+            dato = catalogo.get(clave[1], {}) if isinstance(catalogo, dict) else {}
+            self.creditos_materias[clave] = (dato.get("creditos") if isinstance(dato, dict) else None) or materia.get("creditos")
+        self.evaluaciones = {}
+        editadas = datos.get("notas_editadas", {})
+        self.claves_editadas = set(editadas)
+        manuales = datos.get("notas_manuales", {})
+        for clave, materia in self.materias.items():
+            texto = "|".join(clave)
+            origen = editadas.get(texto) if texto in editadas else (
+                list(materia.get("parciales", [])) + list(manuales.get(texto, [])))
+            self.evaluaciones[texto] = [dict(nota) for nota in origen if isinstance(nota, dict)]
+        raiz = QVBoxLayout(self)
+        titulo = QLabel(f"PROMEDIOS DEL SEMESTRE {self.periodo}")
+        titulo.setStyleSheet("font-size: 18px; font-weight: 800;")
+        raiz.addWidget(titulo)
+        ayuda = QLabel("Se usan las notas consultadas en el SIA y las que añadas aquí. "
+                       "El promedio es provisional mientras falten evaluaciones.")
+        ayuda.setWordWrap(True)
+        raiz.addWidget(ayuda)
+        indicadores = QFrame()
+        indicadores.setObjectName("indicadoresPromedioActual")
+        indicadores.setStyleSheet(
+            f"QFrame#indicadoresPromedioActual {{ background: {COLOR_SUPERFICIE}; "
+            f"border: 1px solid {COLOR_LINEA}; border-radius: 7px; }}"
+        )
+        tabla = QGridLayout(indicadores)
+        tabla.setContentsMargins(12, 10, 12, 10)
+        tabla.setHorizontalSpacing(0)
+        tabla.setVerticalSpacing(3)
+        self.papa_proyectado = QLabel("—")
+        self.papa_proyectado.setObjectName("papaProyectado")
+        self.papi_provisional = QLabel("—")
+        self.papi_provisional.setObjectName("papiProvisional")
+        for columna, (nombre, valor) in enumerate((
+            ("P.A.P.A. · general proyectado", self.papa_proyectado),
+            ("P.A.P.I. · semestre provisional", self.papi_provisional),
+        )):
+            etiqueta = QLabel(nombre)
+            etiqueta.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            etiqueta.setStyleSheet(
+                f"color: {COLOR_TEXTO_SECUNDARIO}; background: transparent; border: none; "
+                "font-size: 11px; font-weight: 700;"
+            )
+            valor.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            valor.setStyleSheet(
+                f"color: {COLOR_TEXTO}; background: transparent; border: none; "
+                "font-size: 26px; font-weight: 800;"
+            )
+            tabla.addWidget(etiqueta, 0, columna)
+            tabla.addWidget(valor, 1, columna)
+            tabla.setColumnStretch(columna, 1)
+        raiz.addWidget(indicadores)
+        self.resumen_materia = QLabel()
+        self.resumen_materia.setWordWrap(True)
+        self.resumen_materia.setStyleSheet(
+            f"color: {COLOR_TEXTO_SECUNDARIO}; background: transparent; border: none; font-size: 11px;"
+        )
+        raiz.addWidget(self.resumen_materia)
+        self.selector = QComboBox()
+        for clave, materia in self.materias.items():
+            self.selector.addItem(f"{materia.get('nombre') or clave[1]} ({clave[1]})", clave)
+        self.selector.currentIndexChanged.connect(self._actualizar)
+        raiz.addWidget(self.selector)
+        self.etiqueta_creditos = QLabel()
+        raiz.addWidget(self.etiqueta_creditos)
+        self.area = QScrollArea()
+        self.area.setWidgetResizable(True)
+        self.lista = QWidget()
+        self.lista.setStyleSheet(f"background: {COLOR_SUPERFICIE};")
+        self.filas = QVBoxLayout(self.lista)
+        self.area.setWidget(self.lista)
+        raiz.addWidget(self.area, 1)
+        formulario = QHBoxLayout()
+        self.nombre_nota = QLineEdit()
+        self.nombre_nota.setPlaceholderText("Nombre de la evaluación")
+        self.nota = QLineEdit()
+        self.nota.setPlaceholderText("Nota (0 a 5)")
+        self.porcentaje = QDoubleSpinBox()
+        self.porcentaje.setRange(0, 100)
+        self.porcentaje.setSuffix(" %")
+        self.porcentaje.setDecimals(2)
+        boton_agregar = QPushButton("Añadir nota")
+        boton_agregar.clicked.connect(self._agregar)
+        for widget in (self.nombre_nota, self.nota, self.porcentaje, boton_agregar):
+            formulario.addWidget(widget)
+        raiz.addLayout(formulario)
+        preparar_dialogo_sin_barra(self, raiz)
+        if not self.materias:
+            ayuda.setText("Aún no hay materias de este semestre en Mis Calificaciones. "
+                          "Consulta el SIA desde Mi Avance para cargarlas.")
+            for widget in (self.nombre_nota, self.porcentaje, self.nota, boton_agregar):
+                widget.setEnabled(False)
+        self._actualizar()
+
+    def _clave(self):
+        return self.selector.currentData()
+
+    def _aviso(self, titulo, mensaje, advertencia=False):
+        dialogo = QMessageBox(self)
+        dialogo.setWindowTitle(titulo)
+        dialogo.setText(mensaje)
+        dialogo.setIcon(QMessageBox.Icon.Warning if advertencia else QMessageBox.Icon.Information)
+        dialogo.setStandardButtons(QMessageBox.StandardButton.Ok)
+        dialogo.setStyleSheet(
+            f"QMessageBox {{ background: {COLOR_FONDO}; }} "
+            f"QLabel {{ color: {COLOR_TEXTO}; background: transparent; border: none; }} "
+            f"QPushButton {{ color: {COLOR_TEXTO}; background: {COLOR_SUPERFICIE_CLARA}; "
+            f"border: 1px solid {COLOR_LINEA}; padding: 5px 12px; }}"
+        )
+        dialogo.exec()
+
+    def _guardar(self):
+        self.datos["notas_editadas"] = {
+            clave: self.evaluaciones[clave] for clave in self.claves_editadas
+        }
+        self.datos.pop("notas_manuales", None)
+        self.datos.pop("creditos_promedio", None)
+        self.notas_cambiadas.emit(self.datos)
+
+    @staticmethod
+    def _nota_numerica(texto):
+        texto = str(texto or "").strip().replace(",", ".")
+        if not texto:
+            return None
+        valor = float(texto)
+        if not 0 <= valor <= 5:
+            raise ValueError("La nota debe estar entre 0 y 5.")
+        return valor
+
+    def _guardar_fila(self, clave, indice, nombre, nota, porcentaje):
+        try:
+            valor = self._nota_numerica(nota.text())
+        except ValueError:
+            self._aviso("Nota no válida", "La nota debe ser un número entre 0 y 5, o quedar vacía.", True)
+            self._actualizar()
+            return
+        peso = porcentaje.value()
+        otras = sum(float(item.get("porcentaje") or 0) for i, item in
+                    enumerate(self.evaluaciones[clave]) if i != indice)
+        if otras + peso > 100.001:
+            self._aviso("Porcentaje excedido", "Las evaluaciones de esta materia superarían el 100 %.", True)
+            self._actualizar()
+            return
+        self.evaluaciones[clave][indice] = {
+            "nombre": nombre.text().strip() or f"Evaluación {indice + 1}",
+            "nota": valor, "porcentaje": peso,
+        }
+        self.claves_editadas.add(clave)
+        self._guardar()
+        self._actualizar()
+
+    def _agregar(self):
+        clave = self._clave()
+        nombre = self.nombre_nota.text().strip()
+        if not clave or not nombre:
+            self._aviso("Falta el nombre", "Escribe el nombre de la evaluación.")
+            return
+        try:
+            nota = self._nota_numerica(self.nota.text())
+        except ValueError:
+            self._aviso("Nota no válida", "La nota debe ser un número entre 0 y 5, o quedar vacía.", True)
+            return
+        usada = sum(float(p.get("porcentaje") or 0) for p in self.evaluaciones.get("|".join(clave), []))
+        if usada + self.porcentaje.value() > 100.001:
+            self._aviso("Porcentaje excedido", "Las evaluaciones de esta materia superarían el 100 %.", True)
+            return
+        self.evaluaciones.setdefault("|".join(clave), []).append({
+            "nombre": nombre, "porcentaje": self.porcentaje.value(), "nota": nota
+        })
+        self.claves_editadas.add("|".join(clave))
+        self.nombre_nota.clear()
+        self.nota.clear()
+        self._guardar()
+        self._actualizar()
+
+    def _eliminar(self, clave, indice):
+        self.evaluaciones[clave].pop(indice)
+        self.claves_editadas.add(clave)
+        self._guardar()
+        self._actualizar()
+
+    def _actualizar(self):
+        limpiar_layout(self.filas)
+        clave = self._clave()
+        if not clave:
+            self.papa_proyectado.setText("—")
+            self.papi_provisional.setText("—")
+            self.resumen_materia.setText("Sin materias para calcular")
+            return
+        materia = self.materias[clave]
+        clave_texto = "|".join(clave)
+        creditos_materia = self.creditos_materias.get(clave)
+        self.etiqueta_creditos.setText(
+            f"Créditos de la materia: {creditos_materia}" if creditos_materia else
+            "Créditos no disponibles en el catálogo; esta materia no entra en el promedio general."
+        )
+        notas = self.evaluaciones.get(clave_texto, [])
+        evaluado = 0.0
+        puntos = 0.0
+        for indice, parcial in enumerate(notas):
+            fila = QHBoxLayout()
+            peso = float(parcial.get("porcentaje") or 0)
+            nota = parcial.get("nota")
+            nombre_campo = QLineEdit(str(parcial.get("nombre") or ""))
+            nombre_campo.setObjectName("nombreEvaluacion")
+            nota_campo = QLineEdit("" if nota is None else str(nota))
+            nota_campo.setObjectName("notaEvaluacion")
+            nota_campo.setPlaceholderText("Sin nota")
+            porcentaje_campo = QDoubleSpinBox()
+            porcentaje_campo.setObjectName("porcentajeEvaluacion")
+            porcentaje_campo.setRange(0, 100)
+            porcentaje_campo.setDecimals(2)
+            porcentaje_campo.setSuffix(" %")
+            porcentaje_campo.setValue(peso)
+            guardar_fila = lambda k=clave_texto, i=indice, n=nombre_campo, v=nota_campo, p=porcentaje_campo: self._guardar_fila(k, i, n, v, p)
+            nombre_campo.editingFinished.connect(guardar_fila)
+            nota_campo.editingFinished.connect(guardar_fila)
+            porcentaje_campo.lineEdit().editingFinished.connect(guardar_fila)
+            fila.addWidget(nombre_campo, 1)
+            fila.addWidget(nota_campo)
+            fila.addWidget(porcentaje_campo)
+            quitar = QPushButton("Quitar")
+            quitar.clicked.connect(lambda _, k=clave_texto, i=indice: self._eliminar(k, i))
+            fila.addWidget(quitar)
+            self.filas.addLayout(fila)
+            if nota is not None and peso > 0:
+                try:
+                    puntos += peso * float(nota)
+                    evaluado += peso
+                except (TypeError, ValueError):
+                    pass
+        self.filas.addStretch(1)
+        proyeccion = puntos / evaluado if evaluado else None
+        aporte = puntos / 100
+        total_ponderado = total_creditos = 0.0
+        papa_numerador = papa_creditos = 0.0
+        definitivas_actual = set()
+        for intento in self.datos.get("asignaturas", []):
+            try:
+                if intento.get("estado") == "cancelada" or intento.get("nota") is None:
+                    continue
+                creditos = float(intento.get("creditos") or 0)
+                papa_numerador += creditos * float(intento["nota"])
+                papa_creditos += creditos
+                if intento.get("periodo") == self.periodo:
+                    definitivas_actual.add(str(intento.get("codigo")))
+                    total_ponderado += creditos * float(intento["nota"])
+                    total_creditos += creditos
+            except (TypeError, ValueError):
+                continue
+        for otra_clave, otra in self.materias.items():
+            peso_nota = peso_evaluado = 0.0
+            actividades = self.evaluaciones.get("|".join(otra_clave), [])
+            for actividad in actividades:
+                try:
+                    if actividad.get("nota") is not None:
+                        peso = float(actividad.get("porcentaje") or 0)
+                        peso_nota += peso * float(actividad["nota"])
+                        peso_evaluado += peso
+                except (TypeError, ValueError):
+                    continue
+            try:
+                creditos = float(str(self.creditos_materias.get(otra_clave) or 0).replace(",", "."))
+            except ValueError:
+                creditos = 0
+            if peso_evaluado and creditos:
+                if otra_clave[1] not in definitivas_actual:
+                    total_ponderado += creditos * peso_nota / peso_evaluado
+                    total_creditos += creditos
+                    papa_numerador += creditos * peso_nota / peso_evaluado
+                    papa_creditos += creditos
+        self.papi_provisional.setText(
+            f"{total_ponderado / total_creditos:.2f}" if total_creditos else "—"
+        )
+        self.papi_provisional.setToolTip(
+            f"Estimación con {total_creditos:g} créditos de materias que ya tienen notas."
+            if total_creditos else "Pendiente: faltan notas o créditos del catálogo."
+        )
+        detalle = (f"{materia.get('nombre')}: promedio de lo evaluado {proyeccion:.2f} · "
+                   f"{evaluado:g}% con nota · aporte acumulado {aporte:.2f}/5"
+                   if proyeccion is not None else f"{materia.get('nombre')}: sin notas todavía")
+        self.papa_proyectado.setText(
+            f"{papa_numerador / papa_creditos:.2f}" if papa_creditos else "—"
+        )
+        self.papa_proyectado.setToolTip(
+            "Proyección que combina la historia académica y las notas disponibles del semestre actual."
+        )
+        self.resumen_materia.setText(detalle)
+
+
+class VentanaActividadAvance(QDialog):
+    cerrada = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Actividad del SIA · Fénix")
+        self.setWindowFlag(Qt.WindowType.Window, True)
+        self.setWindowModality(Qt.WindowModality.NonModal)
+        self.setMinimumSize(420, 300)
+        self.resize(640, 450)
+        self.setStyleSheet(
+            f"QDialog {{ background: {COLOR_FONDO}; }} "
+            f"QLabel {{ color: {COLOR_TEXTO}; background: transparent; border: none; }}"
+        )
+        self._captura = QPixmap()
+        contenido = QVBoxLayout(self)
+        contenido.setContentsMargins(12, 10, 12, 10)
+        aviso = QLabel("Vista de solo lectura · No se muestra el inicio de sesión ni se guardan imágenes.")
+        aviso.setWordWrap(True)
+        contenido.addWidget(aviso)
+        self.imagen = QLabel("Esperando la primera imagen de la consulta…")
+        self.imagen.setObjectName("imagenActividadAvance")
+        self.imagen.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.imagen.setStyleSheet(
+            f"background: {COLOR_SUPERFICIE}; border: 1px solid {COLOR_LINEA};"
+        )
+        contenido.addWidget(self.imagen, 1)
+        preparar_dialogo_sin_barra(self, contenido)
+
+    def actualizar_captura(self, datos):
+        imagen = QPixmap()
+        if imagen.loadFromData(datos, "JPEG"):
+            self._captura = imagen
+            self._ajustar_imagen()
+
+    def _ajustar_imagen(self):
+        if not self._captura.isNull():
+            self.imagen.setPixmap(self._captura.scaled(
+                self.imagen.size(), Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            ))
+
+    def resizeEvent(self, evento):
+        super().resizeEvent(evento)
+        self._ajustar_imagen()
+
+    def closeEvent(self, evento):
+        self.limpiar_captura()
+        self.cerrada.emit()
+        super().closeEvent(evento)
+
+    def limpiar_captura(self):
+        self._captura = QPixmap()
+        self.imagen.setText("Esperando la primera imagen de la consulta…")
+
+
+class VentanaAvanceAcademico(QDialog):
+    """Historial local por periodos, independiente de la malla curricular."""
+
+    consultar_sia = Signal()
+    cancelar_consulta = Signal()
+    guardar_notas = Signal(dict)
+    mostrar_actividad = Signal(bool)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Mi Avance · Fénix")
+        self.setWindowFlag(Qt.WindowType.Window, True)
+        self.setWindowModality(Qt.WindowModality.NonModal)
+        self.setMinimumSize(720, 520)
+        self.resize(1160, 740)
+        self.setStyleSheet(
+            f"QDialog {{ background-color: {COLOR_FONDO}; }} "
+            f"QLabel {{ color: {COLOR_TEXTO}; }} "
+            f"QScrollArea {{ border: none; background-color: {COLOR_FONDO}; }}"
+        )
+        principal = QVBoxLayout(self)
+        principal.setContentsMargins(20, 18, 20, 16)
+        principal.setSpacing(10)
+        cabecera_principal = QHBoxLayout()
+        titulo = QLabel("MI AVANCE")
+        titulo.setStyleSheet(f"font-size: 22px; font-weight: 800; color: {COLOR_TEXTO};")
+        cabecera_principal.addWidget(titulo)
+        cabecera_principal.addStretch(1)
+        self.papa = QLabel("P.A.P.A.  —")
+        self.papa.setObjectName("papaMiAvance")
+        self.papa.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.papa.setStyleSheet(
+            f"color: {COLOR_VERDE}; background: transparent; "
+            "font-size: 26px; font-weight: 800;"
+        )
+        self.papa.setToolTip(
+            "Promedio acumulado: suma de (créditos × nota) de todas las materias "
+            "con nota numérica, dividida entre la suma de sus créditos. "
+            "Cada intento cursado cuenta por separado."
+        )
+        cabecera_principal.addWidget(self.papa)
+        principal.addLayout(cabecera_principal)
+        ayuda = QLabel(
+            "Consulta tu historia académica en el SIA. Inicias sesión tú mismo en "
+            "el navegador; Fénix no guarda tu usuario, contraseña ni cookies. "
+            "Las asignaturas y notas se guardan solo en este equipo."
+        )
+        ayuda.setWordWrap(True)
+        ayuda.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 11px;")
+        principal.addWidget(ayuda)
+        acciones = QHBoxLayout()
+        self.boton_consultar = QPushButton("Consultar SIA")
+        self.boton_consultar.setObjectName("consultarSiaAvance")
+        self.boton_consultar.clicked.connect(self.consultar_sia.emit)
+        self.boton_cancelar = QPushButton("Cancelar consulta")
+        self.boton_cancelar.setObjectName("cancelarSiaAvance")
+        self.boton_cancelar.clicked.connect(self.cancelar_consulta.emit)
+        self.boton_cancelar.hide()
+        self.boton_actividad = QPushButton("Mostrar actividad")
+        self.boton_actividad.setObjectName("mostrarActividadAvance")
+        self.boton_actividad.setCheckable(True)
+        self.boton_actividad.toggled.connect(self._alternar_actividad)
+        self.boton_actividad.hide()
+        self.ventana_actividad = None
+        for boton in (self.boton_consultar, self.boton_cancelar, self.boton_actividad):
+            boton.setCursor(Qt.CursorShape.PointingHandCursor)
+            boton.setStyleSheet(
+                f"QPushButton {{ background: {COLOR_SUPERFICIE_CLARA}; "
+                f"color: {COLOR_TEXTO}; border: 1px solid {COLOR_LINEA}; "
+                "border-radius: 6px; padding: 7px 12px; }} "
+                f"QPushButton:hover {{ border-color: {COLOR_VERDE}; }}"
+            )
+            acciones.addWidget(boton)
+        acciones.addStretch(1)
+        principal.addLayout(acciones)
+        self.boton_promedios = QPushButton("Calcular promedios del semestre actual")
+        self.boton_promedios.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.boton_promedios.setStyleSheet(
+            f"QPushButton {{ background: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO}; "
+            f"border: 1px solid {COLOR_LINEA}; border-radius: 6px; padding: 7px 12px; }} "
+            f"QPushButton:hover {{ border-color: {COLOR_VERDE}; }}"
+        )
+        self.boton_promedios.clicked.connect(self._abrir_promedios)
+        principal.addWidget(self.boton_promedios, 0, Qt.AlignmentFlag.AlignLeft)
+        self.estado = QLabel("Aún no hay una consulta en curso.")
+        self.estado.setObjectName("estadoConsultaAvance")
+        self.estado.setWordWrap(True)
+        self.estado.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 11px;")
+        principal.addWidget(self.estado)
+        self.barra_consulta = QProgressBar()
+        self.barra_consulta.setObjectName("barraConsultaAvance")
+        self.barra_consulta.setTextVisible(True)
+        self.barra_consulta.setStyleSheet(
+            f"QProgressBar {{ background: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO}; "
+            f"border: 1px solid {COLOR_LINEA}; border-radius: 5px; min-height: 16px; "
+            "text-align: center; }} "
+            f"QProgressBar::chunk {{ background: {COLOR_VERDE}; border-radius: 4px; }}"
+        )
+        self.barra_consulta.hide()
+        principal.addWidget(self.barra_consulta)
+        self.resumen = QLabel("")
+        self.resumen.setStyleSheet(f"color: {COLOR_VERDE}; font-size: 12px; font-weight: 700;")
+        principal.addWidget(self.resumen)
+        self.area = QScrollArea()
+        self.area.setWidgetResizable(True)
+        self.contenedor = QWidget()
+        self.contenedor.setStyleSheet(f"background-color: {COLOR_FONDO};")
+        self.contenido = QVBoxLayout(self.contenedor)
+        self.contenido.setContentsMargins(0, 4, 0, 8)
+        self.contenido.setSpacing(16)
+        self.fila_periodos = QWidget()
+        self.columnas = QHBoxLayout(self.fila_periodos)
+        self.columnas.setContentsMargins(0, 4, 0, 8)
+        self.columnas.setSpacing(11)
+        self.contenido.addWidget(self.fila_periodos)
+        self.nivelacion = QFrame()
+        self.nivelacion.setObjectName("seccionNivelacionAvance")
+        self.nivelacion.setStyleSheet(
+            f"QFrame#seccionNivelacionAvance {{ background-color: {COLOR_SUPERFICIE}; "
+            f"border: 1px solid {COLOR_LINEA}; border-radius: 8px; }}"
+        )
+        self.layout_nivelacion = QVBoxLayout(self.nivelacion)
+        self.layout_nivelacion.setContentsMargins(10, 10, 10, 10)
+        self.layout_nivelacion.setSpacing(8)
+        self.contenido.addWidget(self.nivelacion)
+        self.nivelacion.hide()
+        self.contenido.addStretch(1)
+        self.area.setWidget(self.contenedor)
+        principal.addWidget(self.area, 1)
+        preparar_dialogo_sin_barra(self, principal)
+        self.rejected.connect(self.cancelar_consulta.emit)
+        self.mostrar_datos(None)
+
+    def marcar_consulta(self, en_curso):
+        self.boton_consultar.setEnabled(not en_curso)
+        self.boton_cancelar.setVisible(en_curso)
+        self.boton_actividad.setVisible(en_curso)
+        if not en_curso:
+            self.boton_actividad.setChecked(False)
+            if self.ventana_actividad is not None:
+                self.ventana_actividad.close()
+        self.barra_consulta.setVisible(en_curso)
+        if en_curso:
+            self.barra_consulta.setRange(0, 0)
+        else:
+            self.barra_consulta.setRange(0, 100)
+            self.barra_consulta.setValue(0)
+
+    def _alternar_actividad(self, mostrar):
+        self.boton_actividad.setText("Ocultar actividad" if mostrar else "Mostrar actividad")
+        self.mostrar_actividad.emit(mostrar)
+        if mostrar:
+            if self.ventana_actividad is None:
+                self.ventana_actividad = VentanaActividadAvance(self)
+                self.ventana_actividad.cerrada.connect(
+                    lambda: self.boton_actividad.setChecked(False)
+                )
+            self.ventana_actividad.show()
+            self.ventana_actividad.raise_()
+        elif self.ventana_actividad is not None:
+            self.ventana_actividad.limpiar_captura()
+            self.ventana_actividad.hide()
+
+    def actualizar_captura(self, datos):
+        if self.ventana_actividad is not None and self.boton_actividad.isChecked():
+            self.ventana_actividad.actualizar_captura(datos)
+
+    def actualizar_progreso(self, porcentaje):
+        if porcentaje <= 15:
+            self.barra_consulta.setRange(0, 0)
+        else:
+            self.barra_consulta.setRange(0, 100)
+            self.barra_consulta.setValue(min(100, max(0, porcentaje)))
+
+    def mostrar_datos(self, datos):
+        self.datos_avance = datos if isinstance(datos, dict) else {}
+        limpiar_layout(self.columnas)
+        limpiar_layout(self.layout_nivelacion)
+        calificaciones = datos.get("calificaciones_detalle", []) if isinstance(datos, dict) else []
+        notas_editadas = datos.get("notas_editadas", {}) if isinstance(datos, dict) else {}
+        detalles_por_materia = {}
+        for detalle in calificaciones:
+            clave = (str(detalle.get("periodo") or ""), str(detalle.get("codigo") or ""))
+            detalle_visible = dict(detalle)
+            if "|".join(clave) in notas_editadas:
+                detalle_visible["parciales"] = notas_editadas["|".join(clave)]
+            detalles_por_materia.setdefault(clave, []).append(detalle_visible)
+        asignaturas = datos.get("asignaturas", []) if isinstance(datos, dict) else []
+        if not asignaturas:
+            self.papa.setText("P.A.P.A.  —")
+            self.resumen.setText("")
+            self.nivelacion.hide()
+            vacio = QLabel("Todavía no hay historia académica importada para este plan.")
+            vacio.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; padding: 16px 0;")
+            self.columnas.addWidget(vacio)
+            self.columnas.addStretch(1)
+            self.contenedor.setMinimumWidth(0)
+            return
+        promedio_acumulado = promedio_ponderado_periodo(asignaturas)
+        self.papa.setText(
+            f"P.A.P.A.  {promedio_acumulado}" if promedio_acumulado is not None else "P.A.P.A.  —"
+        )
+        por_periodo = {}
+        materias_nivelacion = []
+        for materia in asignaturas:
+            if "nivelaci" in str(materia.get("tipologia") or "").casefold():
+                materias_nivelacion.append(materia)
+            else:
+                por_periodo.setdefault(materia.get("periodo") or "Sin periodo", []).append(materia)
+        periodos = periodos_visibles_avance(
+            materia.get("periodo") for materia in asignaturas
+        )
+        reprobadas = sum(materia.get("estado") == "reprobada" for materia in asignaturas)
+        self.resumen.setText(
+            f"{len(periodos)} periodos · {len(asignaturas)} registros · "
+            f"{reprobadas} reprobada(s)"
+        )
+        for periodo in periodos:
+            columna = QFrame()
+            columna.setObjectName("columnaPeriodoAvance")
+            columna.setFixedWidth(214)
+            columna.setStyleSheet(
+                f"QFrame#columnaPeriodoAvance {{ background-color: {COLOR_SUPERFICIE}; "
+                f"border: 1px solid {COLOR_LINEA}; border-radius: 8px; }}"
+            )
+            disposicion = QVBoxLayout(columna)
+            disposicion.setContentsMargins(7, 7, 7, 8)
+            disposicion.setSpacing(7)
+            materias_periodo = por_periodo.get(periodo, [])
+            promedio = promedio_ponderado_periodo(materias_periodo)
+            encabezado = QLabel(
+                f"{periodo}\nPromedio: {promedio}"
+                if promedio is not None else
+                (f"{periodo}\nSin asignaturas" if not materias_periodo else f"{periodo}\nPromedio pendiente")
+            )
+            encabezado.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            encabezado.setStyleSheet(
+                f"background-color: {COLOR_SUPERFICIE_CLARA}; color: {COLOR_TEXTO}; "
+                "border: none; border-radius: 5px; padding: 6px; font-weight: 800;"
+            )
+            encabezado.setToolTip(
+                "PAPI: suma de (créditos × nota) dividida entre los créditos de materias "
+                "con nota numérica en este período. No incluye materias sin nota ni de nivelación."
+            )
+            disposicion.addWidget(encabezado)
+            for materia in materias_periodo:
+                clave = (str(materia.get("periodo") or ""), str(materia.get("codigo") or ""))
+                disposicion.addWidget(self._tarjeta_materia(materia, detalles_por_materia.get(clave, [])))
+            disposicion.addStretch(1)
+            self.columnas.addWidget(columna)
+        self.columnas.addStretch(1)
+        self.contenedor.setMinimumWidth(len(periodos) * 214 + max(0, len(periodos) - 1) * 11)
+        if materias_nivelacion:
+            encabezado = QLabel("NIVELACIÓN")
+            encabezado.setStyleSheet(
+                f"color: {COLOR_TEXTO}; background: transparent; font-size: 13px; font-weight: 800; border: none;"
+            )
+            self.layout_nivelacion.addWidget(encabezado)
+            fila = QHBoxLayout()
+            fila.setSpacing(9)
+            for materia in materias_nivelacion:
+                clave = (str(materia.get("periodo") or ""), str(materia.get("codigo") or ""))
+                tarjeta = self._tarjeta_materia(materia, detalles_por_materia.get(clave, []))
+                tarjeta.setFixedWidth(200)
+                fila.addWidget(tarjeta)
+            fila.addStretch(1)
+            self.layout_nivelacion.addLayout(fila)
+            self.nivelacion.show()
+        else:
+            self.nivelacion.hide()
+    def _tarjeta_materia(self, materia, detalles):
+        estado = materia.get("estado")
+        if estado == "reprobada":
+            fondo, borde = COLOR_ROJO_FONDO, COLOR_ROJO
+        elif estado == "aprobada":
+            fondo, borde = COLOR_VERDE_FONDO, COLOR_VERDE
+        else:
+            fondo, borde = COLOR_SUPERFICIE_CLARA, COLOR_LINEA
+        tarjeta = TarjetaAvance()
+        tarjeta.setObjectName("tarjetaMateriaAvance")
+        tarjeta.setProperty("estado_academico", estado)
+        tarjeta.setCursor(Qt.CursorShape.PointingHandCursor)
+        tarjeta.setStyleSheet(
+            f"QFrame#tarjetaMateriaAvance {{ background-color: {fondo}; "
+            f"border: 1px solid {borde}; border-radius: 6px; }}"
+        )
+        layout = QVBoxLayout(tarjeta)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(4)
+        nombre = QLabel(str(materia.get("nombre") or "Materia sin nombre"))
+        nombre.setWordWrap(True)
+        nombre.setStyleSheet(f"color: {COLOR_TEXTO}; background: transparent; font-size: 11px; font-weight: 700; border: none;")
+        layout.addWidget(nombre)
+        creditos = str(materia.get("creditos") or "").strip()
+        codigo_texto = str(materia.get("codigo") or "Sin código")
+        codigo = QLabel(
+            f"{codigo_texto} · {creditos} crédito{'s' if creditos != '1' else ''}"
+            if creditos else codigo_texto
+        )
+        codigo.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; background: transparent; font-size: 9px; border: none;")
+        layout.addWidget(codigo)
+        nota = materia.get("nota")
+        estado_texto = str(estado or "sin_estado").replace("_", " ").upper()
+        calificacion = QLabel(
+            f"Nota: {nota}" if nota is not None else f"{estado_texto} · sin nota numérica"
+        )
+        calificacion.setStyleSheet(f"color: {borde if estado == 'reprobada' else COLOR_TEXTO}; "
+                                    "background: transparent; font-size: 11px; font-weight: 800; border: none;")
+        layout.addWidget(calificacion)
+        detalle = QLabel(f"{materia.get('tipologia', '')} · {estado_texto}")
+        detalle.setWordWrap(True)
+        detalle.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; background: transparent; font-size: 9px; border: none;")
+        layout.addWidget(detalle)
+        for etiqueta in (nombre, codigo, calificacion, detalle):
+            etiqueta.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        tarjeta.setToolTip("Clic para ver el resumen de notas")
+        tarjeta.pulsada.connect(lambda m=materia, d=detalles: self._mostrar_notas_materia(m, d))
+        return tarjeta
+
+    def _abrir_promedios(self):
+        ventana = VentanaPromedioActual(self.datos_avance, self)
+        ventana.notas_cambiadas.connect(self.guardar_notas.emit)
+        ventana.notas_cambiadas.connect(self.mostrar_datos)
+        ventana.exec()
+
+    def _mostrar_notas_materia(self, materia, detalles):
+        titulo = f"{materia.get('nombre') or 'Materia'} · {materia.get('periodo') or 'Sin período'}"
+        filas = [f"Código: {materia.get('codigo') or '—'}",
+                 f"Créditos: {materia.get('creditos') or '—'}",
+                 f"Nota definitiva: {materia.get('nota') if materia.get('nota') is not None else 'Sin nota numérica'}"]
+        if not detalles:
+            filas.append("No hay calificaciones parciales disponibles para este intento.")
+        for detalle in detalles:
+            if detalle.get("error"):
+                filas.append(f"No se pudieron consultar los parciales: {detalle['error']}")
+            elif not detalle.get("parciales"):
+                filas.append("Sin notas parciales registradas.")
+            for parcial in detalle.get("parciales", []):
+                peso = f" · {parcial['porcentaje']}%" if parcial.get("porcentaje") else ""
+                filas.append(f"{parcial.get('nombre') or 'Actividad'}{peso}: {parcial.get('nota') or 'Sin nota'}")
+        dialogo = QMessageBox(self)
+        dialogo.setWindowTitle("Notas · Mi Avance")
+        dialogo.setText(titulo)
+        dialogo.setInformativeText("\n".join(filas))
+        dialogo.setStandardButtons(QMessageBox.StandardButton.Close)
+        dialogo.setStyleSheet(
+            f"QMessageBox {{ background: {COLOR_FONDO}; }} "
+            f"QLabel {{ color: {COLOR_TEXTO}; min-width: 330px; }} "
+            f"QPushButton {{ color: {COLOR_TEXTO}; background: {COLOR_SUPERFICIE_CLARA}; "
+            f"border: 1px solid {COLOR_LINEA}; padding: 5px 12px; }}"
+        )
+        dialogo.exec()
+
+
 class BarraTitulo(QFrame):
     """Barra de título propia para la ventana sin decoración de Windows."""
 
@@ -1350,6 +2499,11 @@ class BarraTitulo(QFrame):
             f"QPushButton:hover {{ border-color: {COLOR_VERDE}; background-color: {COLOR_VERDE_FONDO}; }}"
         )
         layout.addWidget(boton_plan)
+        boton_avance = QPushButton("Mi Avance")
+        boton_avance.setCursor(Qt.CursorShape.PointingHandCursor)
+        boton_avance.clicked.connect(ventana.abrir_mi_avance)
+        boton_avance.setStyleSheet(boton_plan.styleSheet())
+        layout.addWidget(boton_avance)
         separacion_archivo = QWidget()
         separacion_archivo.setFixedWidth(10)
         layout.addWidget(separacion_archivo)
@@ -1500,7 +2654,61 @@ class BarraTitulo(QFrame):
         super().mouseDoubleClickEvent(evento)
 
 
-class BotonGrupoHorario(QPushButton):
+class BotonTextoAjustable(QPushButton):
+    """Botón de varias líneas que se adapta al ancho disponible."""
+
+    def __init__(self, texto):
+        super().__init__()
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.setMinimumWidth(0)
+        self.setText(texto)
+
+    def setText(self, texto):
+        """Distribuye el detalle en varias líneas para permitir ventanas angostas."""
+        self._texto_completo = str(texto)
+        self.setToolTip(self._texto_completo)
+        self._ajustar_texto(max(120, self.width() - 20))
+
+    def resizeEvent(self, evento):
+        super().resizeEvent(evento)
+        self._ajustar_texto(max(120, self.width() - 20))
+
+    def _ajustar_texto(self, ancho_disponible):
+        metricas = self.fontMetrics()
+        lineas = []
+        for parrafo in self._texto_completo.splitlines():
+            # Agrupa tantas sesiones como quepan en cada línea: 4, 2+2 o 1+1+1+1.
+            sesiones = parrafo.split("  |  ")
+            parrafos = []
+            grupo = ""
+            for sesion in sesiones:
+                candidato = f"{grupo}  |  {sesion}" if grupo else sesion
+                if grupo and metricas.horizontalAdvance(candidato) > ancho_disponible:
+                    parrafos.append(grupo)
+                    grupo = sesion
+                else:
+                    grupo = candidato
+            parrafos.append(grupo)
+            for tramo in parrafos:
+                if metricas.horizontalAdvance(tramo) <= ancho_disponible:
+                    lineas.append(tramo)
+                    continue
+                actual = ""
+                for palabra in tramo.split():
+                    candidato = f"{actual} {palabra}" if actual else palabra
+                    if actual and metricas.horizontalAdvance(candidato) > ancho_disponible:
+                        lineas.append(actual)
+                        actual = palabra
+                    else:
+                        actual = candidato
+                lineas.append(actual)
+        texto = "\n".join(lineas)
+        if texto != super().text():
+            super().setText(texto)
+        self.setMinimumHeight(max(63, 16 + 18 * len(lineas)))
+
+
+class BotonGrupoHorario(BotonTextoAjustable):
     """Botón del selector que previsualiza la franja del grupo al pasar el cursor."""
 
     cursor_entro = Signal(object)
@@ -1646,12 +2854,142 @@ class CapaIntercampus(QWidget):
     def __init__(self, parent):
         super().__init__(parent)
         self.limites = {}
+        self.icono_bus = QPixmap(str(RUTA_BUS_INTERCAMPUS))
+        if not self.icono_bus.isNull() and self.icono_bus.hasAlphaChannel():
+            # Solo ajustar el encuadre al dibujar: el PNG original no se modifica.
+            contenido = QRegion(self.icono_bus.mask()).boundingRect()
+            if not contenido.isEmpty():
+                self.icono_bus = self.icono_bus.copy(contenido)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.aviso = QLabel(self, Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint
+                            | Qt.WindowType.WindowTransparentForInput | Qt.WindowType.WindowDoesNotAcceptFocus)
+        self.aviso.setObjectName("avisoIntercampus")
+        self.aviso.setTextFormat(Qt.TextFormat.PlainText)
+        self.aviso.setWordWrap(True)
+        self.aviso.setFixedWidth(340)
+        self.aviso.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        self.aviso.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.aviso.setStyleSheet(
+            f"QLabel#avisoIntercampus {{ background-color: #1C1B14; color: {COLOR_TEXTO}; "
+            f"border: 1px solid {COLOR_AMARILLO}; border-radius: 5px; "
+            "padding: 8px; font-size: 12px; }"
+        )
+        self.aviso.hide()
+        self._posicion_cursor = None
+        self._actualizacion_aviso_pendiente = False
+        # La capa sigue dejando pasar clics. Observamos los eventos de los
+        # widgets reales debajo del icono, también en los huecos entre celdas.
+        QApplication.instance().installEventFilter(self)
 
     def establecer_limites(self, limites):
+        self.aviso.hide()
+        self._posicion_cursor = None
         self.limites = dict(limites)
         self.update()
+
+    def etiqueta_en(self, posicion):
+        """Zona sensible: todo el recuadro y las dos líneas de su mismo límite."""
+        for clave, rectangulo in self.rectangulos_etiquetas():
+            if rectangulo.contains(posicion):
+                return clave, rectangulo
+            dia, hora = clave
+            cuadricula = self.parentWidget()
+            franja = None
+            for (dia_celda, inicio, duracion), celda in cuadricula.celdas_por_bloque.items():
+                if dia_celda != dia:
+                    continue
+                geometria = QRectF(celda.geometry()).translated(-self.x(), -self.y())
+                if (inicio + duracion) * 60 == hora:
+                    linea = QRectF(geometria.left(), geometria.bottom() - 3, geometria.width(), 6)
+                elif inicio * 60 == hora:
+                    linea = QRectF(geometria.left(), geometria.top() - 3, geometria.width(), 6)
+                else:
+                    continue
+                franja = linea if franja is None else franja.united(linea)
+            if franja is not None and franja.contains(posicion):
+                return clave, rectangulo
+        return None
+
+    def mostrar_aviso(self, clave, rectangulo):
+        texto = self.limites[clave]
+        if self.aviso.text() != texto:
+            self.aviso.setText(texto)
+            self.aviso.adjustSize()
+        # Esquina inferior izquierda del mensaje sobre la superior derecha del
+        # recuadro: la posición jamás se calcula a partir del cursor.
+        ancla = self.mapToGlobal(rectangulo.topRight().toPoint())
+        posicion = QPoint(ancla.x(), ancla.y() - self.aviso.height())
+        pantalla = QApplication.screenAt(ancla)
+        if pantalla:
+            disponible = pantalla.availableGeometry()
+            posicion.setX(max(disponible.left(), min(posicion.x(), disponible.right() - self.aviso.width() + 1)))
+            posicion.setY(max(disponible.top(), min(posicion.y(), disponible.bottom() - self.aviso.height() + 1)))
+        if self.aviso.pos() != posicion:
+            self.aviso.move(posicion)
+        if not self.aviso.isVisible():
+            self.aviso.show()
+
+    def _actualizar_aviso_cursor(self):
+        self._actualizacion_aviso_pendiente = False
+        etiqueta = None
+        if self._posicion_cursor is not None and self.isVisible():
+            punto = self.mapFromGlobal(self._posicion_cursor)
+            # No activar avisos de zonas recortadas por el scroll.
+            if self.visibleRegion().contains(punto):
+                etiqueta = self.etiqueta_en(QPointF(punto))
+        if etiqueta:
+            self.mostrar_aviso(*etiqueta)
+        else:
+            self.aviso.hide()
+
+    def _programar_actualizacion_aviso(self):
+        if self._posicion_cursor is not None and not self._actualizacion_aviso_pendiente:
+            self._actualizacion_aviso_pendiente = True
+            QTimer.singleShot(0, self._actualizar_aviso_cursor)
+
+    def eventFilter(self, objeto, evento):
+        tipo = evento.type()
+        cuadricula = self.parentWidget()
+        if tipo in (QEvent.Type.ToolTip, QEvent.Type.MouseMove):
+            if not isinstance(objeto, QWidget):
+                return False
+            if objeto is self.aviso:
+                return False
+            dentro = objeto is cuadricula or cuadricula.isAncestorOf(objeto)
+            # Un mismo movimiento puede propagarse desde una celda hasta el
+            # scroll o la ventana. El receptor no indica que el cursor salió.
+            if objeto.window() is cuadricula.window():
+                self._posicion_cursor = (evento.globalPos() if tipo == QEvent.Type.ToolTip
+                                         else evento.globalPosition().toPoint())
+                self._actualizar_aviso_cursor()
+            else:
+                self._posicion_cursor = None
+                self.aviso.hide()
+            if tipo == QEvent.Type.ToolTip and dentro:
+                # Evitar que Qt vuelva a mostrar el tooltip nativo al lado del cursor.
+                evento.accept()
+                return True
+        elif self._posicion_cursor is not None:
+            if tipo == QEvent.Type.WindowDeactivate and objeto is cuadricula.window():
+                self._posicion_cursor = None
+                self.aviso.hide()
+            elif tipo == QEvent.Type.Hide and isinstance(objeto, QWidget) and (
+                objeto is self or objeto is cuadricula or objeto.isAncestorOf(cuadricula)
+            ):
+                self._posicion_cursor = None
+                self.aviso.hide()
+            elif tipo in (QEvent.Type.Hide, QEvent.Type.Move, QEvent.Type.Resize, QEvent.Type.Wheel):
+                if isinstance(objeto, QWidget) and objeto is not self.aviso and (
+                    objeto is cuadricula or objeto.isAncestorOf(cuadricula) or cuadricula.isAncestorOf(objeto)
+                ):
+                    # Mostrar/ocultar botones de una tarjeta no es salir de la
+                    # zona amarilla. Recalcular una vez que termine el layout.
+                    self._programar_actualizacion_aviso()
+            elif tipo == QEvent.Type.Leave and objeto is cuadricula.window():
+                self._posicion_cursor = None
+                self.aviso.hide()
+        return False
 
     def rectangulos_etiquetas(self):
         """Devuelve las cajas calculadas a partir de la posición actual de cada celda."""
@@ -1660,10 +2998,10 @@ class CapaIntercampus(QWidget):
 
         cuadricula = self.parentWidget()
         resultado = []
-        fuente = QFont("Segoe UI", 8, QFont.Weight.Bold)
+        fuente = QFont(FUENTE_INTERFAZ, 8, QFont.Weight.Bold)
         metricas = QFontMetrics(fuente)
         ancho = metricas.horizontalAdvance(self.TEXTO) + 12
-        alto = metricas.height() + 4
+        alto = max(22, metricas.height() + 4)
 
         for dia, hora in self.limites:
             anterior = next(
@@ -1706,12 +3044,23 @@ class CapaIntercampus(QWidget):
     def paintEvent(self, evento):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        painter.setFont(QFont(FUENTE_INTERFAZ, 8, QFont.Weight.Bold))
         painter.setPen(QColor("#171717"))
         for _, rectangulo in self.rectangulos_etiquetas():
             painter.setBrush(QColor(COLOR_AMARILLO))
             painter.drawRoundedRect(rectangulo, 5, 5)
-            painter.drawText(rectangulo, Qt.AlignmentFlag.AlignCenter, self.TEXTO)
+            if self.icono_bus.isNull():
+                # Mantener el aviso si falta el recurso en una instalación dañada.
+                painter.drawText(rectangulo, Qt.AlignmentFlag.AlignCenter, self.TEXTO)
+                continue
+            espacio = rectangulo.adjusted(6, 3, -6, -3)
+            tamano = self.icono_bus.size().scaled(
+                espacio.size().toSize(), Qt.AspectRatioMode.KeepAspectRatio
+            )
+            destino = QRectF(0, 0, tamano.width(), tamano.height())
+            destino.moveCenter(rectangulo.center())
+            painter.drawPixmap(destino, self.icono_bus, QRectF(self.icono_bus.rect()))
 
 
 class TarjetaHorario(QFrame):
@@ -1727,22 +3076,27 @@ class TarjetaHorario(QFrame):
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setMinimumHeight(42)
         contenido = QVBoxLayout(self)
-        contenido.setContentsMargins(5, 4, 5, 4)
+        contenido.setContentsMargins(5, 4, 2, 4)
         contenido.setSpacing(3)
         detalle = detalle_sesion_en_bloque(grupo, dia, hora, duracion)
         etiqueta = QLabel(
-            f"{nombre_corto(materia.get('nombre'), 28)}\n"
+            f"{materia.get('nombre') or 'Materia'}\n"
             f"G{grupo.get('numero', '')} · {detalle}"
         )
+        etiqueta.setTextFormat(Qt.TextFormat.PlainText)
         etiqueta.setWordWrap(True)
-        etiqueta.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        # El título completo aprovecha el ancho disponible y gana líneas al
+        # estrechar el horario, en lugar de recortarse por número de caracteres.
+        politica = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        politica.setHeightForWidth(True)
+        etiqueta.setSizePolicy(politica)
         borde_tarjeta = (
             COLOR_LINEA if color_fondo == COLOR_PREVISUALIZACION else COLOR_VERDE
         )
         etiqueta.setStyleSheet(
             f"background-color: {color_fondo}; color: {color_texto}; border: none; "
             f"border-left: 3px solid {borde_tarjeta}; border-radius: 4px; font-size: 10px; "
-            "font-weight: 700; padding: 5px;"
+            "font-weight: 700; padding: 5px 2px 5px 5px;"
         )
         contenido.addWidget(etiqueta)
         acciones_widget = QWidget()
@@ -1884,6 +3238,9 @@ class CuadriculaHorario(QFrame):
                 celda.geometria_cambiada.connect(self._solicitar_actualizacion_intercampus)
                 self.cuadricula.addWidget(celda, fila, columna)
         self.capa_intercampus.establecer_limites(limites_traslado)
+        self.setMouseTracking(True)
+        for widget in self.findChildren(QWidget):
+            widget.setMouseTracking(True)
         self.cuadricula.activate()
         self.capa_intercampus.setGeometry(self.rect())
         self.capa_intercampus.raise_()
@@ -1947,6 +3304,7 @@ class DialogoEsperaActualizacion(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(32, 28, 32, 28)
         layout.setSpacing(14)
+        preparar_dialogo_sin_barra(self, layout, redimensionable=False)
         titulo = QLabel("Preparando tu horario")
         titulo.setStyleSheet(f"font-size: 24px; font-weight: 800; color: {COLOR_TEXTO};")
         layout.addWidget(titulo)
@@ -1969,7 +3327,10 @@ class DialogoEsperaActualizacion(QDialog):
         self.tiempo = QLabel("Calculando tiempo restante…")
         self.tiempo.setStyleSheet(f"font-size: 12px; color: {COLOR_TEXTO_SECUNDARIO};")
         layout.addWidget(self.tiempo)
-        aviso = QLabel("No cierres esta ventana: el horario se habilitará cuando termine la actualización.")
+        aviso = QLabel(
+            "Puedes cerrar este aviso; la actualización continuará en segundo plano "
+            "y el horario se habilitará al terminar."
+        )
         aviso.setWordWrap(True)
         aviso.setStyleSheet(f"font-size: 11px; color: {COLOR_VERDE};")
         layout.addWidget(aviso)
@@ -1998,6 +3359,7 @@ class DialogoProgresoVersion(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 22, 24, 22)
         layout.setSpacing(12)
+        preparar_dialogo_sin_barra(self, layout, redimensionable=False)
         titulo = QLabel("Preparando actualización")
         titulo.setStyleSheet(f"font-size: 19px; font-weight: 800; color: {COLOR_TEXTO};")
         layout.addWidget(titulo)
@@ -2089,6 +3451,8 @@ class VentanaPrincipal(QMainWindow):
         self.libres_bloqueadas = False
         self.dialogo_espera = None
         self.ventana_plan_estudios = None
+        self.ventana_mi_avance = None
+        self.trabajador_avance = None
         self.inicio_primera_actualizacion = None
         self.proceso_actualizacion = None
         self.cambiando_estudiante = False
@@ -2378,6 +3742,9 @@ class VentanaPrincipal(QMainWindow):
             "plan_estudios": dialogo.codigo_plan(),
             "materias_aprobadas": dialogo.materias_aprobadas(),
             "grupos_seleccionados": [],
+            "nivelaciones_pendientes": not bool(dialogo.codigos_nivelacion(
+                self.planes[dialogo.codigo_plan()]
+            )),
         }
         guardar_estudiante(self.estudiante)
         self.bloquear_planificador()
@@ -2426,6 +3793,9 @@ class VentanaPrincipal(QMainWindow):
                 "plan_estudios": codigo,
                 "materias_aprobadas": dialogo.materias_aprobadas(),
                 "grupos_seleccionados": [],
+                "nivelaciones_pendientes": not bool(dialogo.codigos_nivelacion(
+                    self.planes[codigo]
+                )),
             }
             guardar_estudiante(self.estudiante)
         self.codigo_plan = codigo
@@ -2448,6 +3818,25 @@ class VentanaPrincipal(QMainWindow):
         oferta = cargar_oferta().get("materias", {})
         plan = self.planes[self.codigo_plan]
         self.materias_locales = cargar_materias()
+        if self.estudiante.get("nivelaciones_pendientes"):
+            nivelaciones = {
+                codigo_base(materia.get("codigo", codigo))
+                for codigo, materia in self.materias_locales.items()
+                if isinstance(materia, dict) and es_materia_nivelacion(materia)
+            }
+            nivelaciones.update(
+                codigo_base(materia.get("codigo"))
+                for materia in oferta.values()
+                if isinstance(materia, dict) and es_materia_nivelacion(materia)
+            )
+            if nivelaciones:
+                self.materias_aprobadas.update(nivelaciones)
+                self.estudiante["nivelaciones_pendientes"] = False
+                self.guardar_estado_estudiante()
+                self.etiqueta_plan.setText(
+                    f"PLAN ACTUAL\n{plan.nombre}\nCódigo {self.codigo_plan}\n"
+                    f"{len(self.materias_aprobadas)} aprobada(s)"
+                )
         # La oferta normal se puede usar desde que está lista. Libre Elección
         # permanece vacía hasta que la fase LE termina completamente.
         # Las libres se actualizan en segundo plano; se muestran en cuanto el
@@ -2489,7 +3878,7 @@ class VentanaPrincipal(QMainWindow):
             return
         self.aviso_libres_eleccion.setText(
             "Libre Elección todavía no se ha actualizado. Esta consulta puede "
-            "tardar un poco; puedes continuar organizando las materias normales."
+            "tardar un poco; puedes continuar organizando las obligatorias y optativas."
         )
         self.aviso_libres_eleccion.show()
 
@@ -2620,6 +4009,7 @@ class VentanaPrincipal(QMainWindow):
         botones = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         botones.rejected.connect(dialogo.reject)
         layout.addWidget(botones)
+        preparar_dialogo_sin_barra(dialogo, layout)
         dialogo.exec()
 
     def abrir_dialogo_donaciones(self):
@@ -2653,6 +4043,7 @@ class VentanaPrincipal(QMainWindow):
         botones = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         botones.rejected.connect(dialogo.reject)
         layout.addWidget(botones)
+        preparar_dialogo_sin_barra(dialogo, layout)
         dialogo.exec()
 
     def importar_estado_fnx(self):
@@ -2756,6 +4147,111 @@ class VentanaPrincipal(QMainWindow):
         self.ventana_plan_estudios.raise_()
         self.ventana_plan_estudios.activateWindow()
 
+    def abrir_mi_avance(self):
+        """Abre el historial y solicita una consulta voluntaria al SIA."""
+        if not self.codigo_plan:
+            QMessageBox.information(
+                self, "Plan no disponible", "Selecciona tu plan antes de consultar Mi Avance."
+            )
+            return
+        if self.ventana_mi_avance is None:
+            self.ventana_mi_avance = VentanaAvanceAcademico(self)
+            self.ventana_mi_avance.consultar_sia.connect(self.iniciar_consulta_avance)
+            self.ventana_mi_avance.cancelar_consulta.connect(self.cancelar_consulta_avance)
+            self.ventana_mi_avance.guardar_notas.connect(self._guardar_notas_avance)
+        datos = cargar_json(ARCHIVO_AVANCE_ACADEMICO, {})
+        if isinstance(datos, dict) and datos.get("plan_estudios") == self.codigo_plan:
+            self.ventana_mi_avance.mostrar_datos(datos)
+        else:
+            self.ventana_mi_avance.mostrar_datos(None)
+        self.ventana_mi_avance.show()
+        self.ventana_mi_avance.raise_()
+        self.ventana_mi_avance.activateWindow()
+
+    def iniciar_consulta_avance(self):
+        if self.trabajador_avance is not None and self.trabajador_avance.isRunning():
+            return
+        if not self.codigo_plan or self.ventana_mi_avance is None:
+            return
+        trabajador = TrabajadorAvanceAcademico(self.codigo_plan, self)
+        self.trabajador_avance = trabajador
+        trabajador.estado.connect(self.ventana_mi_avance.estado.setText)
+        trabajador.progreso.connect(self.ventana_mi_avance.actualizar_progreso)
+        trabajador.captura.connect(self.ventana_mi_avance.actualizar_captura)
+        self.ventana_mi_avance.mostrar_actividad.connect(trabajador.activar_vista)
+        trabajador.completado.connect(self._avance_consultado)
+        trabajador.fallo.connect(self._avance_fallido)
+        trabajador.cancelado.connect(self._avance_cancelado)
+        trabajador.finished.connect(self._finalizar_trabajador_avance)
+        trabajador.finished.connect(trabajador.deleteLater)
+        self.ventana_mi_avance.marcar_consulta(True)
+        self.ventana_mi_avance.estado.setText("Preparando navegador privado…")
+        trabajador.start()
+
+    def cancelar_consulta_avance(self):
+        trabajador = self.trabajador_avance
+        if trabajador is not None and trabajador.isRunning():
+            trabajador.cancelar()
+            if self.ventana_mi_avance is not None:
+                self.ventana_mi_avance.estado.setText("Cancelando la consulta y cerrando el navegador…")
+
+    def _avance_consultado(self, datos):
+        if datos.get("plan_estudios") != self.codigo_plan or self.cambiando_estudiante:
+            return
+        try:
+            anterior = cargar_json(ARCHIVO_AVANCE_ACADEMICO, {})
+            if isinstance(anterior, dict) and anterior.get("plan_estudios") == self.codigo_plan:
+                for clave in ("notas_editadas", "notas_manuales"):
+                    if clave in anterior:
+                        datos[clave] = anterior[clave]
+            guardar_json_atomico(ARCHIVO_AVANCE_ACADEMICO, datos)
+        except OSError as error:
+            self._avance_fallido(f"No se pudo guardar la historia académica: {error}")
+            return
+        if self.ventana_mi_avance is not None:
+            self.ventana_mi_avance.mostrar_datos(datos)
+            self.ventana_mi_avance.estado.setText(
+                datos.get("aviso_calificaciones")
+                or "Historia académica y calificaciones actualizadas. La sesión del navegador se cerró."
+            )
+            self.ventana_mi_avance.marcar_consulta(False)
+
+    def _guardar_notas_avance(self, datos):
+        if datos.get("plan_estudios") != self.codigo_plan:
+            return
+        try:
+            guardar_json_atomico(ARCHIVO_AVANCE_ACADEMICO, datos)
+        except OSError as error:
+            QMessageBox.warning(self, "No se guardaron las notas", str(error))
+
+    def _avance_fallido(self, mensaje):
+        if self.ventana_mi_avance is not None:
+            self.ventana_mi_avance.estado.setText(f"No se pudo consultar el SIA: {mensaje}")
+            self.ventana_mi_avance.marcar_consulta(False)
+
+    def _avance_cancelado(self):
+        if self.ventana_mi_avance is not None:
+            self.ventana_mi_avance.estado.setText("Consulta cancelada; los datos anteriores se conservaron.")
+            self.ventana_mi_avance.marcar_consulta(False)
+
+    def _finalizar_trabajador_avance(self):
+        if self.trabajador_avance is self.sender():
+            if self.ventana_mi_avance is not None:
+                try:
+                    self.ventana_mi_avance.mostrar_actividad.disconnect(
+                        self.trabajador_avance.activar_vista
+                    )
+                except (RuntimeError, TypeError):
+                    pass
+            self.trabajador_avance = None
+
+    def detener_trabajador_avance(self):
+        trabajador = self.trabajador_avance
+        if trabajador is not None and trabajador.isRunning():
+            trabajador.cancelar()
+            if not trabajador.wait(15000):
+                raise RuntimeError("El navegador de Mi Avance todavía no confirmó su cierre.")
+
     def _materia_por_codigo(self, codigo):
         """Busca una materia cargada o crea una referencia mínima desde el plan."""
         codigo = codigo_base(codigo)
@@ -2781,15 +4277,26 @@ class VentanaPrincipal(QMainWindow):
 
     def cambiar_materia_aprobada_desde_plan(self, codigo, aprobada):
         """Actualiza aprobación desde el diagrama y refresca el planificador."""
-        codigo = codigo_base(codigo)
+        self.cambiar_materias_aprobadas_desde_plan({codigo}, aprobada)
+
+    def cambiar_materias_aprobadas_desde_plan(self, codigos, aprobada):
+        """Marca un conjunto de materias con una sola persistencia y actualización."""
+        codigos = {codigo_base(codigo) for codigo in codigos if codigo_base(codigo)}
+        if not codigos:
+            return
         if aprobada:
-            self.materias_aprobadas.add(codigo)
             indice = {
+                codigo_base(materia.get("codigo", codigo)): materia
+                for codigo, materia in (self.materias_locales or {}).items()
+                if isinstance(materia, dict)
+            }
+            indice.update({
                 codigo_base(materia.get("codigo")): materia
                 for materias in self.materias_por_origen.values()
                 for materia in materias
-            }
-            pendientes = [codigo]
+            })
+            self.materias_aprobadas.update(codigos)
+            pendientes = list(codigos)
             while pendientes:
                 actual = pendientes.pop()
                 for requerido in codigos_prerrequisitos(indice.get(actual, {})):
@@ -2797,7 +4304,7 @@ class VentanaPrincipal(QMainWindow):
                         self.materias_aprobadas.add(requerido)
                         pendientes.append(requerido)
         else:
-            self.materias_aprobadas.discard(codigo)
+            self.materias_aprobadas.difference_update(codigos)
         self.guardar_estado_estudiante()
         self.recargar_datos()
         self.actualizar_interfaz()
@@ -3049,7 +4556,7 @@ class VentanaPrincipal(QMainWindow):
             self.materias_aprobadas,
             {codigo_base(referencia.get("codigo")) for referencia in self.referencias},
         )
-        if motivo:
+        if motivo and not seleccionada:
             boton.setText(f"{texto}\nNo disponible: {motivo}")
             boton.setEnabled(False)
             boton.setStyleSheet(estilo_tarjeta_no_disponible())
@@ -3081,26 +4588,34 @@ class VentanaPrincipal(QMainWindow):
             contenedor = QWidget()
             contenedor.setProperty("es_materia", True)
             contenedor.setProperty("texto_busqueda", texto)
-            columna = QVBoxLayout(contenedor)
-            columna.setContentsMargins(0, 0, 0, 0)
-            columna.setSpacing(3)
-            columna.addWidget(boton)
-            acciones = QHBoxLayout()
-            acciones.setContentsMargins(0, 0, 0, 0)
-            acciones.setSpacing(4)
-            quitar = QPushButton("× Quitar del horario")
-            cambiar = QPushButton("Cambiar grupo")
-            for accion in (quitar, cambiar):
-                accion.setCursor(Qt.PointingHandCursor)
-                accion.setMinimumHeight(32)
-                accion.setStyleSheet(self.estilo_boton_grupo(COLOR_SUPERFICIE, COLOR_LINEA))
-            acciones.addWidget(quitar)
-            acciones.addWidget(cambiar)
-            columna.addLayout(acciones)
+            superposicion = QGridLayout(contenedor)
+            superposicion.setContentsMargins(0, 0, 0, 0)
+            superposicion.addWidget(boton, 0, 0)
+            boton.setStyleSheet(
+                f"""QPushButton {{ background-color: {fondo}; color: {COLOR_TEXTO};
+                border: 1px solid {borde}; border-radius: 6px;
+                padding: 7px 32px 7px 8px; text-align: left; font-size: 11px; }}
+                QPushButton:hover {{ border-color: {COLOR_VERDE};
+                background-color: {COLOR_SUPERFICIE_CLARA}; }}"""
+            )
+            quitar = QPushButton("×", contenedor)
+            quitar.setObjectName("quitarMateriaSeleccionada")
+            quitar.setToolTip("Quitar del horario")
+            quitar.setCursor(Qt.PointingHandCursor)
+            quitar.setFixedSize(22, 22)
+            quitar.setStyleSheet(
+                f"QPushButton {{ background-color: {COLOR_SUPERFICIE}; color: {COLOR_TEXTO}; "
+                f"border: 1px solid {COLOR_LINEA}; border-radius: 4px; "
+                "font-size: 16px; padding: 0; }"
+                f"QPushButton:hover {{ border-color: {COLOR_ROJO}; color: {COLOR_ROJO}; }}"
+            )
+            superposicion.addWidget(
+                quitar, 0, 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight
+            )
             quitar.clicked.connect(
                 lambda _, ref=referencia: self.quitar_grupo(ref) if ref else None
             )
-            cambiar.clicked.connect(
+            boton.clicked.connect(
                 lambda _, m=materia, fuente=origen, ref=referencia:
                 self.mostrar_detalle_asignatura(m, fuente, referencia_cambio=ref)
                 if ref else None
@@ -3260,15 +4775,16 @@ class VentanaPrincipal(QMainWindow):
     ):
         dialogo = QDialog(self)
         dialogo.setWindowTitle(f"{materia.get('nombre', 'Materia')} · Fénix")
-        dialogo.setMinimumWidth(560)
+        dialogo.setMinimumWidth(320)
         dialogo.setMinimumHeight(460)
+        dialogo.resize(440, 520)
         dialogo.setStyleSheet(
             f"""QDialog {{ background-color: {COLOR_SUPERFICIE}; }}
             QLabel {{ color: {COLOR_TEXTO}; }}
             QScrollArea {{ border: none; background: transparent; }}"""
         )
         principal = QVBoxLayout(dialogo)
-        principal.setContentsMargins(20, 18, 20, 18)
+        principal.setContentsMargins(20, 18, 12, 18)
         titulo = QLabel(materia.get("nombre", "Materia"))
         titulo.setWordWrap(True)
         titulo.setStyleSheet(f"font-size: 20px; font-weight: 800; color: {COLOR_TEXTO};")
@@ -3277,18 +4793,48 @@ class VentanaPrincipal(QMainWindow):
             f"Código {materia.get('codigo', '')} · {materia.get('creditos', '?')} créditos\n"
             f"{materia.get('tipologia', 'Tipología no disponible')}"
         )
+        datos.setWordWrap(True)
         datos.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 11px;")
         principal.addWidget(datos)
         area = self.crear_area_desplazable()
         contenido = area.widget()
         descripcion = str(materia.get("descripcion", "")).strip()
         if descripcion:
+            desplegable_descripcion = QToolButton()
+            desplegable_descripcion.setObjectName("desplegableDescripcionMateria")
+            desplegable_descripcion.setText("▸  DESCRIPCIÓN")
+            desplegable_descripcion.setCheckable(True)
+            desplegable_descripcion.setArrowType(Qt.ArrowType.NoArrow)
+            desplegable_descripcion.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+            desplegable_descripcion.setCursor(Qt.CursorShape.PointingHandCursor)
+            desplegable_descripcion.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            desplegable_descripcion.setMinimumWidth(0)
+            desplegable_descripcion.setStyleSheet(
+                f"QToolButton {{ background-color: {COLOR_SUPERFICIE_CLARA}; "
+                f"color: {COLOR_TEXTO}; border: 1px solid {COLOR_LINEA}; "
+                "border-radius: 5px; padding: 6px; text-align: left; }}"
+            )
+            contenido.layout().addWidget(desplegable_descripcion)
+            cuerpo_descripcion = QWidget()
+            cuerpo_descripcion.setObjectName("contenidoDescripcionMateria")
+            disposicion_descripcion = QVBoxLayout(cuerpo_descripcion)
+            disposicion_descripcion.setContentsMargins(8, 0, 8, 6)
             etiqueta_descripcion = QLabel(descripcion)
             etiqueta_descripcion.setWordWrap(True)
             etiqueta_descripcion.setStyleSheet(
-                f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 12px; padding: 6px 0;"
+                f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 12px;"
             )
-            contenido.layout().addWidget(etiqueta_descripcion)
+            disposicion_descripcion.addWidget(etiqueta_descripcion)
+            contenido.layout().addWidget(cuerpo_descripcion)
+            cuerpo_descripcion.setVisible(False)
+
+            def alternar_descripcion(expandida):
+                cuerpo_descripcion.setVisible(expandida)
+                desplegable_descripcion.setText(
+                    "▾  DESCRIPCIÓN" if expandida else "▸  DESCRIPCIÓN"
+                )
+
+            desplegable_descripcion.toggled.connect(alternar_descripcion)
         prerrequisitos = materia.get("prerrequisitos", [])
         if prerrequisitos:
             lineas_prerrequisitos = []
@@ -3303,12 +4849,43 @@ class VentanaPrincipal(QMainWindow):
                 else:
                     lineas_prerrequisitos.append(str(requisito))
             texto_prerrequisitos = "\n".join(lineas_prerrequisitos)
-            etiqueta_prerrequisitos = QLabel(f"Prerrequisitos: {texto_prerrequisitos}")
+            desplegable_prerrequisitos = QToolButton()
+            desplegable_prerrequisitos.setObjectName("desplegablePrerrequisitosMateria")
+            desplegable_prerrequisitos.setText("▸  PRERREQUISITOS")
+            desplegable_prerrequisitos.setCheckable(True)
+            desplegable_prerrequisitos.setArrowType(Qt.ArrowType.NoArrow)
+            desplegable_prerrequisitos.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+            desplegable_prerrequisitos.setCursor(Qt.CursorShape.PointingHandCursor)
+            desplegable_prerrequisitos.setSizePolicy(
+                QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
+            )
+            desplegable_prerrequisitos.setMinimumWidth(0)
+            desplegable_prerrequisitos.setStyleSheet(
+                f"QToolButton {{ background-color: {COLOR_SUPERFICIE_CLARA}; "
+                f"color: {COLOR_TEXTO}; border: 1px solid {COLOR_LINEA}; "
+                "border-radius: 5px; padding: 6px; text-align: left; }}"
+            )
+            contenido.layout().addWidget(desplegable_prerrequisitos)
+            cuerpo_prerrequisitos = QWidget()
+            cuerpo_prerrequisitos.setObjectName("contenidoPrerrequisitosMateria")
+            disposicion_prerrequisitos = QVBoxLayout(cuerpo_prerrequisitos)
+            disposicion_prerrequisitos.setContentsMargins(8, 0, 8, 6)
+            etiqueta_prerrequisitos = QLabel(texto_prerrequisitos)
             etiqueta_prerrequisitos.setWordWrap(True)
             etiqueta_prerrequisitos.setStyleSheet(
                 f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 11px;"
             )
-            contenido.layout().addWidget(etiqueta_prerrequisitos)
+            disposicion_prerrequisitos.addWidget(etiqueta_prerrequisitos)
+            contenido.layout().addWidget(cuerpo_prerrequisitos)
+            cuerpo_prerrequisitos.setVisible(False)
+
+            def alternar_prerrequisitos(expandido):
+                cuerpo_prerrequisitos.setVisible(expandido)
+                desplegable_prerrequisitos.setText(
+                    "▾  PRERREQUISITOS" if expandido else "▸  PRERREQUISITOS"
+                )
+
+            desplegable_prerrequisitos.toggled.connect(alternar_prerrequisitos)
         grupos_titulo = QLabel("GRUPOS")
         grupos_titulo.setStyleSheet(
             f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 10px; font-weight: 700; padding-top: 8px;"
@@ -3327,9 +4904,11 @@ class VentanaPrincipal(QMainWindow):
             )
         contenido.layout().addStretch()
         principal.addWidget(area, 1)
+        centrar_contenido_si_no_hay_barra(area, principal, 12, 16)
         cerrar = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         cerrar.rejected.connect(dialogo.reject)
         principal.addWidget(cerrar)
+        preparar_dialogo_sin_barra(dialogo, principal)
         if no_modal:
             dialogo.setModal(False)
             dialogo.setWindowModality(Qt.WindowModality.NonModal)
@@ -3374,7 +4953,6 @@ class VentanaPrincipal(QMainWindow):
         if not dialogo.property("limpiar_previsualizacion_grupo_conectado"):
             dialogo.setProperty("limpiar_previsualizacion_grupo_conectado", True)
             dialogo.finished.connect(self.cuadricula.limpiar_previsualizacion_grupo)
-        boton.setMinimumHeight(63)
         boton.setCursor(Qt.PointingHandCursor)
         if seleccionado:
             accion = "Estado: seleccionado" if solo_informacion else (
@@ -3456,13 +5034,19 @@ class VentanaPrincipal(QMainWindow):
         conflictos = self.detalles_conflicto_grupo(grupo)
         if not conflictos:
             return
+        self.previsualizar_grupo_no_disponible(
+            materia, grupo, " | ".join(conflictos), dialogo
+        )
+
+    def previsualizar_grupo_no_disponible(self, materia, grupo, motivo, dialogo=None):
+        """Parpadea tres veces el grupo, aunque la causa sea la franja elegida."""
         self.temporizador_previsualizacion.stop()
         self.grupo_previsualizado = (materia, grupo)
         self.previsualizacion_resaltada = True
         self.parpadeos_previsualizacion_restantes = 6
         self._actualizar_cuadricula_previsualizada()
         self.resumen.setText(
-            "PREVISUALIZACIÓN · " + " | ".join(conflictos) +
+            "PREVISUALIZACIÓN · " + motivo +
             " · El grupo no se añadió al horario; parpadea 3 veces."
         )
         if dialogo is not None:
@@ -3663,6 +5247,7 @@ class VentanaPrincipal(QMainWindow):
         cerrar = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         cerrar.rejected.connect(dialogo.reject)
         layout.addWidget(cerrar)
+        preparar_dialogo_sin_barra(dialogo, layout)
         dialogo.exec()
 
     def editar_materia_fuera_horario(self, dialogo, referencia, materia):
@@ -3782,7 +5367,8 @@ class VentanaPrincipal(QMainWindow):
         """Abre el menú para cambiar de grupo o quitar materias del horario."""
         dialogo = QDialog(self)
         dialogo.setWindowTitle("Editar materias y grupos")
-        dialogo.setMinimumWidth(620)
+        dialogo.setMinimumWidth(320)
+        dialogo.resize(440, 520)
         dialogo.setStyleSheet(
             f"""
             QDialog {{ background-color: {COLOR_SUPERFICIE}; }}
@@ -3823,12 +5409,15 @@ class VentanaPrincipal(QMainWindow):
             tarjeta.setStyleSheet(
                 f"background-color: {COLOR_SUPERFICIE_CLARA}; border: 1px solid {COLOR_LINEA}; border-radius: 7px;"
             )
-            fila = QHBoxLayout(tarjeta)
-            fila.setContentsMargins(10, 8, 10, 8)
+            columna = QVBoxLayout(tarjeta)
+            columna.setContentsMargins(10, 8, 10, 8)
+            columna.setSpacing(6)
             info = QLabel(f"{materia.get('nombre', '')}\n{materia.get('codigo', '')}")
             info.setWordWrap(True)
-            fila.addWidget(info, 1)
+            columna.addWidget(info)
             opciones = QComboBox()
+            opciones.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            opciones.setMinimumWidth(0)
             grupos = materia.get("grupos", [])
             indice_actual = 0
             for indice, grupo_opcion in enumerate(grupos):
@@ -3839,26 +5428,32 @@ class VentanaPrincipal(QMainWindow):
                 if str(grupo_opcion.get("numero")) == str(grupo.get("numero")):
                     indice_actual = indice
             opciones.setCurrentIndex(indice_actual)
-            opciones.setMinimumWidth(245)
-            fila.addWidget(opciones)
+            opciones.setToolTip(opciones.currentText())
+            opciones.currentTextChanged.connect(opciones.setToolTip)
+            columna.addWidget(opciones)
+            acciones = QHBoxLayout()
+            acciones.setContentsMargins(0, 0, 0, 0)
+            acciones.addStretch(1)
             aplicar = QPushButton("Aplicar")
             aplicar.clicked.connect(
                 lambda _, r=referencia, m=materia, c=opciones, d=dialogo:
                 self.aplicar_cambio_grupo(r, m, c, d)
             )
-            fila.addWidget(aplicar)
+            acciones.addWidget(aplicar)
             quitar = QPushButton("Quitar")
             quitar.setStyleSheet(f"QPushButton {{ color: {COLOR_ROJO}; }}")
             quitar.clicked.connect(
                 lambda _, r=referencia, d=dialogo: self.quitar_desde_editor(r, d)
             )
-            fila.addWidget(quitar)
+            acciones.addWidget(quitar)
+            columna.addLayout(acciones)
             contenido.layout().addWidget(tarjeta)
         contenido.layout().addStretch()
         principal.addWidget(area, 1)
         cerrar = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         cerrar.rejected.connect(dialogo.reject)
         principal.addWidget(cerrar)
+        preparar_dialogo_sin_barra(dialogo, principal)
         dialogo.exec()
 
     def aplicar_cambio_grupo(self, referencia, materia, selector, dialogo):
@@ -3934,54 +5529,91 @@ class VentanaPrincipal(QMainWindow):
              if not self.materia_ya_seleccionada(materia)],
             grupos_actuales, dia, hora, duracion,
         )
-        if not principales and not libres and not principales_bloqueados and not libres_bloqueados:
+        catalogo_principal = self.catalogo_buscable_en_bloque("principal")
+        catalogo_libre = self.catalogo_buscable_en_bloque("libre")
+        if not catalogo_principal and not catalogo_libre:
             QMessageBox.information(
                 self,
                 "Sin grupos disponibles",
-                "No hay grupos con clase en este día y hora que puedan añadirse "
-                "sin crear un conflicto con tu horario actual."
+                "Todavía no hay materias en el catálogo para buscar en esta franja."
             )
             return
 
         nombre_dia = dict(DIAS).get(dia, dia.title())
         menu = QMenu(self)
+        menu.setObjectName("menuOrigenGruposBloque")
         menu.setStyleSheet(
-            f"QMenu {{ background-color: {COLOR_SUPERFICIE}; color: {COLOR_TEXTO}; "
-            f"border: 1px solid {COLOR_LINEA}; }} "
-            f"QMenu::item:selected {{ background-color: {COLOR_SUPERFICIE_CLARA}; }}"
+            f"QMenu {{ background-color: {COLOR_SUPERFICIE}; "
+            f"border: 1px solid {COLOR_LINEA}; }}"
         )
-        encabezado = menu.addAction(f"{nombre_dia} · {hora:02d}:00–{hora + duracion:02d}:00")
-        encabezado.setEnabled(False)
-        menu.addSeparator()
-        def texto_origen(etiqueta, disponibles, bloqueados):
+        panel = QWidget(menu)
+        panel.setStyleSheet(f"background-color: {COLOR_SUPERFICIE};")
+        opciones = QVBoxLayout(panel)
+        opciones.setContentsMargins(10, 10, 10, 10)
+        opciones.setSpacing(6)
+        encabezado = QLabel(f"{nombre_dia.upper()} · {hora:02d}:00–{hora + duracion:02d}:00")
+        encabezado.setStyleSheet(
+            f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 10px; font-weight: 700; "
+            "padding: 0 3px 3px;"
+        )
+        opciones.addWidget(encabezado)
+
+        def agregar_opcion(origen, titulo, disponibles, bloqueados, catalogo):
             materias_bloqueadas = {
                 str(materia.get("codigo") or materia.get("nombre") or id(materia))
                 for materia, _ in bloqueados
             }
-            return (
-                f"{etiqueta} ({len(disponibles)} grupos disponibles · "
-                f"{len(materias_bloqueadas)} materias no disponibles por cruces)"
+            if catalogo:
+                resumen = (
+                    f"{len(disponibles)} grupos en esta franja · "
+                    f"{len(materias_bloqueadas)} materias con cruces"
+                )
+            else:
+                resumen = "Catálogo aún no disponible"
+            boton = QPushButton(f"{titulo}\n{resumen}")
+            boton.setObjectName(f"elegirOrigenGrupos_{origen}")
+            boton.setEnabled(bool(catalogo))
+            boton.setCursor(Qt.CursorShape.PointingHandCursor)
+            boton.setMinimumWidth(310)
+            boton.setStyleSheet(
+                f"QPushButton {{ background-color: {COLOR_SUPERFICIE_CLARA}; "
+                f"color: {COLOR_TEXTO}; border: 1px solid {COLOR_LINEA}; "
+                "border-radius: 6px; padding: 10px 12px; text-align: left; }} "
+                f"QPushButton:hover {{ border-color: {COLOR_VERDE}; "
+                f"background-color: {COLOR_VERDE_FONDO}; }} "
+                f"QPushButton:disabled {{ color: {COLOR_TEXTO_SECUNDARIO}; "
+                f"background-color: {COLOR_FONDO}; }}"
             )
 
-        accion_principales = menu.addAction(
-            texto_origen("Materias principales", principales, principales_bloqueados)
+            def abrir():
+                menu.hide()
+                self.mostrar_grupos_por_origen_en_bloque(
+                    origen, dia, hora, duracion, disponibles, bloqueados
+                )
+
+            boton.clicked.connect(abrir)
+            opciones.addWidget(boton)
+
+        agregar_opcion(
+            "principal", "Obligatorias y optativas", principales,
+            principales_bloqueados, catalogo_principal,
         )
-        accion_principales.setEnabled(bool(principales or principales_bloqueados))
-        accion_principales.triggered.connect(
-            lambda: self.mostrar_grupos_por_origen_en_bloque(
-                "principal", dia, hora, duracion, principales, principales_bloqueados
-            )
-        )
-        accion_libres = menu.addAction(
-            texto_origen("Libres elecciones", libres, libres_bloqueados)
-        )
-        accion_libres.setEnabled(bool(libres or libres_bloqueados))
-        accion_libres.triggered.connect(
-            lambda: self.mostrar_grupos_por_origen_en_bloque(
-                "libre", dia, hora, duracion, libres, libres_bloqueados
-            )
-        )
+        agregar_opcion("libre", "Libre elección", libres, libres_bloqueados, catalogo_libre)
+        accion_panel = QWidgetAction(menu)
+        accion_panel.setDefaultWidget(panel)
+        menu.addAction(accion_panel)
         menu.exec(QCursor.pos())
+
+    def catalogo_buscable_en_bloque(self, origen):
+        """Incluye materias conocidas sin grupos, sin duplicar las ofertadas."""
+        por_codigo = {}
+        if origen == "principal":
+            for codigo, materia in (self.materias_locales or {}).items():
+                if isinstance(materia, dict):
+                    por_codigo[codigo_base(materia.get("codigo", codigo))] = materia
+        for materia in self.materias_por_origen.get(origen, []):
+            por_codigo[codigo_base(materia.get("codigo"))] = materia
+        return [materia for codigo, materia in por_codigo.items() if codigo]
 
     def grupos_elegibles_en_bloque(self, origen, dia, hora, duracion):
         """Filtra por franja horaria y descarta grupos no seleccionables."""
@@ -4001,63 +5633,95 @@ class VentanaPrincipal(QMainWindow):
         self, origen, dia, hora, duracion, candidatos, grupos_bloqueados=()
     ):
         """Lista solo los grupos del origen elegido que coinciden con la celda."""
-        nombre_origen = "Materias principales" if origen == "principal" else "Libres elecciones"
+        nombre_origen = "Obligatorias y optativas" if origen == "principal" else "Libre elección"
         nombre_dia = dict(DIAS).get(dia, dia.title())
         dialogo = QDialog(self)
+        dialogo.setObjectName("dialogoGruposBloque")
         dialogo.setWindowTitle(
             f"{nombre_origen} · {nombre_dia} {hora:02d}:00–{hora + duracion:02d}:00"
         )
-        dialogo.setMinimumWidth(560)
+        dialogo.setMinimumWidth(320)
         dialogo.setMinimumHeight(420)
+        dialogo.resize(440, 520)
         dialogo.setStyleSheet(
             f"""QDialog {{ background-color: {COLOR_SUPERFICIE}; }}
             QLabel {{ color: {COLOR_TEXTO}; }}
             QScrollArea {{ border: none; background: transparent; }}"""
         )
         principal = QVBoxLayout(dialogo)
-        principal.setContentsMargins(20, 18, 20, 18)
+        principal.setContentsMargins(20, 18, 8, 18)
         titulo = QLabel(nombre_origen)
         titulo.setStyleSheet(f"color: {COLOR_TEXTO}; font-size: 20px; font-weight: 800;")
         principal.addWidget(titulo)
         descripcion = QLabel(
             f"Grupos con clase el {nombre_dia.lower()} entre las {hora:02d}:00 y "
             f"las {hora + duracion:02d}:00. "
-            "Se incluyen grupos sin cupos. Los grupos que chocan con tu horario "
-            "se consultan en la sección desplegable del final."
+            "Busca una materia para ver todos sus grupos: los aptos aparecen arriba "
+            "y los demás en No Disponibles con su motivo."
         )
         descripcion.setWordWrap(True)
         descripcion.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 11px;")
         principal.addWidget(descripcion)
+        buscador = QLineEdit()
+        buscador.setObjectName("buscarMateriaBloque")
+        buscador.setPlaceholderText("Buscar materia por nombre o código, incluso si no está disponible…")
+        buscador.setClearButtonEnabled(True)
+        buscador.setStyleSheet(
+            f"QLineEdit {{ background-color: {COLOR_FONDO}; color: {COLOR_TEXTO}; "
+            f"border: 1px solid {COLOR_LINEA}; border-radius: 6px; padding: 8px; }} "
+            f"QLineEdit:focus {{ border-color: {COLOR_VERDE}; }}"
+        )
+        principal.addWidget(buscador)
         area = self.crear_area_desplazable()
         contenido = area.widget()
+        cuerpo_disponibles = QWidget()
+        cuerpo_disponibles.setObjectName("gruposDisponiblesBloque")
+        layout_disponibles = QVBoxLayout(cuerpo_disponibles)
+        layout_disponibles.setContentsMargins(0, 0, 0, 0)
+        layout_disponibles.setSpacing(6)
+        contenido.layout().addWidget(cuerpo_disponibles)
         por_materia = {}
         for materia, grupo in candidatos:
             clave = str(materia.get("codigo", ""))
             por_materia.setdefault(clave, {"materia": materia, "grupos": []})["grupos"].append(grupo)
-        for entrada in sorted(
-            por_materia.values(),
-            key=lambda actual: clave_alfabetica(actual["materia"].get("nombre", "")),
-        ):
-            materia = entrada["materia"]
-            tarjeta = QFrame()
-            tarjeta.setStyleSheet(
-                f"background-color: {COLOR_SUPERFICIE_CLARA}; border: 1px solid {COLOR_LINEA}; border-radius: 7px;"
-            )
-            layout = QVBoxLayout(tarjeta)
-            layout.setContentsMargins(11, 9, 11, 10)
-            layout.setSpacing(6)
-            nombre = QLabel(
-                f"{materia.get('nombre', 'Materia')} · {materia.get('creditos', '?')} créditos"
-            )
-            nombre.setWordWrap(True)
-            nombre.setStyleSheet(f"color: {COLOR_TEXTO}; font-size: 13px; font-weight: 700;")
-            layout.addWidget(nombre)
-            codigo = QLabel(f"{materia.get('codigo', '')} · {materia.get('tipologia', '')}")
-            codigo.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 10px;")
-            layout.addWidget(codigo)
-            for grupo in sorted(entrada["grupos"], key=clave_orden_grupo):
-                layout.addWidget(self.crear_boton_grupo(origen, materia, grupo, dialogo, False))
-            contenido.layout().addWidget(tarjeta)
+
+        def mostrar_disponibles(entradas, consulta, hay_coincidencias):
+            limpiar_layout(layout_disponibles)
+            if not entradas:
+                if consulta and not hay_coincidencias:
+                    texto_mensaje = "No se encontró ninguna materia con ese nombre o código."
+                elif consulta:
+                    texto_mensaje = "No hay grupos aptos en esta franja. Consulta No Disponibles."
+                else:
+                    texto_mensaje = "No hay grupos aptos en esta franja. Puedes buscar otras materias."
+                mensaje = QLabel(texto_mensaje)
+                mensaje.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; padding: 8px;")
+                layout_disponibles.addWidget(mensaje)
+            for entrada in sorted(
+                entradas, key=lambda actual: clave_alfabetica(actual["materia"].get("nombre", ""))
+            ):
+                materia = entrada["materia"]
+                tarjeta = QFrame()
+                tarjeta.setObjectName("tarjetaDisponibleBloque")
+                tarjeta.setStyleSheet(
+                    f"background-color: {COLOR_SUPERFICIE_CLARA}; "
+                    f"border: 1px solid {COLOR_LINEA}; border-radius: 7px;"
+                )
+                layout = QVBoxLayout(tarjeta)
+                layout.setContentsMargins(11, 9, 11, 10)
+                layout.setSpacing(6)
+                nombre = QLabel(
+                    f"{materia.get('nombre', 'Materia')} · {materia.get('creditos', '?')} créditos"
+                )
+                nombre.setWordWrap(True)
+                nombre.setStyleSheet(f"color: {COLOR_TEXTO}; font-size: 13px; font-weight: 700;")
+                layout.addWidget(nombre)
+                codigo = QLabel(f"{materia.get('codigo', '')} · {materia.get('tipologia', '')}")
+                codigo.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; font-size: 10px;")
+                layout.addWidget(codigo)
+                for grupo in sorted(entrada["grupos"], key=clave_orden_grupo):
+                    layout.addWidget(self.crear_boton_grupo(origen, materia, grupo, dialogo, False))
+                layout_disponibles.addWidget(tarjeta)
 
         bloqueados_por_materia = {}
         for materia, grupo in grupos_bloqueados:
@@ -4066,10 +5730,9 @@ class VentanaPrincipal(QMainWindow):
                 clave, {"materia": materia, "grupos": []}
             )["grupos"].append(grupo)
         boton_no_disponibles = QToolButton()
-        boton_no_disponibles.setText(
-            "No disponibles por cruces con otras materias "
-            f"({len(bloqueados_por_materia)})"
-        )
+        boton_no_disponibles.setObjectName("seccionNoDisponiblesBloque")
+        boton_no_disponibles.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        boton_no_disponibles.setMinimumWidth(0)
         boton_no_disponibles.setCheckable(True)
         boton_no_disponibles.setChecked(False)
         boton_no_disponibles.setArrowType(Qt.ArrowType.RightArrow)
@@ -4083,54 +5746,10 @@ class VentanaPrincipal(QMainWindow):
         )
         contenido.layout().addWidget(boton_no_disponibles)
         cuerpo_no_disponibles = QWidget()
+        cuerpo_no_disponibles.setObjectName("gruposNoDisponiblesBloque")
         layout_no_disponibles = QVBoxLayout(cuerpo_no_disponibles)
         layout_no_disponibles.setContentsMargins(4, 4, 4, 4)
         layout_no_disponibles.setSpacing(6)
-        if not bloqueados_por_materia:
-            vacio = QLabel("No hay materias bloqueadas por cruces en esta franja.")
-            vacio.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO}; padding: 6px;")
-            layout_no_disponibles.addWidget(vacio)
-        for entrada in sorted(
-            bloqueados_por_materia.values(),
-            key=lambda actual: clave_alfabetica(actual["materia"].get("nombre", "")),
-        ):
-            materia = entrada["materia"]
-            grupos_texto = ", ".join(
-                str(grupo.get("numero", "?"))
-                for grupo in sorted(entrada["grupos"], key=clave_orden_grupo)
-            )
-            codigo = str(materia.get("codigo", "")).strip()
-            detalles = []
-            for grupo in entrada["grupos"]:
-                detalles.extend(self.detalles_conflicto_grupo(grupo))
-            detalles = list(dict.fromkeys(detalles))
-            razon = "\n".join(detalles) or "Cruza con el horario seleccionado."
-            tarjeta = QPushButton(
-                f"{materia.get('nombre', 'Materia')}\n"
-                f"{codigo} · Grupo(s) {grupos_texto}\n"
-                f"No disponible: {razon}"
-            )
-            tarjeta.setProperty("es_materia", True)
-            tarjeta.setProperty("texto_busqueda", tarjeta.text())
-            tarjeta.setMinimumHeight(max(51, len(razon.splitlines()) * 18 + 48))
-            tarjeta.setSizePolicy(
-                QSizePolicy.Policy.Expanding,
-                QSizePolicy.Policy.Preferred,
-            )
-            tarjeta.setCursor(Qt.PointingHandCursor)
-            tarjeta.setToolTip(
-                "Haz clic para previsualizar el primer grupo en conflicto. "
-                "La previsualización no modifica tu horario."
-            )
-            tarjeta.setStyleSheet(estilo_tarjeta_no_disponible())
-            grupo_a_previsualizar = sorted(
-                entrada["grupos"], key=clave_orden_grupo
-            )[0]
-            tarjeta.clicked.connect(
-                lambda _, m=materia, g=grupo_a_previsualizar, d=dialogo:
-                self.previsualizar_conflicto(m, g, d)
-            )
-            layout_no_disponibles.addWidget(tarjeta)
         cuerpo_no_disponibles.setVisible(False)
         contenido.layout().addWidget(cuerpo_no_disponibles)
 
@@ -4141,11 +5760,81 @@ class VentanaPrincipal(QMainWindow):
             )
 
         boton_no_disponibles.toggled.connect(actualizar_seccion_no_disponibles)
+
+        catalogo = self.catalogo_buscable_en_bloque(origen)
+
+        def actualizar_busqueda(texto):
+            consulta = texto.strip()
+            if consulta:
+                resultados = buscar_grupos_en_bloque(
+                    catalogo, consulta, dia, hora, duracion,
+                    self.materias_aprobadas,
+                    {codigo_base(ref.get("codigo")) for ref in self.referencias},
+                    self.grupos_actuales(),
+                )
+                disponibles = [
+                    {"materia": entrada["materia"], "grupos": entrada["disponibles"]}
+                    for entrada in resultados if entrada["disponibles"]
+                ]
+                no_disponibles = [
+                    {"materia": entrada["materia"], **grupo}
+                    for entrada in resultados for grupo in entrada["no_disponibles"]
+                ]
+            else:
+                disponibles = list(por_materia.values())
+                no_disponibles = [
+                    {"materia": entrada["materia"], "grupo": grupo,
+                     "motivo": "Conflicto de horario"}
+                    for entrada in sorted(
+                        bloqueados_por_materia.values(),
+                        key=lambda actual: clave_alfabetica(actual["materia"].get("nombre", "")),
+                    )
+                    for grupo in entrada["grupos"]
+                ]
+            mostrar_disponibles(disponibles, consulta, bool(disponibles or no_disponibles))
+            limpiar_layout(layout_no_disponibles)
+            for entrada in no_disponibles:
+                materia = entrada["materia"]
+                grupo = entrada["grupo"]
+                motivo = entrada["motivo"]
+                if grupo is not None:
+                    conflictos = self.detalles_conflicto_grupo(grupo)
+                    if conflictos:
+                        motivo = motivo.replace("Conflicto de horario", "; ".join(conflictos))
+                lineas = [str(materia.get("nombre") or "Materia"), str(materia.get("codigo") or "")]
+                if grupo is not None:
+                    lineas[1] += f" · Grupo {grupo.get('numero', '?')}"
+                    lineas.append(texto_horarios(grupo))
+                lineas.append(f"No disponible: {motivo}")
+                tarjeta = BotonTextoAjustable("\n".join(lineas))
+                tarjeta.setObjectName("tarjetaNoDisponibleBloque")
+                tarjeta.setStyleSheet(estilo_tarjeta_no_disponible())
+                tarjeta.setToolTip(
+                    "Haz clic para previsualizar este grupo sin modificar tu horario."
+                    if grupo else "No hay un grupo que se pueda previsualizar."
+                )
+                if grupo is not None:
+                    tarjeta.setCursor(Qt.PointingHandCursor)
+                    tarjeta.clicked.connect(
+                        lambda _, m=materia, g=grupo, razon=motivo, d=dialogo:
+                        self.previsualizar_grupo_no_disponible(m, g, razon, d)
+                    )
+                else:
+                    tarjeta.setEnabled(False)
+                layout_no_disponibles.addWidget(tarjeta)
+            boton_no_disponibles.setText(f"No Disponibles ({len(no_disponibles)})")
+            boton_no_disponibles.setVisible(bool(no_disponibles))
+            boton_no_disponibles.setChecked(bool(consulta and no_disponibles))
+
+        buscador.textChanged.connect(actualizar_busqueda)
+        actualizar_busqueda("")
         contenido.layout().addStretch()
         principal.addWidget(area, 1)
+        centrar_contenido_si_no_hay_barra(area, principal, 8, 12)
         cerrar = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         cerrar.rejected.connect(dialogo.reject)
         principal.addWidget(cerrar)
+        preparar_dialogo_sin_barra(dialogo, principal)
         dialogo.exec()
 
     def iniciar_actualizacion_manual(self):
@@ -4469,9 +6158,9 @@ class VentanaPrincipal(QMainWindow):
             return
         self.cambiando_estudiante = True
         self.temporizador_estado.stop()
-        self.cerrar_ventanas_secundarias()
         self.setEnabled(False)
         try:
+            self.cerrar_ventanas_secundarias()
             self.actualizar_indicador_actualizacion(
                 "actualizando",
                 "Deteniendo tareas anteriores antes de cambiar de estudiante…",
@@ -4507,8 +6196,12 @@ class VentanaPrincipal(QMainWindow):
 
     def cerrar_ventanas_secundarias(self):
         """Retira vistas ligadas al perfil anterior antes de borrar sus datos."""
+        self.detener_trabajador_avance()
         if self.ventana_plan_estudios is not None:
             self.ventana_plan_estudios.hide()
+        if self.ventana_mi_avance is not None:
+            self.ventana_mi_avance.hide()
+            self.ventana_mi_avance.mostrar_datos(None)
         for dialogo in list(self.dialogos_no_modales):
             try:
                 dialogo.close()
@@ -4516,6 +6209,15 @@ class VentanaPrincipal(QMainWindow):
                 # El objeto de Qt pudo eliminarse justo antes de recorrerlo.
                 pass
         self.dialogos_no_modales.clear()
+
+    def closeEvent(self, evento):
+        try:
+            self.detener_trabajador_avance()
+        except RuntimeError as error:
+            evento.ignore()
+            QMessageBox.warning(self, "Consulta en curso", str(error))
+            return
+        super().closeEvent(evento)
 
     def detener_actualizacion(self):
         """Cancela cooperativamente y espera el cierre de workers/navegador."""
@@ -4625,11 +6327,13 @@ def mostrar_presentacion():
     app = QApplication(sys.argv)
     app.setApplicationName("Fenix")
     app.setApplicationVersion(VERSION)
+    cargar_fuente_interfaz(app)
     # Los tooltips nativos pueden ignorar el estilo del widget que los emite.
     # Declararlo a nivel de QApplication garantiza contraste en el tema oscuro.
     app.setStyleSheet(
         f"QToolTip {{ color: {COLOR_TEXTO}; background-color: {COLOR_BARRA}; "
         f"border: 1px solid {COLOR_AMARILLO}; padding: 5px; }}"
+        + ESTILO_BARRAS_DESPLAZAMIENTO
     )
     bloqueo = QLockFile(str(CARPETA_DATOS / "fenix.lock"))
     bloqueo.setStaleLockTime(0)

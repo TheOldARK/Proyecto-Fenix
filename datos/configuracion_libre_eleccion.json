@@ -153,6 +153,94 @@
                     "3 SEDE MEDELLÍN",
                     "3065 FACULTAD DE CIENCIAS"
                 ]
+            },
+            "3067:3512": {
+                "facultad": "3067 FACULTAD DE CIENCIAS HUMANAS Y ECONÓMICAS",
+                "plan": "3512 Ciencia Política",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3067 FACULTAD DE CIENCIAS HUMANAS Y ECONÓMICAS"
+                ]
+            },
+            "3067:3513": {
+                "facultad": "3067 FACULTAD DE CIENCIAS HUMANAS Y ECONÓMICAS",
+                "plan": "3513 Economía",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3067 FACULTAD DE CIENCIAS HUMANAS Y ECONÓMICAS"
+                ]
+            },
+            "3067:3514": {
+                "facultad": "3067 FACULTAD DE CIENCIAS HUMANAS Y ECONÓMICAS",
+                "plan": "3514 Historia",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3067 FACULTAD DE CIENCIAS HUMANAS Y ECONÓMICAS"
+                ]
+            },
+            "3064:3501": {
+                "facultad": "3064 FACULTAD DE ARQUITECTURA",
+                "plan": "3501 Arquitectura",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3064 FACULTAD DE ARQUITECTURA"
+                ]
+            },
+            "3064:3502": {
+                "facultad": "3064 FACULTAD DE ARQUITECTURA",
+                "plan": "3502 Artes Plásticas",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3064 FACULTAD DE ARQUITECTURA"
+                ]
+            },
+            "3064:3503": {
+                "facultad": "3064 FACULTAD DE ARQUITECTURA",
+                "plan": "3503 Construcción",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3064 FACULTAD DE ARQUITECTURA"
+                ]
+            },
+            "3442:3508": {
+                "facultad": "3442 FACULTAD DE CIENCIAS AGRARIAS",
+                "plan": "3508 Ingeniería Agrícola",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3442 FACULTAD DE CIENCIAS AGRARIAS"
+                ]
+            },
+            "3442:3509": {
+                "facultad": "3442 FACULTAD DE CIENCIAS AGRARIAS",
+                "plan": "3509 Ingeniería Agronómica",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3442 FACULTAD DE CIENCIAS AGRARIAS"
+                ]
+            },
+            "3442:3510": {
+                "facultad": "3442 FACULTAD DE CIENCIAS AGRARIAS",
+                "plan": "3510 Ingeniería Forestal",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3442 FACULTAD DE CIENCIAS AGRARIAS"
+                ]
+            },
+            "3442:3511": {
+                "facultad": "3442 FACULTAD DE CIENCIAS AGRARIAS",
+                "plan": "3511 Zootecnia",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3442 FACULTAD DE CIENCIAS AGRARIAS"
+                ]
+            },
+            "3516:3706": {
+                "facultad": "3516 FACULTAD DE CIENCIAS DE LA VIDA",
+                "plan": "3706 Farmacia",
+                "facultades_libre_eleccion": [
+                    "3 SEDE MEDELLÍN",
+                    "3516 FACULTAD DE CIENCIAS DE LA VIDA"
+                ]
             }
         }
     }

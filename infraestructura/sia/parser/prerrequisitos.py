@@ -17,17 +17,27 @@ TODAS_RE = re.compile(r"¿?Todas\??\s*\[\s*([^\]]*)\s*\]", re.IGNORECASE)
 NUMERO_ASIGNATURAS_RE = re.compile(
     r"N[uú]mero\s+asignaturas?\s*\[\s*([^\]]*)\s*\]", re.IGNORECASE
 )
+FIN_REQUISITOS_RE = re.compile(
+    r"\bTipo\s+de\s+(?:prerrequisitos?\s+)?implica\b"
+    r"|\bCorrequisitos?\s*(?::|$|Condici[oó]n|\d{6,9})",
+    re.IGNORECASE,
+)
 
 
 def normalizar_texto(texto: str) -> str:
     return re.sub(r"\s+", " ", str(texto or "")).strip()
 
 
+def limpiar_nombre_prerrequisito(texto: str) -> str:
+    """Excluye la leyenda SIA, incluso de nombres guardados por parsers antiguos."""
+    return FIN_REQUISITOS_RE.split(normalizar_texto(texto), maxsplit=1)[0].strip(" :-–—")
+
+
 def _crear_prerrequisito(
     codigo, nombre, tipo="", condicion="", todas="", numero_asignaturas=""
 ):
     codigo = normalizar_texto(codigo)
-    nombre = normalizar_texto(nombre)
+    nombre = limpiar_nombre_prerrequisito(nombre)
     if not codigo or not nombre:
         return None
     return Prerrequisito(
@@ -42,10 +52,25 @@ def _crear_prerrequisito(
 
 def _nombre_de_fila(fila, codigo):
     """Obtiene el nombre desde celdas, enlaces o texto de una fila."""
+    texto_fila = limpiar_nombre_prerrequisito(fila.get_text(" ", strip=True))
+    # Delimitar cada nombre por su propio código, no tomar cualquier celda
+    # del contenedor padre (que puede incluir condiciones u otras materias).
+    for coincidencia in CODIGO_RE.finditer(texto_fila):
+        if coincidencia.group(1) != codigo:
+            continue
+        resto = texto_fila[coincidencia.end():]
+        limite = re.search(r"\bCondici[oó]n\s*\d+", resto, re.IGNORECASE)
+        if limite:
+            resto = resto[:limite.start()]
+        siguiente = CODIGO_RE.search(resto)
+        if siguiente:
+            resto = resto[:siguiente.start()]
+        if resto.strip(" :-–—"):
+            return resto.strip(" :-–—")
     elementos = fila.find_all(["td", "th", "a", "span"], recursive=True)
     textos = []
     for elemento in elementos:
-        texto = normalizar_texto(elemento.get_text(" ", strip=True))
+        texto = limpiar_nombre_prerrequisito(elemento.get_text(" ", strip=True))
         if texto and texto not in textos:
             textos.append(texto)
 
@@ -65,13 +90,21 @@ def _nombre_de_fila(fila, codigo):
 
 def _extraer_de_contenedor(contenedor):
     resultados = []
-    filas = contenedor.find_all("tr") or [contenedor]
+    filas = contenedor.find_all("tr")
+    # Sin filas, el fallback de texto separa las condiciones y los códigos.
+    if not filas:
+        return []
     condicion_actual = ""
     tipo_actual = ""
     todas_actual = ""
     numero_actual = ""
     for fila in filas:
-        texto = normalizar_texto(fila.get_text(" ", strip=True))
+        # Ignorar filas que solo envuelven otras tablas: sus códigos y textos
+        # se procesan en las filas hoja, sin repetirlos con nombres mezclados.
+        if fila.find("tr"):
+            continue
+        texto_original = normalizar_texto(fila.get_text(" ", strip=True))
+        texto = limpiar_nombre_prerrequisito(texto_original)
         encabezado_condicion = CONDICION_RE.search(texto)
         if encabezado_condicion:
             condicion_actual = encabezado_condicion.group(1)
@@ -93,6 +126,8 @@ def _extraer_de_contenedor(contenedor):
             )
             if requisito is not None:
                 resultados.append(requisito)
+        if FIN_REQUISITOS_RE.search(texto_original):
+            break
     return resultados
 
 
@@ -130,7 +165,7 @@ def _extraer_prerrequisitos_desde_html(html: str):
     # Fallback para HTML sin filas: conserva el tipo de cada condición y
     # asocia ese metadato a los códigos que aparecen antes de la siguiente.
     if not resultados:
-        texto = normalizar_texto(soup.get_text(" ", strip=True))
+        texto = limpiar_nombre_prerrequisito(soup.get_text(" ", strip=True))
         marcador = MARCADOR_RE.search(texto)
         if marcador:
             fragmento = texto[marcador.end():]
