@@ -104,6 +104,8 @@ if ($LASTEXITCODE -ne 0) { throw 'No se pudo volver a abrir el paquete MSIX gene
 $manifestExtraido = Get-Content -LiteralPath (Join-Path $verificacion 'AppxManifest.xml') -Raw
 if ($manifestExtraido -notmatch 'FenixUN-Horario\.FenixHorarios' -or
     $manifestExtraido -notmatch [regex]::Escape($versionPaquete) -or
+    $manifestExtraido -notmatch '<DisplayName>Fenix Horarios</DisplayName>' -or
+    $manifestExtraido -notmatch 'VisualElements DisplayName="Fenix Horarios"' -or
     -not (Test-Path -LiteralPath (Join-Path $verificacion 'Fenix\Fenix.exe')) -or
     -not (Test-Path -LiteralPath (Join-Path $verificacion 'Fenix\fenix-store-package.marker'))) {
     throw 'El MSIX no contiene la identidad, versión o ejecutable esperado.'
