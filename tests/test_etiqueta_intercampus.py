@@ -46,6 +46,8 @@ class EtiquetaIntercampusTests(unittest.TestCase):
             mostrar_materias_fuera_horario=lambda: None,
             mostrar_grupos_del_bloque=lambda *args: None,
             ejecutar_accion_materia=lambda *args: None,
+            deshacer_cambio_grupo=lambda: None,
+            rehacer_cambio_grupo=lambda: None,
             crear_area_desplazable=VentanaPrincipal.crear_area_desplazable,
         )
         layout = QHBoxLayout(ventana)

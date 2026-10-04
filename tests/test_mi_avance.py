@@ -140,7 +140,8 @@ class MiAvanceTests(unittest.TestCase):
         self.assertIn("background: transparent; border: none", ventana.styleSheet())
         self.assertEqual(ventana.papa_proyectado.text(), "4.21")
         self.assertEqual(ventana.papi_provisional.text(), "4.50")
-        self.assertIn("color: #F2F2F2", ventana.papa_proyectado.styleSheet())
+        self.assertIn("color: #49C77A", ventana.papa_proyectado.styleSheet())
+        self.assertIn("color: #49C77A", ventana.papi_provisional.styleSheet())
         clave = f"{periodo}|3007847"
         nombre_importado = ventana.findChild(QLineEdit, "nombreEvaluacion")
         nota_importada = ventana.findChild(QLineEdit, "notaEvaluacion")
@@ -238,6 +239,52 @@ class MiAvanceTests(unittest.TestCase):
         self.assertNotIn("contrasena", datos)
         self.assertNotIn("cookies", datos)
 
+    def test_parser_extrae_resumen_si_comparte_tabla_con_asignaturas(self):
+        tabla = [
+            TABLAS_EJEMPLO[0][0],
+            TABLAS_EJEMPLO[0][1],
+            TABLAS_EJEMPLO[1][0],
+            TABLAS_EJEMPLO[1][1],
+            ["NIVELACIÓN", "12", "12", "0", "0", "12"],
+            ["TOTAL", "160", "51", "109", "14", "87"],
+        ]
+
+        datos = interpretar_tablas_historia([tabla], "1102:3068:3534")
+
+        self.assertEqual(len(datos["asignaturas"]), 1)
+        self.assertEqual(
+            [fila["tipologia"] for fila in datos["resumen_creditos"]],
+            ["FUND. OBLIGATORIA", "NIVELACIÓN"],
+        )
+        self.assertEqual(datos["resumen_creditos"][0]["pendientes"], "11")
+
+    def test_parser_lee_resumen_desde_texto_visible_del_sia(self):
+        texto = """Resumen de créditos
+        TIPOLOGÍAS EXIGIDOS APROBADOS PENDIENTES INSCRITOS CURSADOS
+        DISCIPLINAR OPTATIVA 22 3 19 0 3
+        FUND. OBLIGATORIA 27 16 11 4 40
+        FUND. OPTATIVA 16 0 16 0 3
+        DISCIPLINAR OBLIGATORIA 57 23 34 6 32
+        LIBRE ELECCIÓN 32 9 23 4 9
+        TRABAJO DE GRADO 6 0 6 0 0
+        TOTAL 160 51 109 14 87
+        NIVELACIÓN 12 12 0 0 12
+        TOTAL ESTUDIANTE 172 63 109 14 99
+        Total Créditos Excedentes
+        """
+
+        datos = interpretar_tablas_historia(
+            [TABLAS_EJEMPLO[0]], "1102:3068:3534", texto
+        )
+
+        self.assertEqual(len(datos["resumen_creditos"]), 7)
+        self.assertEqual(
+            datos["resumen_creditos"][3],
+            {"tipologia": "DISCIPLINAR OBLIGATORIA", "exigidos": "57", "aprobados": "23", "pendientes": "34"},
+        )
+        self.assertEqual(datos["resumen_creditos"][-1]["tipologia"], "NIVELACION")
+        self.assertEqual(datos["resumen_creditos"][-1]["pendientes"], "0")
+
     def test_no_guarda_tabla_vacia_o_equivocada(self):
         with self.assertRaisesRegex(ValueError, "No se encontró la tabla"):
             interpretar_tablas_historia([[['TIPOLOGÍAS', 'EXIGIDOS']]], "3534")
@@ -259,7 +306,7 @@ class MiAvanceTests(unittest.TestCase):
         ventana.mostrar_datos(interpretar_tablas_historia(TABLAS_EJEMPLO, "1102:3068:3534"))
         ventana.show()
         app.processEvents()
-        self.assertEqual(ventana.papa.text(), "P.A.P.A.  2.74")
+        self.assertEqual(ventana.papa.text(), "P.A.P.A: 2.74")
         columnas = ventana.findChildren(QFrame, "columnaPeriodoAvance")
         self.assertGreaterEqual(len(columnas), 1)
         tarjetas = ventana.findChildren(QFrame, "tarjetaMateriaAvance")
@@ -309,7 +356,7 @@ class MiAvanceTests(unittest.TestCase):
         self.assertEqual(len(consultas), 1)
         self.assertEqual(consultas[0][1][0]["parciales"][0]["nota"], "4.5")
         self.assertFalse(hasattr(ventana, "detalles_calificaciones"))
-        self.assertEqual(ventana.papa.text(), "P.A.P.A.  2.74")
+        self.assertEqual(ventana.papa.text(), "P.A.P.A: 2.74")
         ventana.close()
 
 

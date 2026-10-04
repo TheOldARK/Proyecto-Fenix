@@ -20,6 +20,13 @@ if str(ROOT) not in sys.path:
 
 
 def main(argumentos=None) -> int:
+    # PyInstaller windowed deja stdout/stderr en None incluso si Popen los
+    # redirige. Abrir el destino explícito conserva el diagnóstico también
+    # en el PC que ejecuta el gestor sin consola.
+    ruta_log = os.environ.get("FENIX_PUBLICADOR_LOG")
+    if ruta_log and (getattr(sys, "frozen", False) or sys.stdout is None or sys.stderr is None):
+        flujo = open(ruta_log, "a", encoding="utf-8", errors="backslashreplace", buffering=1)
+        sys.stdout = sys.stderr = flujo
     parser = argparse.ArgumentParser(description="Actualiza un plan para el gestor de publicadores.")
     parser.add_argument("--plan", required=True, help="Clave sede:facultad:plan")
     parser.add_argument("--tipo", choices=("carrera", "libres_sede"), default="carrera")
@@ -28,6 +35,7 @@ def main(argumentos=None) -> int:
 
     from configuracion import CARPETA_DATOS
     from infraestructura.almacenamiento.estado_actualizacion import guardar_estado
+    from infraestructura.almacenamiento.json_atomico import guardar_json_atomico
     from main import ejecutar_publicador
 
     inicio = time.time()
@@ -35,10 +43,11 @@ def main(argumentos=None) -> int:
     documento = {
         "plan": str(args.plan),
         "estado": "actualizando",
+        "intento_id": os.environ.get("FENIX_PUBLICADOR_INTENTO_ID", ""),
         "iniciado_en": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     CARPETA_DATOS.mkdir(parents=True, exist_ok=True)
-    salida.write_text(json.dumps(documento, ensure_ascii=False), encoding="utf-8")
+    guardar_json_atomico(salida, documento)
     guardar_estado("actualizando", f"Actualizando {args.plan}…", 0, codigo_plan=str(args.plan))
     resumen = {}
     try:
@@ -77,7 +86,7 @@ def main(argumentos=None) -> int:
             documento["advertencia"] = mensaje
         guardar_estado("completada", mensaje, 100, codigo_plan=str(args.plan))
         codigo_salida = 0
-    salida.write_text(json.dumps(documento, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    guardar_json_atomico(salida, documento)
     return codigo_salida
 
 

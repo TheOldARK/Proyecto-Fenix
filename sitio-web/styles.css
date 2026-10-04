@@ -74,6 +74,8 @@ h2 { font-size:clamp(2.5rem,4.2vw,4.3rem); line-height:1.05; letter-spacing:-.06
 .download-button { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; padding:13px 15px; color:#e6ffe9; background:var(--green-deep); border:1px solid #3d9e60; border-radius:8px; font-size:.89rem; font-weight:800; transition:background .2s; }
 .download-button:hover { background:#215d39; }
 .download-button span { font-size:1.1rem; }
+.store-download { margin-top:9px; color:var(--ink); background:transparent; border-color:var(--line); }
+.store-download:hover { background:var(--panel-hi); border-color:#6bd796; }
 .download-meta { display:flex; justify-content:space-between; gap:15px; flex-wrap:wrap; color:#849a88; font-size:.81rem; margin:17px 1px 0; }
 .download-meta a { color:#c3d9c6; }
 .how-section { display:grid; grid-template-columns:.9fr 1.1fr; gap:70px; border-top:1px solid rgba(169,194,172,.16); padding:85px 0 100px; scroll-margin-top:20px; }

@@ -3,7 +3,7 @@
 Uso desde la raíz del proyecto:
     python herramientas/verificar_planes_cloudflare.py
 
-La herramienta es de solo lectura: no cambia archivos locales ni Cloudflare.
+No modifica planes ni Cloudflare. --informe guarda opcionalmente un reporte JSON.
 """
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ import hashlib
 import json
 import ssl
 import sys
+from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from urllib.error import HTTPError
 from urllib.parse import quote
@@ -26,6 +27,7 @@ if str(ROOT) not in sys.path:
 from configuracion import URL_DATOS_CLOUDFLARE
 from infraestructura.almacenamiento.plan_estudios import cargar_planes
 from dominio.codigos import codigo_base
+from infraestructura.almacenamiento.json_atomico import guardar_json_atomico
 
 
 def _codigos_y_nombres_plan(plan) -> dict[str, str]:
@@ -99,22 +101,31 @@ def _descargar_json(base: str, info: dict) -> object:
     return json.loads(contenido.decode("utf-8"))
 
 
-def verificar_cobertura(planes, manifiesto, cargar_json_remoto, sede="1102"):
+def verificar_cobertura(planes, manifiesto, cargar_json_remoto, sede="1102",
+                       facultad=None, plan_elegido=None, progreso=None):
     """Compara todas las materias declaradas en cada plan con materias.json y oferta.json."""
     entradas = manifiesto.get("planes") if isinstance(manifiesto, dict) else None
     if not isinstance(entradas, dict):
         raise ValueError("El manifiesto de Cloudflare no contiene el mapa 'planes'.")
 
     informe = []
+    seleccion = []
     for codigo, plan in sorted(planes.items(), key=lambda par: (par[1].facultad_nombre.casefold(), par[1].nombre.casefold(), str(par[0]))):
         if str(getattr(plan, "sede_codigo", "")) != str(sede):
             continue
-        cursos = _codigos_y_nombres_plan(plan)
-        if not cursos:
+        if facultad and str(getattr(plan, "facultad_codigo", "")) != str(facultad):
             continue
+        if plan_elegido and str(plan_elegido) not in {str(codigo), str(getattr(plan, "codigo", ""))}:
+            continue
+        seleccion.append((codigo, plan))
+    for indice, (codigo, plan) in enumerate(seleccion, 1):
+        if progreso:
+            progreso(indice, len(seleccion), plan.nombre)
+        cursos = _codigos_y_nombres_plan(plan)
 
         registro = {
             "codigo_plan": str(codigo),
+            "facultad_codigo": str(getattr(plan, "facultad_codigo", "")),
             "facultad": str(getattr(plan, "facultad_nombre", "")),
             "plan": str(getattr(plan, "nombre", "")),
             "total": len(cursos),
@@ -122,7 +133,14 @@ def verificar_cobertura(planes, manifiesto, cargar_json_remoto, sede="1102"):
             "faltan_materias": [],
             "faltan_oferta": [],
             "errores": [],
+            "no_verificados": [],
+            "materias_faltantes_detalle": [],
+            "oferta_faltante_detalle": [],
         }
+        if not cursos:
+            registro["estado"] = "sin_malla"
+            informe.append(registro)
+            continue
         entrada = entradas.get(str(codigo))
         archivos = entrada.get("archivos") if isinstance(entrada, dict) else None
         if not isinstance(archivos, dict):
@@ -137,10 +155,14 @@ def verificar_cobertura(planes, manifiesto, cargar_json_remoto, sede="1102"):
                     registro[campo] = list(cursos)
                     continue
                 try:
-                    codigos_publicados = _codigos_documento(cargar_json_remoto(info))
+                    documento = cargar_json_remoto(info)
+                    identidad = documento.get("plan_estudios") if isinstance(documento, dict) else None
+                    if identidad and str(identidad) != str(codigo):
+                        raise ValueError(f"El archivo pertenece al plan {identidad}, no a {codigo}.")
+                    codigos_publicados = _codigos_documento(documento)
                 except (OSError, ValueError, HTTPError, json.JSONDecodeError) as error:
                     registro["errores"].append(f"No se pudo verificar {clave}.json: {error}")
-                    registro[campo] = list(cursos)
+                    registro["no_verificados"].append(clave)
                     continue
                 registro[campo] = sorted(set(cursos) - codigos_publicados, key=str)
 
@@ -160,11 +182,17 @@ def verificar_cobertura(planes, manifiesto, cargar_json_remoto, sede="1102"):
             }
             for c in registro["faltan_oferta"]
         ]
+        registro["estado"] = (
+            "no_verificado" if registro["no_verificados"] else
+            "no_publicado" if not isinstance(archivos, dict) else
+            "incompleto" if registro["faltan_materias"] or registro["faltan_oferta"] or registro["errores"] else
+            "completo"
+        )
         informe.append(registro)
     return informe
 
 
-def ejecutar(base: str, sede: str) -> int:
+def ejecutar(base: str, sede: str, facultad=None, plan_elegido=None, ruta_informe=None) -> int:
     solicitud = Request(
         f"{base.rstrip('/')}/manifest.json",
         headers={"User-Agent": "Proyecto-Fenix-Verificador", "Accept": "application/json"},
@@ -184,35 +212,40 @@ def ejecutar(base: str, sede: str) -> int:
             manifiesto,
             lambda info: _descargar_json(base, info),
             sede=sede,
+            facultad=facultad,
+            plan_elegido=plan_elegido,
+            progreso=lambda i, total, nombre: print(f"Consultando {i}/{total}: {nombre}", flush=True),
         )
     except Exception as error:
         print(f"ERROR: no se pudo completar la verificación: {error}")
         return 2
 
     if not informe:
-        print(f"No hay planes con materias asignadas para la sede {sede}.")
+        print(f"No hay planes que coincidan con los filtros para la sede {sede}.")
         return 1
 
-    omitidos_sin_malla = sum(
-        1
-        for plan in planes.values()
-        if str(getattr(plan, "sede_codigo", "")) == str(sede)
-        and not _codigos_y_nombres_plan(plan)
-    )
+    sin_malla = sum(item["estado"] == "sin_malla" for item in informe)
+    no_verificados = sum(item["estado"] == "no_verificado" for item in informe)
 
     print(f"VERIFICACIÓN DE MALLAS EN CLOUDFLARE · SEDE {sede}\n")
+    print("Falta = está definida en el plan local, pero no aparece en el archivo remoto verificado.")
+    print("SIN MALLA = carrera vacía pendiente de edición; NO VERIFICADO = no se pudo comprobar la descarga.")
+    print("Solo se comprueba presencia: no garantiza cupos ni grupos disponibles. No se exige Libre Elección.\n")
     cursos_total = 0
     faltan_materias_total = 0
     faltan_oferta_total = 0
     con_problemas = 0
     for item in informe:
+        if item["estado"] == "sin_malla":
+            print(f"[SIN MALLA] {item['facultad']} · {item['plan']} ({item['codigo_plan']}) — pendiente de completar en el editor")
+            continue
         cursos_total += item["total"]
         faltan_materias_total += len(item["faltan_materias"])
         faltan_oferta_total += len(item["faltan_oferta"])
         completo = not item["faltan_materias"] and not item["faltan_oferta"] and not item["errores"]
         if not completo:
             con_problemas += 1
-        marca = "OK" if completo else "REVISAR"
+        marca = "NO VERIFICADO" if item["no_verificados"] else "OK" if completo else "REVISAR"
         print(f"[{marca}] {item['facultad']} · {item['plan']} ({item['codigo_plan']}) — {item['total']} materias")
         if item["errores"]:
             for error in item["errores"]:
@@ -223,13 +256,22 @@ def ejecutar(base: str, sede: str) -> int:
                 print(f"    Falta en {etiqueta}: {materia['codigo']} — {materia['nombre']}{nota}")
 
     print(
-        f"\nResumen: {len(informe)} planes revisados, {cursos_total} materias de malla; "
+        f"\nResumen: {len(informe) - sin_malla} planes con materias, {sin_malla} sin malla; {cursos_total} materias de malla; "
         f"{faltan_materias_total} faltan en materias.json, "
         f"{faltan_oferta_total} faltan en oferta.json; {con_problemas} planes requieren revisión."
     )
-    if omitidos_sin_malla:
-        print(f"Se omitieron {omitidos_sin_malla} planes sin materias definidas en el JSON.")
-    return 1 if con_problemas else 0
+    if ruta_informe:
+        guardar_json_atomico(Path(ruta_informe), {
+            "generado_en": datetime.now(timezone.utc).isoformat(),
+            "url_base": base, "sede": sede, "facultad": facultad, "plan": plan_elegido,
+            "direccion_comparacion": "planes locales -> Cloudflare",
+            "resumen": {"planes": len(informe), "sin_malla": sin_malla,
+                        "no_verificados": no_verificados, "requieren_revision": con_problemas,
+                        "faltan_materias": faltan_materias_total, "faltan_oferta": faltan_oferta_total},
+            "planes": informe,
+        })
+        print(f"Informe guardado en: {Path(ruta_informe).resolve()}")
+    return 2 if no_verificados else 1 if con_problemas else 0
 
 
 def main() -> int:
@@ -238,8 +280,11 @@ def main() -> int:
     )
     parser.add_argument("--sede", default="1102", help="Código de sede; por defecto Medellín (1102).")
     parser.add_argument("--url-base", default=URL_DATOS_CLOUDFLARE, help="URL base del catálogo publicado.")
+    parser.add_argument("--facultad", help="Código de facultad; sin este filtro revisa todas.")
+    parser.add_argument("--plan", help="Código del plan (p. ej. 3501) o clave completa (1102:3064:3501).")
+    parser.add_argument("--informe", type=Path, help="Guarda los resultados detallados en este archivo JSON.")
     args = parser.parse_args()
-    return ejecutar(args.url_base, args.sede)
+    return ejecutar(args.url_base, args.sede, args.facultad, args.plan, args.informe)
 
 
 if __name__ == "__main__":

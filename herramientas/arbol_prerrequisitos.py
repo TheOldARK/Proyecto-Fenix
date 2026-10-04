@@ -12,12 +12,15 @@ import os
 import re
 import sys
 import tempfile
+import unicodedata
 from collections import defaultdict, deque
+from copy import deepcopy
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ))
 from dominio.codigos import codigo_base
+from infraestructura.sia.parser.prerrequisitos import limpiar_nombre_prerrequisito
 from servicios.prerrequisitos import descripcion_tipo
 from PySide6.QtCore import QPointF, Qt, QProcess, QProcessEnvironment
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen, QPolygonF
@@ -35,19 +38,21 @@ from PySide6.QtWidgets import (
     QGraphicsView,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QMainWindow,
     QMessageBox,
     QProgressBar,
     QPushButton,
     QSplitter,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 def nombre_materia_limpio(nombre: str, descripcion: str = "") -> str:
     """Quita una descripción duplicada al final del nombre de una materia."""
-    nombre = re.sub(r"\s+", " ", str(nombre or "")).strip()
+    nombre = limpiar_nombre_prerrequisito(nombre)
     descripcion = re.sub(r"\s+", " ", str(descripcion or "")).strip()
     if not nombre or not descripcion:
         return nombre
@@ -106,7 +111,7 @@ def construir_grafo(materias: list[dict]) -> dict:
             if not isinstance(requisito, dict):
                 continue
             req_codigo = str(requisito.get("codigo", "")).strip()
-            req_nombre = str(requisito.get("nombre", "")).strip()
+            req_nombre = nombre_materia_limpio(requisito.get("nombre", ""))
             if not req_codigo and not req_nombre:
                 continue
             req_codigo = codigo_canonico.get(codigo_base(req_codigo), req_codigo)
@@ -120,8 +125,9 @@ def construir_grafo(materias: list[dict]) -> dict:
                     "tipologia": "Prerrequisito externo",
                     "externo": True,
                 })
-                if req_codigo:
-                    req_codigo = clave
+                # Un requisito sin código también necesita una identidad para
+                # conectar su tarjeta; antes se creaba el nodo sin la flecha.
+                req_codigo = clave
             if req_codigo and req_codigo != codigo:
                 aristas.add((req_codigo, codigo))
                 tipo = str(requisito.get("tipo") or "").strip().upper()
@@ -140,6 +146,32 @@ def construir_grafo(materias: list[dict]) -> dict:
                     validos.append(req_codigo)
         if not validos:
             sin_prerrequisitos.append(nodos[codigo])
+
+    # Regla del explorador, separada de la tipología original informada por SIA.
+    # Propagar hacia los requisitos, nunca hacia las asignaturas dependientes.
+    # A no exige cursar ambas y queda fuera de esta regla.
+    requisitos_por_materia = defaultdict(set)
+    for relacion in relaciones.values():
+        if relacion["tipo"] == "A":
+            continue
+        requisitos_por_materia[relacion["destino"]].add(relacion["origen"])
+    obligatorias = {codigo for codigo, nodo in nodos.items()
+                    if es_materia_obligatoria(nodo["tipologia"])}
+    originales = set(obligatorias)
+    pendientes = deque(sorted(obligatorias))
+    motivos = {}
+    while pendientes:
+        codigo = pendientes.popleft()
+        for requisito in sorted(requisitos_por_materia[codigo]):
+            if requisito in obligatorias:
+                continue
+            obligatorias.add(requisito)
+            motivos[requisito] = codigo
+            pendientes.append(requisito)
+    for codigo, nodo in nodos.items():
+        nodo["obligatoria"] = codigo in obligatorias
+        nodo["obligatoria_por_dependencia"] = codigo in obligatorias and codigo not in originales
+        nodo["motivo_obligatoria"] = motivos.get(codigo, "")
 
     # Y se interpreta provisionalmente como simultaneidad: sus materias
     # comparten columna. Solo M impone precedencia estricta en el árbol;
@@ -204,6 +236,11 @@ def construir_grafo(materias: list[dict]) -> dict:
             default=0,
         )
     niveles = {codigo: niveles_grupo[grupo] for codigo, grupo in grupos.items()}
+    conectados = {codigo for arista in aristas for codigo in arista}
+    sin_conexiones = [
+        nodo for codigo, nodo in nodos.items()
+        if codigo not in conectados and not nodo["externo"]
+    ]
 
     return {
         "nodos": nodos,
@@ -216,6 +253,7 @@ def construir_grafo(materias: list[dict]) -> dict:
         ),
         "niveles": niveles,
         "sin_prerrequisitos": sin_prerrequisitos,
+        "sin_conexiones": sin_conexiones,
         "ciclicos": ciclicos,
         "materias": list(por_codigo.values()),
     }
@@ -264,21 +302,21 @@ def ordenar_capas_por_conexiones(grafo: dict, pasadas: int = 8) -> dict[int, lis
     return dict(por_nivel)
 
 
-def codigos_visibles_en_arbol(grafo: dict) -> set[str]:
-    """Muestra todas las obligatorias y otros nodos con flechas salientes."""
-    obligatorias = {
-        codigo
-        for codigo, nodo in grafo["nodos"].items()
-        if not nodo.get("externo") and es_materia_obligatoria(nodo.get("tipologia", ""))
-    }
-    con_sucesores = {origen for origen, _destino in grafo["aristas"]}
-    incompatibilidades = {
-        codigo
-        for relacion in grafo.get("relaciones", [])
-        if relacion.get("tipo") == "A"
-        for codigo in (relacion["origen"], relacion["destino"])
-    }
-    return obligatorias | con_sucesores | incompatibilidades
+def codigos_visibles_en_arbol(grafo: dict, modo: str = "normal") -> set[str]:
+    """Muestra ambos extremos de toda conexión, sean obligatorias u optativas.
+
+    Una raíz puede no tener prerrequisitos y aun así ser requisito de otras;
+    una materia terminal también pertenece al grafo aunque nadie la requiera.
+    Las aisladas se reservan exclusivamente para el panel lateral.
+    """
+    if modo == "todas":
+        return set(grafo["nodos"])
+    if modo == "obligatorias":
+        return {
+            codigo for codigo, nodo in grafo["nodos"].items()
+            if nodo.get("obligatoria", es_materia_obligatoria(nodo.get("tipologia", "")))
+        }
+    return {codigo for arista in grafo["aristas"] for codigo in arista}
 
 
 def tonos_por_origen(grafo: dict) -> dict[str, int]:
@@ -308,6 +346,30 @@ def etiqueta_tipo(tipologia: str) -> str:
 
 def es_materia_obligatoria(tipologia: str) -> bool:
     return "obligatoria" in str(tipologia).casefold()
+
+
+def completar_catalogo(catalogo: dict, referencia: dict) -> dict:
+    """Añade rutas nuevas sin perder sedes ni valores ya consultados en SIA."""
+    resultado = deepcopy(catalogo)
+
+    def combinar(destino, origen, campo, identidad, siguiente=None):
+        elementos = destino.setdefault(campo, [])
+        por_clave = {str(item.get(identidad, "")): item for item in elementos}
+        for item in origen.get(campo, []):
+            clave = str(item.get(identidad, ""))
+            if not clave:
+                continue
+            if clave not in por_clave:
+                nuevo = deepcopy(item)
+                elementos.append(nuevo)
+                por_clave[clave] = nuevo
+            elif siguiente:
+                combinar(por_clave[clave], item, *siguiente)
+
+    combinar(resultado, referencia, "niveles_estudio", "value",
+             ("sedes", "codigo", ("facultades", "codigo", ("planes_estudio", "codigo"))))
+    combinar(resultado, referencia, "tipologias", "value")
+    return resultado
 
 
 def _buscar_ruta(catalogo: dict, clave: str):
@@ -480,7 +542,7 @@ def ejecutar_worker(codigo_plan: str, valor_nivel: str, destino: Path, ruta_dato
 class TarjetaMateriaItem(QGraphicsPathItem):
     """Tarjeta movible; al cambiar de posición avisa a sus conexiones."""
 
-    def __init__(self, codigo: str, nombre: str, tipologia: str, ancho: float, alto: float, externa: bool = False):
+    def __init__(self, codigo: str, nombre: str, tipologia: str, ancho: float, alto: float, externa: bool = False, obligatoria_por_dependencia: bool = False):
         super().__init__()
         self.codigo = codigo
         self.ancho = ancho
@@ -491,8 +553,16 @@ class TarjetaMateriaItem(QGraphicsPathItem):
         self.setCursor(Qt.CursorShape.OpenHandCursor)
         self.setData(0, codigo)
         self.setToolTip("Arrastra para mover esta materia")
+        if obligatoria_por_dependencia:
+            self.setToolTip(
+                "Obligatoria por dependencia: prerrequisito o correquisito de una "
+                "obligatoria, directa o indirectamente, según la regla del explorador.\n"
+                f"Tipología original: {tipologia or 'No indicada'}.\n"
+                "Arrastra para mover esta materia."
+            )
         self.setBrush(QBrush(QColor("#303030" if externa else "#252525")))
         self.setPen(QPen(QColor("#555555"), 1))
+        self._fondo_normal = self.brush()
 
         titulo = QGraphicsTextItem(nombre, self)
         titulo.setDefaultTextColor(QColor("#f2f2f2"))
@@ -511,6 +581,8 @@ class TarjetaMateriaItem(QGraphicsPathItem):
         self.setPath(forma)
 
         tipo = "PRERREQUISITO EXTERNO" if externa else etiqueta_tipo(tipologia)
+        if obligatoria_por_dependencia:
+            tipo = "OBLIGATORIA POR DEPENDENCIA" + (" · EXTERNA" if externa else "")
         info = QGraphicsTextItem(f"{codigo}  ·  {tipo}", self)
         info.setDefaultTextColor(QColor("#b8c7d9"))
         info.setFont(QFont("Segoe UI", 8))
@@ -520,13 +592,19 @@ class TarjetaMateriaItem(QGraphicsPathItem):
         info.setZValue(1)
         self._info = info
 
-        if not externa and es_materia_obligatoria(tipologia):
+        if obligatoria_por_dependencia or (not externa and es_materia_obligatoria(tipologia)):
             indicador = QGraphicsLineItem(4, 12, 4, self.alto - 12, self)
             indicador.setPen(QPen(QColor("#ffd54a"), 4))
             indicador.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
             indicador.setToolTip("Materia obligatoria")
             indicador.setZValue(2)
             self._indicador_obligatoria = indicador
+
+    def resaltar_busqueda(self, activo: bool):
+        self.setBrush(QBrush(QColor("#615016")) if activo else self._fondo_normal)
+        borde = QPen(QColor("#ffd54a" if activo else "#555555"), 3 if activo else 1)
+        borde.setCosmetic(activo)
+        self.setPen(borde)
 
     def itemChange(self, cambio, valor):
         resultado = super().itemChange(cambio, valor)
@@ -691,11 +769,11 @@ class VistaGrafo(QGraphicsView):
             self.zoom_factor = nuevo_zoom
         evento.accept()
 
-    def mostrar(self, grafo: dict):
+    def mostrar(self, grafo: dict, modo: str = "normal"):
         escena = self.scene()
         escena.clear()
         por_nivel = ordenar_capas_por_conexiones(grafo)
-        visibles = codigos_visibles_en_arbol(grafo)
+        visibles = codigos_visibles_en_arbol(grafo, modo)
         tonos = tonos_por_origen(grafo)
         ancho, alto, separacion_y, margen = 250, 112, 24, 44
         columnas_visibles = {
@@ -714,6 +792,7 @@ class VistaGrafo(QGraphicsView):
                     ancho,
                     alto,
                     externa=nodo["externo"],
+                    obligatoria_por_dependencia=nodo.get("obligatoria_por_dependencia", False),
                 )
 
         alturas_columnas = {
@@ -776,6 +855,9 @@ class VistaGrafo(QGraphicsView):
             escena.addItem(conexion)
 
         if not escena.items():
+            escena.setSceneRect(0, 0, 0, 0)
+            self.resetTransform()
+            self.zoom_factor = 1.0
             return
         escena.setSceneRect(escena.itemsBoundingRect().adjusted(-margen, -margen, margen, margen))
         if escena.items():
@@ -795,6 +877,9 @@ class VentanaArbol(QMainWindow):
         self.descubrimiento_finalizado = False
         self.temporal = None
         self.ruta_salida = None
+        self.grafo_actual = None
+        self.fallidas_actuales = []
+        self._modos_dibujados = set()
         self.catalogo = self._cargar_catalogo_local()
         self.planes = self._aplanar_rutas(self.catalogo)
 
@@ -809,11 +894,38 @@ class VentanaArbol(QMainWindow):
             selector.addWidget(combo, 1)
         layout.addLayout(selector)
 
+        modos = QHBoxLayout()
+        modos.addWidget(QLabel("Modo de vista"))
+        self.modo = QComboBox()
+        self.modo.addItem("Normal", "normal")
+        self.modo.addItem("Todas las materias", "todas")
+        self.modo.addItem("Solo obligatorias incluso si no tienen prerrequisitos", "obligatorias")
+        self.modo.setToolTip(
+            "Cada modo conserva sus posiciones, zoom y desplazamiento mientras "
+            "trabajas con este resultado. No vuelve a consultar el SIA. Solo se dibujan "
+            "flechas entre las materias visibles; no se inventan conexiones."
+        )
+        modos.addWidget(self.modo)
+        modos.addStretch()
+        layout.addLayout(modos)
+
+        busqueda = QHBoxLayout()
+        busqueda.addWidget(QLabel("Buscar materia por código o nombre"))
+        self.buscador_codigo = QLineEdit()
+        self.buscador_codigo.setPlaceholderText("Ej.: 1000004, cálculo o álgebra")
+        self.buscador_codigo.setClearButtonEnabled(True)
+        busqueda.addWidget(self.buscador_codigo)
+        self.resultado_busqueda = QLabel()
+        self.resultado_busqueda.setWordWrap(True)
+        busqueda.addWidget(self.resultado_busqueda, 1)
+        layout.addLayout(busqueda)
+
         leyenda = QLabel(
             "Relaciones: M flecha continua (aprobación previa) · O discontinua "
             "(requisito para calificar) · E raya-punto (cursada antes o simultánea) · "
             "Y punteada y misma columna (simultaneidad provisional) · A con × "
             "(incompatibilidad). Los colores distinguen la materia de origen. "
+            "Los requisitos de obligatorias también se marcan como obligatorios por dependencia. "
             "Pasa el cursor sobre una línea para ver los datos del SIA."
         )
         leyenda.setWordWrap(True)
@@ -835,16 +947,29 @@ class VentanaArbol(QMainWindow):
         layout.addLayout(controles)
 
         dividir = QSplitter(Qt.Orientation.Horizontal)
-        self.vista = VistaGrafo()
+        # Cada modo es una página real: conserva su escena y sus tarjetas,
+        # además de la transformación y las barras de desplazamiento.
+        self.paginas_grafo = QStackedWidget()
+        self.vistas_por_modo = {}
+        for modo in ("normal", "todas", "obligatorias"):
+            vista = VistaGrafo()
+            self.vistas_por_modo[modo] = vista
+            self.paginas_grafo.addWidget(vista)
+        self.vista = self.vistas_por_modo["normal"]
         panel = QWidget()
         panel_layout = QVBoxLayout(panel)
-        panel_layout.addWidget(QLabel("Materias sin prerrequisitos"))
+        self.titulo_lista = QLabel("Materias sin conexiones")
+        panel_layout.addWidget(self.titulo_lista)
         self.lista = QListWidget()
+        self.lista.setToolTip(
+            "No tienen prerrequisitos ni son requisito de otras materias "
+            "en los datos consultados."
+        )
         panel_layout.addWidget(self.lista)
         self.resumen = QLabel("Aún no se ha consultado un plan.")
         self.resumen.setWordWrap(True)
         panel_layout.addWidget(self.resumen)
-        dividir.addWidget(self.vista)
+        dividir.addWidget(self.paginas_grafo)
         dividir.addWidget(panel)
         dividir.setStretchFactor(0, 5)
         dividir.setStretchFactor(1, 1)
@@ -853,6 +978,9 @@ class VentanaArbol(QMainWindow):
 
         self.sede.currentIndexChanged.connect(self._actualizar_facultades)
         self.facultad.currentIndexChanged.connect(self._actualizar_planes)
+        self.modo.currentIndexChanged.connect(self._actualizar_modo)
+        self.buscador_codigo.textChanged.connect(lambda _texto: self._buscar_materia(centrar=True))
+        self.buscador_codigo.returnPressed.connect(lambda: self._buscar_materia(centrar=True))
         self._actualizar_sedes()
         self._iniciar_descubrimiento()
 
@@ -862,17 +990,20 @@ class VentanaArbol(QMainWindow):
         return base / "Fenix" / "herramientas" / "arbol_prerrequisitos" / "catalogo_sia.json"
 
     def _cargar_catalogo_local(self):
-        sys.path.insert(0, str(RAIZ))
-        from configuracion import ARCHIVO_CATALOGO_SIA
-        for ruta in (self._ruta_cache(), ARCHIVO_CATALOGO_SIA):
+        from configuracion import ARCHIVO_CATALOGO_SIA, CARPETA_DATOS_BASE
+        catalogo = {"niveles_estudio": [], "tipologias": []}
+        # La caché en vivo tiene prioridad; perfil y paquete completan las rutas
+        # que aún no conocía (incluidos planes sin asignaturas en el editor).
+        for ruta in (self._ruta_cache(), ARCHIVO_CATALOGO_SIA,
+                     CARPETA_DATOS_BASE / "catalogo_sia.json"):
             try:
                 with ruta.open("r", encoding="utf-8") as archivo:
                     datos = json.load(archivo)
-                if datos.get("niveles_estudio"):
-                    return datos
+                if isinstance(datos, dict) and isinstance(datos.get("niveles_estudio"), list):
+                    catalogo = completar_catalogo(catalogo, datos)
             except (OSError, json.JSONDecodeError):
                 continue
-        return {"niveles_estudio": [], "tipologias": []}
+        return catalogo
 
     @staticmethod
     def _aplanar_rutas(datos):
@@ -932,7 +1063,8 @@ class VentanaArbol(QMainWindow):
         self.boton_rutas.setEnabled(True)
         self.progreso.hide()
         if codigo_salida == 0 and self.ruta_catalogo_temporal.exists():
-            self.catalogo = json.loads(self.ruta_catalogo_temporal.read_text(encoding="utf-8"))
+            descubierto = json.loads(self.ruta_catalogo_temporal.read_text(encoding="utf-8"))
+            self.catalogo = completar_catalogo(descubierto, self._cargar_catalogo_local())
             ruta_cache = self._ruta_cache()
             ruta_cache.parent.mkdir(parents=True, exist_ok=True)
             ruta_cache.write_text(json.dumps(self.catalogo, ensure_ascii=False), encoding="utf-8")
@@ -995,7 +1127,9 @@ class VentanaArbol(QMainWindow):
         self.boton.setEnabled(False)
         self.progreso.show()
         self.lista.clear()
-        self.vista.scene().clear()
+        self._reiniciar_vistas()
+        self.grafo_actual = None
+        self.fallidas_actuales = []
         self.estado.setText("Preparando una consulta aislada al SIA…")
         self.temporal = tempfile.TemporaryDirectory(prefix="fenix-arbol-")
         carpeta = Path(self.temporal.name)
@@ -1041,11 +1175,52 @@ class VentanaArbol(QMainWindow):
         datos = json.loads(self.ruta_salida.read_text(encoding="utf-8"))
         materias = datos.get("materias", [])
         fallidas = datos.get("materias_fallidas", [])
-        grafo = construir_grafo(materias)
-        self.vista.mostrar(grafo)
-        for materia in sorted(grafo["sin_prerrequisitos"], key=lambda m: m["nombre"].casefold()):
+        self._mostrar_resultado(materias, fallidas)
+        self.temporal.cleanup()
+        self.temporal = None
+
+    def _mostrar_resultado(self, materias, fallidas=()):
+        self._reiniciar_vistas()
+        self.grafo_actual = construir_grafo(materias)
+        self.fallidas_actuales = list(fallidas)
+        self._actualizar_modo()
+        self.estado.setText("Árbol construido desde el catálogo del SIA.")
+
+    def _reiniciar_vistas(self):
+        """Un nuevo análisis no debe heredar las posiciones de otro plan."""
+        self._modos_dibujados.clear()
+        self.resultado_busqueda.clear()
+        for vista in self.vistas_por_modo.values():
+            vista.scene().clear()
+            vista.scene().setSceneRect(0, 0, 0, 0)
+            vista.resetTransform()
+            vista.zoom_factor = 1.0
+
+    def _actualizar_modo(self, *_args):
+        modo = self.modo.currentData() or "normal"
+        self.vista = self.vistas_por_modo[modo]
+        self.paginas_grafo.setCurrentWidget(self.vista)
+        self.titulo_lista.setVisible(modo == "normal")
+        self.lista.setVisible(modo == "normal")
+        if self.grafo_actual is None:
+            return
+        grafo = self.grafo_actual
+        fallidas = self.fallidas_actuales
+        if modo not in self._modos_dibujados:
+            self.vista.mostrar(grafo, modo)
+            self._modos_dibujados.add(modo)
+        self.lista.clear()
+        laterales = grafo["sin_conexiones"] if modo == "normal" else []
+        for materia in sorted(laterales, key=lambda m: m["nombre"].casefold()):
             self.lista.addItem(f"{materia['nombre']}  ·  {materia['codigo']}  ·  {etiqueta_tipo(materia['tipologia'])}")
-        mensaje = f"{len(materias)} materias; {len(grafo['aristas'])} relaciones; {len(grafo['sin_prerrequisitos'])} sin prerrequisitos."
+            self.lista.item(self.lista.count() - 1).setData(Qt.ItemDataRole.UserRole, materia["codigo"])
+        visibles = codigos_visibles_en_arbol(grafo, modo)
+        relaciones_visibles = sum(a in visibles and b in visibles for a, b in grafo["aristas"])
+        mensaje = f"{len(grafo['materias'])} materias consultadas; {len(visibles)} tarjetas en el grafo; {relaciones_visibles} relaciones visibles."
+        if modo == "normal":
+            mensaje += f" {len(laterales)} sin conexiones."
+        elif modo == "obligatorias":
+            mensaje += " Se ocultan las no obligatorias y sus conexiones."
         if fallidas:
             resumen_fallos = ", ".join(
                 f"{f.get('codigo', '?')} {f.get('nombre', '')}".strip()
@@ -1055,9 +1230,60 @@ class VentanaArbol(QMainWindow):
         if grafo["ciclicos"]:
             mensaje += f" Atención: se detectaron {len(grafo['ciclicos'])} materias en ciclos o dependencias circulares."
         self.resumen.setText(mensaje)
-        self.estado.setText("Árbol construido desde el catálogo del SIA.")
-        self.temporal.cleanup()
-        self.temporal = None
+        self._buscar_materia()
+
+    def _buscar_materia(self, centrar=False):
+        """Busca códigos o fragmentos del nombre, sin alterar las posiciones."""
+        def normalizar(texto):
+            texto = unicodedata.normalize("NFD", str(texto).casefold())
+            return " ".join("".join(c for c in texto if not unicodedata.combining(c)).split())
+
+        consulta = normalizar(self.buscador_codigo.text())
+        codigo_consulta = codigo_base(consulta)
+        encontrados = {
+            clave for clave, nodo in (self.grafo_actual or {}).get("nodos", {}).items()
+            if consulta and (
+                normalizar(codigo_base(nodo["codigo"])) == codigo_consulta
+                or consulta in normalizar(nodo["nombre"])
+            )
+        }
+        codigos_encontrados = {
+            self.grafo_actual["nodos"][clave]["codigo"] for clave in encontrados
+        }
+        coincidencias = []
+        for vista in self.vistas_por_modo.values():
+            for item in vista.scene().items():
+                if isinstance(item, TarjetaMateriaItem):
+                    coincide = item.codigo in encontrados
+                    item.resaltar_busqueda(coincide)
+                    if coincide and vista is self.vista:
+                        coincidencias.append(item)
+        laterales = []
+        for indice in range(self.lista.count()):
+            item = self.lista.item(indice)
+            coincide = item.data(Qt.ItemDataRole.UserRole) in codigos_encontrados
+            item.setBackground(QBrush(QColor("#ffd54a")) if coincide else QBrush())
+            item.setForeground(QBrush(QColor("#161616")) if coincide else QBrush())
+            if coincide:
+                laterales.append(item)
+        if not consulta:
+            self.resultado_busqueda.clear()
+        elif self.grafo_actual is None:
+            self.resultado_busqueda.setText("Primero consulta un plan para construir el árbol.")
+        elif coincidencias:
+            self.resultado_busqueda.setText(
+                f"{len(coincidencias)} coincidencia(s) en amarillo en el árbol. Enter para localizar la primera."
+            )
+            if centrar:
+                self.vista.centerOn(sorted(coincidencias, key=lambda item: item.codigo)[0])
+        elif laterales:
+            self.resultado_busqueda.setText(f"{len(laterales)} coincidencia(s) en la lista de materias sin conexiones.")
+            if centrar:
+                self.lista.scrollToItem(laterales[0])
+        elif encontrados:
+            self.resultado_busqueda.setText('Está oculta en este modo; elige "Todas las materias" para verla.')
+        else:
+            self.resultado_busqueda.setText("No se encontró ese código o nombre en el árbol consultado.")
 
     def closeEvent(self, evento):
         for proceso in (self.proceso, self.proceso_descubrimiento):

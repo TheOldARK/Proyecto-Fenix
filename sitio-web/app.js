@@ -40,6 +40,30 @@ function updateMac() {
 
 macChoices.forEach(choice => choice.addEventListener('change', updateMac));
 
+function reportDownloadClick(event) {
+  const buttonId = event.currentTarget.id;
+  const target = buttonId === 'macos-download'
+    ? `macos_${selectedMacChip()}`
+    : {
+        'windows-download': 'windows_directa',
+        'windows-store': 'windows_store',
+        'linux-download': 'linux'
+      }[buttonId];
+  if (!target) return;
+
+  const body = JSON.stringify({ target });
+  if (navigator.sendBeacon?.('/api/download-click', body)) return;
+  fetch('/api/download-click', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body,
+    keepalive: true
+  }).catch(() => {});
+}
+
+['windows-download', 'windows-store', 'macos-download', 'linux-download']
+  .forEach(id => document.getElementById(id)?.addEventListener('click', reportDownloadClick));
+
 const platform = (navigator.userAgentData?.platform || navigator.platform || '').toLowerCase();
 const recommended = /win/.test(platform) ? 'windows' : /mac/.test(platform) ? 'macos' : /linux/.test(platform) ? 'linux' : null;
 if (recommended) document.querySelector(`[data-os="${recommended}"]`)?.classList.add('recommended');

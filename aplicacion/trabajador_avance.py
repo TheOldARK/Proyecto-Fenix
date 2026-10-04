@@ -308,6 +308,22 @@ class TrabajadorAvanceAcademico(QThread):
 
     async def _leer_historia(self, contexto):
         diagnostico = (0, 0, 0)
+        historia_sin_resumen = None
+        primer_resultado_sin_resumen = None
+        bucle = asyncio.get_running_loop()
+        # El resumen aparece al final de la historia y algunas versiones del
+        # SIA lo cargan de forma diferida al acercarse al final de la página.
+        for pagina in self._paginas_sia(contexto):
+            for marco in pagina.frames:
+                try:
+                    await marco.evaluate(
+                        "() => { window.scrollTo(0, document.body.scrollHeight); "
+                        "document.querySelectorAll('*').forEach(e => { "
+                        "if (e.scrollHeight > e.clientHeight + 20) "
+                        "e.scrollTop = e.scrollHeight; }); }"
+                    )
+                except Exception:
+                    continue
         for _ in range(45):
             if self.isInterruptionRequested():
                 raise asyncio.CancelledError()
@@ -315,16 +331,40 @@ class TrabajadorAvanceAcademico(QThread):
                 for marco in pagina.frames:
                     try:
                         tablas = await marco.evaluate(EXTRAER_TABLAS_HISTORIA)
+                        texto_pagina = await marco.evaluate(
+                            "() => document.body ? document.body.innerText : ''"
+                        )
                         diagnostico = max(
                             diagnostico,
                             (len(pagina.frames), len(tablas), sum(len(tabla) for tabla in tablas)),
                         )
-                        return interpretar_tablas_historia(tablas, self.codigo_plan)
+                        historia = interpretar_tablas_historia(
+                            tablas, self.codigo_plan, texto_pagina
+                        )
+                        if historia.get("resumen_creditos"):
+                            return historia
+                        historia_sin_resumen = historia
+                        if primer_resultado_sin_resumen is None:
+                            primer_resultado_sin_resumen = bucle.time()
+                            self.estado.emit(
+                                "Historia detectada. Esperando el resumen de créditos del SIA…"
+                            )
                     except ValueError:
                         continue
                     except Exception:
                         continue
+            if (
+                historia_sin_resumen is not None
+                and primer_resultado_sin_resumen is not None
+                and bucle.time() - primer_resultado_sin_resumen >= 8
+            ):
+                # Algunas versiones del portal dibujan las asignaturas y el
+                # resumen en momentos distintos; conserva la historia válida
+                # aunque el resumen no aparezca en la página.
+                return historia_sin_resumen
             await asyncio.sleep(1)
+        if historia_sin_resumen is not None:
+            return historia_sin_resumen
         raise RuntimeError(
             "La página está abierta, pero Fénix no pudo interpretar sus asignaturas "
             f"({diagnostico[0]} marcos, {diagnostico[1]} tablas, {diagnostico[2]} filas detectadas). "

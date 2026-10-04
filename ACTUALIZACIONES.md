@@ -1,3 +1,17 @@
+# Fénix 3.0.2
+
+- El horario permite deshacer y rehacer cambios de grupos con los botones o con
+  Ctrl+Z y Ctrl+Y.
+- «Mi Plan» y «Mi Avance» mejoran la lectura del progreso académico y los
+  resúmenes de créditos según la información importada del SIA.
+- Los promedios P.A.P.A. y P.A.P.I. se distinguen por color: rojo por debajo de
+  3,0 y verde desde 3,0.
+- Se pulieron las ventanas, sus controles de cierre y los avisos para reducir
+  interrupciones innecesarias y mantener mensajes de validación junto al
+  formulario correspondiente.
+- Se reforzaron la consulta, publicación y recuperación de datos académicos,
+  además de las herramientas para mantener los planes de estudio.
+
 # Fénix 3.0.1
 
 - Mi Avance muestra la historia académica consultada con autorización del estudiante,

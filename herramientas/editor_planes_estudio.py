@@ -11,6 +11,7 @@ import os
 import sys
 import tempfile
 from copy import deepcopy
+from datetime import datetime, timezone
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -30,6 +31,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QProgressBar,
     QSpinBox,
     QSplitter,
     QVBoxLayout,
@@ -40,6 +42,9 @@ from PySide6.QtWidgets import (
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from configuracion import CARPETA_DATOS  # noqa: E402
+from dominio.codigos import codigo_base  # noqa: E402
+from herramientas.editor_catalogo_sia import CatalogoNombresWorker  # noqa: E402
+from herramientas.nombres_materias import sugerir_nombre_materia  # noqa: E402
 
 DATA_DIR = ROOT / "datos"
 PROFILE_DIR = CARPETA_DATOS
@@ -47,6 +52,13 @@ PLANS_FILE = DATA_DIR / "planes_estudio.json"
 SIA_FILE = DATA_DIR / "catalogo_sia.json"
 ELECTIVES_FILE = DATA_DIR / "configuracion_libre_eleccion.json"
 SEMESTERS = 10
+
+
+def semester_count(plan):
+    """La duración se obtiene de la malla; diez solo es el valor inicial."""
+    numbers = [int(key) for key in plan.get("semestres", {}) if str(key).isdigit() and int(key) > 0]
+    return max(numbers, default=SEMESTERS)
+
 def read_json(path: Path, fallback):
     if not path.exists():
         return fallback
@@ -116,6 +128,47 @@ def write_json_atomic(path: Path, data) -> None:
         os.replace(temp_name, path)
     finally:
         Path(temp_name).unlink(missing_ok=True)
+
+
+class CourseDialog(QDialog):
+    def __init__(self, code, name, other_codes, parent=None, lookup=None):
+        super().__init__(parent)
+        self.setWindowTitle("Editar materia")
+        self.setMinimumWidth(480)
+        self.other_codes = {codigo_base(value).casefold() for value in other_codes}
+        form = QFormLayout(self)
+        self.code = QLineEdit(code)
+        self.name = QLineEdit(name)
+        form.addRow("Código", self.code)
+        form.addRow("Nombre", self.name)
+        if lookup:
+            def completar(text):
+                known = lookup(text.strip())
+                self.name.setText(name if text.strip() == code else (known[0] if known else ""))
+            self.code.textEdited.connect(completar)
+        note = QLabel(
+            "Se actualizará únicamente este plan, conservando los semestres asignados. "
+            "Para guardar en los archivos, usa «Guardar planes y configuración SIA»."
+        )
+        note.setWordWrap(True)
+        form.addRow(note)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        form.addRow(buttons)
+
+    def values(self):
+        return self.code.text().strip(), self.name.text().strip()
+
+    def accept(self):
+        code, name = self.values()
+        if not codigo_base(code) or not name:
+            QMessageBox.warning(self, "Faltan datos", "El código y el nombre no pueden quedar vacíos.")
+            return
+        if codigo_base(code).casefold() in self.other_codes:
+            QMessageBox.warning(self, "Código duplicado", "Ese código ya pertenece a otra materia de este plan.")
+            return
+        super().accept()
 
 
 class PlanDialog(QDialog):
@@ -237,6 +290,13 @@ class EditorPlanes(QMainWindow):
         if not isinstance(self.plans_doc.get("planes"), dict):
             raise ValueError("planes_estudio.json no contiene un objeto 'planes'.")
         self.current_key = None
+        self.current_semester = None
+        self.names_cache_path = PROFILE_DIR / "herramientas" / "editor_planes" / "nombres_sia.json"
+        self.names_cache = read_json(self.names_cache_path, {})
+        if not isinstance(self.names_cache, dict):
+            self.names_cache = {}
+        self.names_worker = None
+        self.close_after_worker = False
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -272,12 +332,22 @@ class EditorPlanes(QMainWindow):
         self.metadata.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(self.metadata)
         editor = QSplitter(Qt.Orientation.Horizontal)
+        semester_panel = QWidget()
+        semester_layout = QVBoxLayout(semester_panel)
+        semester_layout.setContentsMargins(0, 0, 4, 0)
+        semester_layout.addWidget(QLabel("Cantidad de semestres"))
+        self.semester_count_spin = QSpinBox()
+        self.semester_count_spin.setRange(1, 99)
+        self.semester_count_spin.setValue(SEMESTERS)
+        semester_layout.addWidget(self.semester_count_spin)
+        self.apply_semester_count_button = QPushButton("Aplicar cantidad")
+        self.apply_semester_count_button.clicked.connect(self.change_semester_count)
+        semester_layout.addWidget(self.apply_semester_count_button)
         self.semester_list = QListWidget()
         self.semester_list.setMinimumWidth(150)
-        for number in range(1, SEMESTERS + 1):
-            self.semester_list.addItem(f"Semestre {number}")
         self.semester_list.currentRowChanged.connect(self.load_semester)
-        editor.addWidget(self.semester_list)
+        semester_layout.addWidget(self.semester_list)
+        editor.addWidget(semester_panel)
 
         right = QWidget()
         right_layout = QVBoxLayout(right)
@@ -291,14 +361,39 @@ class EditorPlanes(QMainWindow):
         course_actions = QHBoxLayout()
         self.course_code = QLineEdit()
         self.course_code.setPlaceholderText("Código de la materia")
-        self.course_code.returnPressed.connect(self.add_course_to_plan)
+        self.course_code.returnPressed.connect(self.add_course_from_code)
         course_actions.addWidget(self.course_code, 1)
         add_course_button = QPushButton("Añadir materia al plan")
         add_course_button.clicked.connect(self.add_course_to_plan)
         course_actions.addWidget(add_course_button)
         right_layout.addLayout(course_actions)
+        self.course_name = QLineEdit()
+        self.course_name.setPlaceholderText("Nombre: se completa por código; también puedes escribirlo")
+        self.course_name.returnPressed.connect(self.add_course_to_plan)
+        self.course_code.textChanged.connect(self.autocomplete_course_name)
+        right_layout.addWidget(self.course_name)
+        sia_actions = QHBoxLayout()
+        self.fetch_names_button = QPushButton("Consultar códigos y nombres SIA")
+        self.fetch_names_button.clicked.connect(self.fetch_course_names)
+        self.cancel_names_button = QPushButton("Cancelar consulta")
+        self.cancel_names_button.clicked.connect(self.cancel_course_names)
+        self.cancel_names_button.setEnabled(False)
+        self.names_progress = QProgressBar()
+        self.names_progress.setRange(0, 0)
+        self.names_progress.setTextVisible(False)
+        self.names_progress.hide()
+        sia_actions.addWidget(self.fetch_names_button)
+        sia_actions.addWidget(self.cancel_names_button)
+        sia_actions.addWidget(self.names_progress)
+        right_layout.addLayout(sia_actions)
+        self.names_status = QLabel("Consulta el SIA para reconocer códigos. No se descargan grupos ni se añaden materias al plan.")
+        self.names_status.setWordWrap(True)
+        right_layout.addWidget(self.names_status)
 
         selection_actions = QHBoxLayout()
+        self.edit_course_button = QPushButton("Editar materia seleccionada")
+        self.edit_course_button.clicked.connect(self.edit_course)
+        selection_actions.addWidget(self.edit_course_button)
         self.add_semester_button = QPushButton("Añadir seleccionada al semestre ↓")
         self.add_semester_button.clicked.connect(self.add_course_to_semester)
         selection_actions.addWidget(self.add_semester_button)
@@ -341,6 +436,8 @@ class EditorPlanes(QMainWindow):
             "Escribe un código para añadir una materia al plan. Si ya aparece en "
             "otro plan, Fénix reutiliza su nombre; si no, podrás escribirlo. "
             "Selecciona una materia de la lista superior y añádela al semestre."
+            " Pulsa Enter en el código para añadirla al plan y al semestre seleccionado."
+            " Usa «Editar materia seleccionada» para corregir su nombre o código."
         )
         note.setWordWrap(True)
         layout.addWidget(note)
@@ -447,6 +544,9 @@ class EditorPlanes(QMainWindow):
         self.metadata.setText("No hay un plan seleccionado.")
         self.current_key = None
         self.current_semester = None
+        self.semester_list.clear()
+        self.semester_count_spin.setEnabled(False)
+        self.apply_semester_count_button.setEnabled(False)
         self.plan_courses.clear()
         self.semester_courses.clear()
         self.creditos_libres.setValue(0)
@@ -475,15 +575,55 @@ class EditorPlanes(QMainWindow):
             f'{plan.get("facultad_nombre", "")} · clave {self.current_key}'
         )
         self.populate_plan_courses()
+        self.refresh_semesters()
+        self.autocomplete_course_name()
+
+    def refresh_semesters(self, selected=1):
+        count = semester_count(self.plans_doc["planes"][self.current_key])
+        self.semester_count_spin.setEnabled(True)
+        self.apply_semester_count_button.setEnabled(True)
+        self.semester_count_spin.setMaximum(max(99, count))
+        self.semester_count_spin.setValue(count)
+        self.current_semester = None
         self.semester_list.blockSignals(True)
-        self.semester_list.setCurrentRow(0)
+        self.semester_list.clear()
+        for number in range(1, count + 1):
+            self.semester_list.addItem(f"Semestre {number}")
+        row = max(0, min(selected, count) - 1)
+        self.semester_list.setCurrentRow(row)
         self.semester_list.blockSignals(False)
-        self.load_semester(0)
+        self.load_semester(row, save_previous=False)
+
+    def change_semester_count(self):
+        if not self.current_key or not self.save_current(False):
+            return
+        plan = self.plans_doc["planes"][self.current_key]
+        count = self.semester_count_spin.value()
+        semesters = plan.setdefault("semestres", {})
+        removed = [key for key in semesters if str(key).isdigit() and int(key) > count]
+        occupied = [key for key in removed if semesters[key].get("asignaturas")
+                    or any(semesters[key].get("creditos", {}).values())]
+        if occupied:
+            QMessageBox.warning(
+                self, "Semestres con información",
+                "No se puede reducir la cantidad: los semestres "
+                + ", ".join(sorted(occupied, key=int))
+                + " contienen materias o créditos. Reubica las materias y los "
+                "créditos antes de quitar esos semestres. No se ha eliminado nada.",
+            )
+            self.semester_count_spin.setValue(semester_count(plan))
+            return
+        selected = self.current_semester or 1
+        for key in removed:
+            del semesters[key]
+        for number in range(1, count + 1):
+            semesters.setdefault(str(number), {"asignaturas": [], "creditos": {}})
+        self.refresh_semesters(selected)
+        self.populate_plan_courses()
 
     def course_codes_for_plan(self, plan):
         codes = []
-        for number in range(1, SEMESTERS + 1):
-            semester = plan.get("semestres", {}).get(str(number), {})
+        for semester in plan.get("semestres", {}).values():
             for code in semester.get("asignaturas", []):
                 code = str(code)
                 if code not in codes:
@@ -526,7 +666,7 @@ class EditorPlanes(QMainWindow):
         self.update_course_button()
 
     def load_semester(self, row, save_previous=True):
-        if row < 0:
+        if row < 0 or row >= self.semester_list.count():
             return
         if save_previous and self.current_key and self.current_semester is not None:
             if not self.save_semester():
@@ -572,12 +712,76 @@ class EditorPlanes(QMainWindow):
         return True
 
     def known_course_names(self, code):
+        base = codigo_base(code)
+        # Primero el catálogo consultado para esta carrera, luego otros planes.
+        keys = [self.current_key] + [key for key in self.names_cache if key != self.current_key]
+        for key in keys:
+            entry = self.names_cache.get(key, {})
+            if isinstance(entry, dict) and isinstance(entry.get("nombres"), dict):
+                name = entry["nombres"].get(base)
+                if isinstance(name, str) and name.strip():
+                    return [sugerir_nombre_materia(name)]
         names = {}
         for plan in self.plans_doc["planes"].values():
-            name = str(plan.get("nombres_asignaturas", {}).get(code, "")).strip()
-            if name:
-                names[name] = names.get(name, 0) + 1
+            for key, value in plan.get("nombres_asignaturas", {}).items():
+                name = str(value).strip()
+                if codigo_base(key) == base and name:
+                    names[name] = names.get(name, 0) + 1
         return sorted(names, key=lambda name: (-names[name], name.casefold()))
+
+    def autocomplete_course_name(self, *_args):
+        known = self.known_course_names(self.course_code.text().strip())
+        self.course_name.setText(known[0] if known else "")
+
+    def fetch_course_names(self):
+        if not self.current_key or self.names_worker is not None:
+            return
+        plan = deepcopy(self.plans_doc["planes"][self.current_key])
+        self.names_status.setText(f"Consultando {plan['nombre']}… Puedes seguir editando.")
+        worker = CatalogoNombresWorker(self.current_key, plan, self)
+        self.names_worker = worker
+        worker.progreso.connect(lambda text: self.names_status.setText(f"{plan['nombre']} · {text}"))
+        worker.resultado.connect(self.receive_course_names)
+        worker.error.connect(lambda text: self.names_status.setText(
+            f"No se pudo consultar {plan['nombre']}: {text}. Puedes reintentar o introducir el nombre manualmente."))
+        worker.finished.connect(self.course_names_finished)
+        self.fetch_names_button.setEnabled(False)
+        self.cancel_names_button.setEnabled(True)
+        self.names_progress.show()
+        worker.start()
+
+    def cancel_course_names(self):
+        if self.names_worker is not None:
+            self.names_worker.requestInterruption()
+            self.cancel_names_button.setEnabled(False)
+            self.names_status.setText("Cancelando consulta y cerrando el navegador…")
+
+    def receive_course_names(self, key, names):
+        self.names_cache[key] = {"actualizado_en": datetime.now(timezone.utc).isoformat(), "nombres": names}
+        mensaje = f"{len(names)} códigos y nombres obtenidos para {self.plans_doc['planes'].get(key, {}).get('nombre', key)}. Sin consultar grupos."
+        try:
+            write_json_atomic(self.names_cache_path, self.names_cache)
+        except OSError as error:
+            mensaje += f" No se pudo guardar el catálogo auxiliar: {error}. Se usará durante esta sesión."
+        self.names_status.setText(mensaje)
+        if not self.course_name.text().strip():
+            self.autocomplete_course_name()
+
+    def course_names_finished(self):
+        worker, self.names_worker = self.names_worker, None
+        if worker:
+            worker.deleteLater()
+        self.fetch_names_button.setEnabled(True)
+        self.cancel_names_button.setEnabled(False)
+        self.names_progress.hide()
+        if self.close_after_worker:
+            self.close()
+
+    def add_course_from_code(self):
+        """Enter en el código: registrar y asignar, solo si el registro terminó."""
+        code = self.add_course_to_plan()
+        if code and self.current_semester is not None:
+            self.add_course_to_semester()
 
     def add_course_to_plan(self):
         if not self.current_key:
@@ -591,10 +795,13 @@ class EditorPlanes(QMainWindow):
             return
         plan = self.plans_doc["planes"][self.current_key]
         names = plan.setdefault("nombres_asignaturas", {})
+        entered_name = self.course_name.text().strip()
         if code in self.course_codes_for_plan(plan):
             if not str(names.get(code, "")).strip():
                 known = self.known_course_names(code)
-                if len(known) == 1:
+                if entered_name:
+                    names[code] = entered_name
+                elif len(known) == 1:
                     names[code] = known[0]
                 elif known:
                     name, accepted = QInputDialog.getItem(
@@ -611,12 +818,16 @@ class EditorPlanes(QMainWindow):
                     )
                     if accepted and name.strip():
                         names[code] = name.strip()
+                if not str(names.get(code, "")).strip():
+                    return
             self.populate_plan_courses(code)
             self.course_code.clear()
-            return
+            return code
 
         known = self.known_course_names(code)
-        if len(known) == 1:
+        if entered_name:
+            name = entered_name
+        elif len(known) == 1:
             name = known[0]
         elif known:
             name, accepted = QInputDialog.getItem(
@@ -642,8 +853,43 @@ class EditorPlanes(QMainWindow):
         names[code] = name
         self.populate_plan_courses(code)
         self.course_code.clear()
+        return code
+
+    def edit_course(self):
+        item = self.plan_courses.currentItem()
+        if not self.current_key or item is None:
+            return
+        if not self.save_current(False):
+            return
+        old_code = str(item.data(Qt.ItemDataRole.UserRole))
+        plan = self.plans_doc["planes"][self.current_key]
+        names = plan.setdefault("nombres_asignaturas", {})
+        dialog = CourseDialog(
+            old_code, str(names.get(old_code, "")),
+            [code for code in self.course_codes_for_plan(plan) if code != old_code], self,
+            lookup=self.known_course_names,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        code, name = dialog.values()
+        # Reemplazar la clave en su posición, sin alterar otras materias ni planes.
+        plan["nombres_asignaturas"] = {
+            (code if key == old_code else key): (name if key == old_code else value)
+            for key, value in names.items()
+        }
+        plan["nombres_asignaturas"][code] = name
+        for semester in plan.get("semestres", {}).values():
+            semester["asignaturas"] = [
+                code if str(value) == old_code else value
+                for value in semester.get("asignaturas", [])
+            ]
+        self.populate_plan_courses(code)
+        if self.current_semester is not None:
+            # No guardar la lista anterior: todavía contiene el código viejo.
+            self.load_semester(self.current_semester - 1, save_previous=False)
 
     def update_course_button(self, *_args):
+        self.edit_course_button.setEnabled(bool(self.current_key and self.plan_courses.currentItem()))
         self.add_semester_button.setEnabled(
             bool(self.current_key and self.current_semester and self.plan_courses.currentItem())
         )
@@ -657,6 +903,13 @@ class EditorPlanes(QMainWindow):
         code = str(item.data(Qt.ItemDataRole.UserRole))
         plan = self.plans_doc["planes"][self.current_key]
         current_key = str(self.current_semester)
+        semester = plan.setdefault("semestres", {}).setdefault(
+            current_key, {"asignaturas": [], "creditos": {}}
+        )
+        codes = list(map(str, semester.get("asignaturas", [])))
+        if code in codes:
+            self.populate_plan_courses(code)
+            return
         old_semester = next(
             (
                 number for number, semester in plan.get("semestres", {}).items()
@@ -675,12 +928,7 @@ class EditorPlanes(QMainWindow):
                 return
             old = plan["semestres"][old_semester]
             old["asignaturas"] = [value for value in old.get("asignaturas", []) if str(value) != code]
-        semester = plan.setdefault("semestres", {}).setdefault(
-            current_key, {"asignaturas": [], "creditos": {}}
-        )
-        codes = list(map(str, semester.get("asignaturas", [])))
-        if code not in codes:
-            codes.append(code)
+        codes.append(code)
         semester["asignaturas"] = codes
         name = plan.get("nombres_asignaturas", {}).get(code, "Materia sin nombre")
         row_item = QListWidgetItem(f"{code}  ·  {name}")
@@ -903,6 +1151,12 @@ class EditorPlanes(QMainWindow):
         return route.get("facultades_libre_eleccion", [])
 
     def closeEvent(self, event):
+        if self.close_after_worker:
+            if self.names_worker is not None:
+                event.ignore()
+            else:
+                event.accept()
+            return
         if not self.save_current(True):
             event.ignore()
             return
@@ -914,6 +1168,12 @@ class EditorPlanes(QMainWindow):
             if not self.save_all():
                 event.ignore()
                 return
+        if self.names_worker is not None:
+            self.close_after_worker = True
+            self.cancel_course_names()
+            self.centralWidget().setEnabled(False)
+            event.ignore()
+            return
         event.accept()
 
 

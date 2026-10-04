@@ -27,7 +27,7 @@ import os
 import sys
 from pathlib import Path
 
-VERSION = "3.0.1"
+VERSION = "3.0.2"
 URL_DATOS_CLOUDFLARE = "https://pub-c4af9a6ed2d249a290ff6c850b8dac15.r2.dev"
 # El paquete MSIX incluye este archivo junto al ejecutable. En la Store, las
 # actualizaciones pertenecen al sistema; la copia descargable conserva su updater.

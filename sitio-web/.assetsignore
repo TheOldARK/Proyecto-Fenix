@@ -1,5 +1,6 @@
 LEEME.md
 wrangler.jsonc
 .assetsignore
+worker.js
 .gitignore
 .wrangler/

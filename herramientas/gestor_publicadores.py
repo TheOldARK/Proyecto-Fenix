@@ -8,6 +8,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -31,7 +32,7 @@ from PySide6.QtCore import QObject, QThread, Signal, Slot, Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QCheckBox, QComboBox, QHBoxLayout, QHeaderView, QLabel,
-    QMessageBox, QPlainTextEdit, QPushButton, QProgressBar, QSpinBox,
+    QDialog, QTabWidget, QMessageBox, QPlainTextEdit, QPushButton, QProgressBar, QSpinBox,
     QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -55,6 +56,7 @@ from herramientas.estrategia_publicadores import (  # noqa: E402
     unidades_plan,
 )
 from infraestructura.almacenamiento.json_atomico import guardar_json_atomico  # noqa: E402
+from herramientas.supervision_publicadores import supervisar, detener_arbol
 from infraestructura.almacenamiento.plan_estudios import cargar_planes  # noqa: E402
 from infraestructura.almacenamiento.materias_libre_eleccion import (
     sincronizar_libres_eleccion_sede,
@@ -190,12 +192,18 @@ class CicloPublicadores(QObject):
         self.detener = threading.Event()
         self.estado_actual = {}
         self.estadisticas = leer_estadisticas()
+        self._estado_lock = threading.Lock()
 
     def _emitir(self, codigo, estado, mensaje="", avance=None):
-        self.estado_actual[codigo] = {"estado": estado, "mensaje": mensaje, "avance": avance}
+        nuevo = {"estado": estado, "mensaje": mensaje, "avance": avance}
+        with self._estado_lock:
+            if self.estado_actual.get(codigo) == nuevo:
+                return
+            self.estado_actual[codigo] = nuevo
+            estados = self.estado_actual.copy()
         self.progreso.emit({
-            "planes": self.estado_actual.copy(),
-            "completados": sum(x.get("estado") in {"completado", "error"} for x in self.estado_actual.values()),
+            "planes": estados,
+            "completados": sum(x.get("estado") in {"completado", "error"} for x in estados.values()),
             "total": len(self.seleccion),
             "mensaje": mensaje,
         })
@@ -246,11 +254,15 @@ class CicloPublicadores(QObject):
         resultado = {}
         exito = False
         detalle = "La actualización no terminó correctamente."
+        intentos = []
         for intento in range(1, MAX_INTENTOS_TIMEOUT + 1):
-            try:
-                resultado_path.unlink(missing_ok=True)
-            except OSError:
-                pass
+            if self.detener.is_set():
+                detalle = "Cancelado por el usuario."
+                break
+            intento_id = uuid.uuid4().hex
+            entorno["FENIX_PUBLICADOR_INTENTO_ID"] = intento_id
+            inicio_intento = time.monotonic()
+            fecha_intento = time.time()
             if intento == 1:
                 self._emitir(codigo, "iniciando", "Iniciando en segundo plano…", 0)
             else:
@@ -260,34 +272,41 @@ class CicloPublicadores(QObject):
                     f"Reintentando por timeout ({intento}/{MAX_INTENTOS_TIMEOUT})…",
                     0,
                 )
-            proceso = subprocess.Popen(
-                argumentos,
-                cwd=str(ROOT),
-                env=entorno,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=flags,
-            )
-            while proceso.poll() is None:
+            # Un log por número de intento mantiene diagnóstico sin crecer
+            # indefinidamente ni enviar miles de líneas a la interfaz.
+            with (datos / f"publicador-intento-{intento}.log").open("w", encoding="utf-8") as log:
+                entorno["FENIX_PUBLICADOR_LOG"] = str(datos / f"publicador-intento-{intento}.log")
+                entorno["PYTHONIOENCODING"] = "utf-8"
+                entorno["PYTHONUNBUFFERED"] = "1"
+                proceso = subprocess.Popen(
+                    argumentos, cwd=str(ROOT), env=entorno,
+                    stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                    creationflags=flags, start_new_session=(os.name != "nt"),
+                )
                 try:
-                    estado = json.loads(estado_path.read_text(encoding="utf-8"))
-                    mensaje = str(estado.get("mensaje") or "Consultando el SIA…")
-                    estado_nombre = str(estado.get("estado") or "actualizando")
-                    avance = estado.get("progreso")
-                except (OSError, ValueError):
-                    mensaje, estado_nombre, avance = "Iniciando consulta…", "iniciando", 0
-                self._emitir(codigo, estado_nombre, mensaje, avance)
-                time.sleep(0.8)
-            try:
-                resultado = json.loads(resultado_path.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
-                resultado = {}
-            exito = proceso.returncode == 0 and resultado.get("estado") == "completado"
+                    resultado, aviso_cierre = supervisar(
+                        proceso, estado_path, resultado_path, intento_id, self.detener,
+                        lambda estado: self._emitir(
+                            codigo, estado.get("estado", "actualizando"),
+                            estado.get("mensaje", "Consultando el SIA…"), estado.get("progreso"),
+                        ),
+                    )
+                finally:
+                    if proceso.poll() is None:
+                        detener_arbol(proceso)
+            exito = resultado.get("estado") == "completado"
             detalle = str(resultado.get("error") or resultado.get("advertencia") or (
                 "Actualización terminada." if exito
                 else f"El proceso terminó con código {proceso.returncode}."
             ))
+            if aviso_cierre:
+                detalle += " " + aviso_cierre
+            intentos.append({
+                "codigo": codigo, "intento": intento, "fecha": fecha_intento,
+                "duracion": round(time.monotonic() - inicio_intento, 2),
+                "exito": exito, "detalle": detalle,
+            })
+            self.progreso.emit({"intento": intentos[-1]})
             try:
                 contenido_log = errores_log_path.read_bytes()
                 if len(contenido_log) >= tamano_log_inicial:
@@ -327,6 +346,7 @@ class CicloPublicadores(QObject):
         self._emitir(codigo, "completado" if exito else "error", detalle, 100 if exito else None)
         return {
             "codigo": codigo,
+            "intentos": intentos,
             "exito": exito,
             "duracion": duracion,
             "unidades": int(
@@ -352,6 +372,9 @@ class CicloPublicadores(QObject):
 
     def _guardar_resultado_plan(self, resultado):
         codigo = resultado["codigo"]
+        historial = self.estadisticas.setdefault("intentos", [])
+        historial.extend(resultado.get("intentos", []))
+        del historial[:-500]
         registros = self.estadisticas["planes"]
         item = registros.setdefault(codigo, {})
         item["ultima_ejecucion"] = time.time()
@@ -485,6 +508,8 @@ class VentanaGestor(QWidget):
         self.registros = leer_estadisticas()
         self.estado_por_plan = {}
         self._ultimo_mensaje_actividad = {}
+        self.intentos_sesion = []
+        self.dialogo_intentos = None
         self.setWindowTitle("Gestor de publicadores · Fénix")
         self.setMinimumSize(1100, 700)
         icono = cargar_icono(app)
@@ -518,6 +543,7 @@ class VentanaGestor(QWidget):
             )
         self.actividad = QPlainTextEdit()
         self.actividad.setReadOnly(True)
+        self.actividad.setMaximumBlockCount(3000)
         self.actividad.setPlaceholderText(
             "Aquí aparecerán las fases, errores y materias que requieran revisión."
         )
@@ -565,17 +591,20 @@ class VentanaGestor(QWidget):
         botones = QHBoxLayout()
         self.boton_iniciar = QPushButton("Iniciar gestor")
         self.boton_iniciar.clicked.connect(self.iniciar)
-        self.boton_detener = QPushButton("Detener al terminar el lote activo")
+        self.boton_detener = QPushButton("Detener publicadores")
         self.boton_detener.setEnabled(False)
         self.boton_detener.clicked.connect(self.detener)
         self.boton_actualizar = QPushButton("Actualizar lista de carreras")
         self.boton_actualizar.clicked.connect(self.recargar_planes)
         self.boton_borrar_estadisticas = QPushButton("Borrar estadísticas de velocidad")
         self.boton_borrar_estadisticas.clicked.connect(self.borrar_estadisticas_rendimiento)
+        self.boton_intentos = QPushButton("Intentos y rendimiento…")
+        self.boton_intentos.clicked.connect(self.mostrar_intentos)
         botones.addWidget(self.boton_iniciar)
         botones.addWidget(self.boton_detener)
         botones.addWidget(self.boton_actualizar)
         botones.addWidget(self.boton_borrar_estadisticas)
+        botones.addWidget(self.boton_intentos)
         layout = QVBoxLayout(self)
         layout.addWidget(titulo)
         layout.addWidget(descripcion)
@@ -621,12 +650,82 @@ class VentanaGestor(QWidget):
         if not resumenes:
             return "Rendimiento: aún no hay lotes medidos; el gestor probará distintas cantidades para aprender."
         mejor = max(resumenes, key=lambda item: (item[1], item[2], -item[0]))
-        detalle = " · ".join(
-            f"{n} simultáneo(s): {velocidad * 60:.1f} materias/min total "
-            f"({eficiencia * 60:.1f} por publicador, {muestras} muestra(s))"
-            for n, velocidad, eficiencia, muestras in sorted(resumenes)
-        )
-        return f"Mejor velocidad total medida: {mejor[0]} simultáneo(s). {detalle}"
+        return (f"Mejor velocidad medida: {mejor[0]} publicadores simultáneos · "
+                f"{mejor[1] * 60:.1f} materias/min. Detalle en «Intentos y rendimiento».")
+
+    def mostrar_intentos(self):
+        if self.dialogo_intentos is None:
+            self.dialogo_intentos = QDialog(self)
+            self.dialogo_intentos.setWindowTitle("Intentos y rendimiento de los publicadores")
+            self.dialogo_intentos.resize(1050, 550)
+            layout = QVBoxLayout(self.dialogo_intentos)
+            pestanas = QTabWidget()
+            self.tabla_mediciones = QTableWidget()
+            self.tabla_intentos = QTableWidget()
+            pestanas.addTab(self.tabla_mediciones, "Rendimiento por concurrencia")
+            pestanas.addTab(self.tabla_intentos, "Últimos intentos")
+            layout.addWidget(pestanas)
+            nota = QLabel("Se conservan los últimos 500 intentos. Selecciona una fila para consultar su detalle.")
+            layout.addWidget(nota)
+            self.detalle_intento = QPlainTextEdit()
+            self.detalle_intento.setReadOnly(True)
+            self.detalle_intento.setMaximumHeight(110)
+            layout.addWidget(self.detalle_intento)
+            self.tabla_intentos.itemSelectionChanged.connect(self._mostrar_detalle_intento)
+            botones = QHBoxLayout()
+            actualizar = QPushButton("Actualizar información")
+            actualizar.clicked.connect(self._actualizar_tablas_intentos)
+            cerrar = QPushButton("Cerrar")
+            cerrar.clicked.connect(self.dialogo_intentos.close)
+            botones.addWidget(actualizar)
+            botones.addStretch()
+            botones.addWidget(cerrar)
+            layout.addLayout(botones)
+        self._actualizar_tablas_intentos()
+        self.dialogo_intentos.show()
+        self.dialogo_intentos.raise_()
+
+    def _mostrar_detalle_intento(self):
+        fila = self.tabla_intentos.currentRow()
+        item = self.tabla_intentos.item(fila, 5)
+        self.detalle_intento.setPlainText(item.text() if item else "")
+
+    def _actualizar_tablas_intentos(self):
+        datos = leer_estadisticas()
+        mediciones = []
+        for cantidad, muestras in sorted(datos.get("concurrencias", {}).items(), key=lambda par: int(par[0])):
+            validas = [m for m in muestras if isinstance(m, dict) and isinstance(m.get("unidades_por_segundo"), (int, float))]
+            if validas:
+                media = sum(m["unidades_por_segundo"] for m in validas) * 60 / len(validas)
+                mediciones.append([cantidad, str(int(cantidad) * 2), str(len(validas)), f"{media:.1f}", f"{media / int(cantidad):.1f}"])
+        # El intento recién terminado puede aún no estar en el JSON del lote.
+        intentos = {(i.get("codigo"), i.get("fecha"), i.get("intento")): i
+                    for i in [*datos.get("intentos", []), *self.intentos_sesion]}
+        filas = []
+        for item in sorted(intentos.values(), key=lambda i: i.get("fecha", 0), reverse=True)[:500]:
+            codigo = item.get("codigo", "")
+            plan = self.planes.get(codigo)
+            nombre = plan.nombre if plan else ("Libre Elección de sede" if codigo == ID_PUBLICADOR_LIBRES_SEDE else codigo)
+            filas.append([_hora_legible(item.get("fecha")), nombre, str(item.get("intento", "")),
+                          f"{item.get('duracion', 0):.0f} s", "Completado" if item.get("exito") else "Error / cancelado", item.get("detalle", "")])
+        for tabla, encabezados, filas_datos in (
+            (self.tabla_mediciones, ["Publicadores", "Workers SIA", "Muestras", "Materias/min total", "Materias/min por publicador"], mediciones),
+            (self.tabla_intentos, ["Hora Colombia", "Carrera", "Intento", "Duración", "Resultado", "Detalle"], filas),
+        ):
+            tabla.setColumnCount(len(encabezados))
+            tabla.setHorizontalHeaderLabels(encabezados)
+            tabla.setRowCount(len(filas_datos))
+            tabla.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            tabla.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+            for fila, valores in enumerate(filas_datos):
+                for columna, valor in enumerate(valores):
+                    item = QTableWidgetItem(str(valor))
+                    item.setToolTip(str(valor))
+                    tabla.setItem(fila, columna, item)
+            tabla.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+            tabla.horizontalHeader().setStretchLastSection(True)
+        self.tabla_intentos.setColumnWidth(0, 145)
+        self.tabla_intentos.setColumnWidth(1, 220)
 
     def borrar_estadisticas_rendimiento(self):
         respuesta = QMessageBox.question(
@@ -806,11 +905,17 @@ class VentanaGestor(QWidget):
     def detener(self):
         if self.worker:
             self.worker.detener.set()
-            self.estado.setText("Deteniendo al terminar el lote que ya está ejecutándose…")
+            self.estado.setText("Cerrando los publicadores activos y sus navegadores…")
             self.boton_detener.setEnabled(False)
 
     @Slot(dict)
     def mostrar_progreso(self, datos):
+        if "intento" in datos:
+            self.intentos_sesion.append(datos["intento"])
+            del self.intentos_sesion[:-500]
+            if self.dialogo_intentos and self.dialogo_intentos.isVisible():
+                self._actualizar_tablas_intentos()
+            return
         self.registros = leer_estadisticas()
         self.resumen_rendimiento.setText(self._texto_rendimiento())
         for codigo, estado in datos.get("planes", {}).items():
@@ -858,7 +963,7 @@ class VentanaGestor(QWidget):
             QMessageBox.warning(
                 self,
                 "Publicadores activos",
-                "Pulsa «Detener al terminar el lote activo» y espera a que finalice antes de cerrar el gestor.",
+                "Pulsa «Detener publicadores» y espera a que finalice antes de cerrar el gestor.",
             )
             event.ignore()
             return

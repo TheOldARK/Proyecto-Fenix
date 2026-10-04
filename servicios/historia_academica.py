@@ -73,7 +73,42 @@ def _asignatura_de_fila(fila, indices):
     }
 
 
-def interpretar_tablas_historia(tablas, codigo_plan):
+def _resumen_creditos_desde_texto(texto):
+    """Lee el resumen aunque el SIA lo pinte como texto o celdas no estándar."""
+    normalizado = _normalizar(texto)
+    inicio = normalizado.find("RESUMEN DE CREDITOS")
+    if inicio < 0:
+        return []
+    fragmento = normalizado[inicio + len("RESUMEN DE CREDITOS"):]
+    fin = fragmento.find("TOTAL CREDITOS EXCEDENTES")
+    if fin >= 0:
+        fragmento = fragmento[:fin]
+
+    categorias = re.compile(
+        r"\b(DISCIPLINAR\s+OPTATIVA|FUND\.?\s+OBLIGATORIA|"
+        r"FUND\.?\s+OPTATIVA|DISCIPLINAR\s+OBLIGATORIA|"
+        r"LIBRE\s+ELECCION|TRABAJO\s+DE\s+GRADO|NIVELACION)\b"
+    )
+    encontrados = list(categorias.finditer(fragmento))
+    resumen = []
+    for indice, coincidencia in enumerate(encontrados):
+        fin_fila = encontrados[indice + 1].start() if indice + 1 < len(encontrados) else len(fragmento)
+        valores = re.findall(
+            r"(?<!\w)\d+(?:[.,]\d+)?(?!\w)",
+            fragmento[coincidencia.end():fin_fila],
+        )
+        if len(valores) < 3:
+            continue
+        resumen.append({
+            "tipologia": coincidencia.group(1),
+            "exigidos": valores[0],
+            "aprobados": valores[1],
+            "pendientes": valores[2],
+        })
+    return resumen
+
+
+def interpretar_tablas_historia(tablas, codigo_plan, texto_pagina=""):
     """Extrae intentos por periodo y el resumen de créditos de tablas visibles."""
     asignaturas = []
     resumen_creditos = []
@@ -86,12 +121,16 @@ def interpretar_tablas_historia(tablas, codigo_plan):
             if not isinstance(fila, list):
                 continue
             cabecera = [_normalizar(celda) for celda in fila]
-            if {"ASIGNATURAS", "CREDITOS", "TIPO", "PERIODO", "CALIFICACION"}.issubset(cabecera):
+            if (
+                cabecera_asignaturas is None
+                and {"ASIGNATURAS", "CREDITOS", "TIPO", "PERIODO", "CALIFICACION"}.issubset(cabecera)
+            ):
                 cabecera_asignaturas = (posicion, cabecera)
-                break
-            if {"TIPOLOGIAS", "EXIGIDOS", "APROBADOS", "PENDIENTES"}.issubset(cabecera):
+            if (
+                cabecera_creditos is None
+                and {"TIPOLOGIAS", "EXIGIDOS", "APROBADOS", "PENDIENTES"}.issubset(cabecera)
+            ):
                 cabecera_creditos = (posicion, cabecera)
-                break
         if cabecera_asignaturas is not None:
             posicion, cabecera = cabecera_asignaturas
             indices = {nombre: cabecera.index(nombre) for nombre in (
@@ -101,17 +140,28 @@ def interpretar_tablas_historia(tablas, codigo_plan):
                 asignatura = _asignatura_de_fila(fila, indices)
                 if asignatura:
                     asignaturas.append(asignatura)
-        elif cabecera_creditos is not None:
+        if cabecera_creditos is not None:
             posicion, _ = cabecera_creditos
-            for fila in tabla[posicion + 1:]:
-                if isinstance(fila, list) and len(fila) >= 4 and str(fila[0]).strip():
-                    resumen_creditos.append({
-                        "tipologia": str(fila[0]).strip(),
-                        "exigidos": str(fila[1]).strip(),
-                        "aprobados": str(fila[2]).strip(),
-                        "pendientes": str(fila[3]).strip(),
-                    })
-        else:
+            fin = len(tabla)
+            if cabecera_asignaturas and cabecera_asignaturas[0] > posicion:
+                fin = cabecera_asignaturas[0]
+            for fila in tabla[posicion + 1:fin]:
+                if not isinstance(fila, list) or len(fila) < 4:
+                    continue
+                tipologia = str(fila[0]).strip()
+                clave_tipologia = _normalizar(tipologia)
+                if not any(
+                    texto in clave_tipologia
+                    for texto in ("FUND", "DISCIPLIN", "LIBRE", "NIVEL", "GRADO")
+                ):
+                    continue
+                resumen_creditos.append({
+                    "tipologia": tipologia,
+                    "exigidos": str(fila[1]).strip(),
+                    "aprobados": str(fila[2]).strip(),
+                    "pendientes": str(fila[3]).strip(),
+                })
+        if cabecera_asignaturas is None and cabecera_creditos is None:
             # Algunas vistas JSF usan una cabecera visual fuera de la tabla.
             # Una fila de curso se reconoce por su código y su período, no por
             # el texto exacto de esos encabezados.
@@ -123,6 +173,8 @@ def interpretar_tablas_historia(tablas, codigo_plan):
                 asignatura = _asignatura_de_fila(fila, indices)
                 if asignatura:
                     asignaturas.append(asignatura)
+    if not resumen_creditos and texto_pagina:
+        resumen_creditos = _resumen_creditos_desde_texto(texto_pagina)
     if not asignaturas:
         raise ValueError(
             "No se encontró la tabla de asignaturas de Mi historia académica. "

@@ -1,8 +1,16 @@
 {
   "name": "horarios",
+  "main": "worker.js",
   "compatibility_date": "2026-09-27",
   "workers_dev": true,
   "assets": {
-    "directory": "."
-  }
+    "directory": ".",
+    "binding": "ASSETS"
+  },
+  "analytics_engine_datasets": [
+    {
+      "binding": "FENIX_ANALYTICS",
+      "dataset": "fenix_download_clicks"
+    }
+  ]
 }
