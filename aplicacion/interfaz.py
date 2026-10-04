@@ -2086,19 +2086,12 @@ class VentanaPromedioActual(QDialog):
         promedio_papi = total_ponderado / total_creditos if total_creditos else None
         self.papi_provisional.setText(f"{promedio_papi:.2f}" if promedio_papi is not None else "—")
         self._colorear_promedio(self.papi_provisional, promedio_papi)
-        self.papi_provisional.setToolTip(
-            f"Estimación con {total_creditos:g} créditos de materias que ya tienen notas."
-            if total_creditos else "Pendiente: faltan notas o créditos del catálogo."
-        )
         detalle = (f"{materia.get('nombre')}: promedio de lo evaluado {proyeccion:.2f} · "
                    f"{evaluado:g}% con nota · aporte acumulado {aporte:.2f}/5"
                    if proyeccion is not None else f"{materia.get('nombre')}: sin notas todavía")
         promedio_papa = papa_numerador / papa_creditos if papa_creditos else None
         self.papa_proyectado.setText(f"{promedio_papa:.2f}" if promedio_papa is not None else "—")
         self._colorear_promedio(self.papa_proyectado, promedio_papa)
-        self.papa_proyectado.setToolTip(
-            "Proyección que combina la historia académica y las notas disponibles del semestre actual."
-        )
         self.resumen_materia.setText(detalle)
 
 

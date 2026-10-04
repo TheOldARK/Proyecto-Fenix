@@ -1,3 +1,8 @@
+# Fénix 3.0.3
+
+- Se quitaron los textos emergentes superpuestos en los promedios P.A.P.A. y
+  P.A.P.I.; la información ya está identificada en la propia ventana.
+
 # Fénix 3.0.2
 
 - El horario permite deshacer y rehacer cambios de grupos con los botones o con
