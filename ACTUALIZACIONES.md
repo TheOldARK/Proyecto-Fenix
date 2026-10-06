@@ -1,3 +1,9 @@
+# Fénix 3.0.5
+
+- Se retiró también Ingeniería Agronómica del selector mientras se verifica su malla.
+- «Cambiar estudiante» ahora muestra una confirmación compacta, en español y
+  con el aspecto de Fénix; cancelar es la opción predeterminada.
+
 # Fénix 3.0.4
 
 - Se retiraron temporalmente del selector las carreras Ciencia Política,

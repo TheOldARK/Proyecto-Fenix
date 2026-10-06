@@ -5,12 +5,13 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QWheelEvent
-from PySide6.QtWidgets import QApplication, QDialogButtonBox
+from PySide6.QtWidgets import QApplication, QDialogButtonBox, QPushButton
 
 from aplicacion.interfaz import (
     DialogoPlan,
     SelectorSinCambioPorRueda,
     carrera_disponible_en_selector,
+    crear_dialogo_confirmar_cambio_estudiante,
 )
 from dominio.plan_estudios import PlanEstudios, Semestre
 from herramientas.gestor_publicadores import planes_con_malla_pendiente
@@ -86,7 +87,7 @@ class SelectorFacultadTests(unittest.TestCase):
 
     def test_selector_oculta_solo_carreras_sin_malla_verificada(self):
         ocultas = (
-            "Ciencia Política", "Farmacia", "Ingeniería Agrícola",
+            "Ciencia Política", "Farmacia", "Ingeniería Agronómica", "Ingeniería Agrícola",
             "Ingeniería Forestal", "Zootecnia", "Química",
         )
         for nombre in ocultas:
@@ -94,6 +95,23 @@ class SelectorFacultadTests(unittest.TestCase):
                 self.assertFalse(carrera_disponible_en_selector(nombre))
         self.assertTrue(carrera_disponible_en_selector("Ingeniería Química"))
         self.assertTrue(carrera_disponible_en_selector("Ingeniería de Sistemas"))
+
+    def test_confirmacion_cambiar_estudiante_es_clara_y_localizada(self):
+        dialogo = crear_dialogo_confirmar_cambio_estudiante()
+        try:
+            self.assertEqual(dialogo.windowTitle(), "Cambiar estudiante")
+            self.assertEqual(dialogo.width(), 520)
+            botones = dialogo.findChildren(QPushButton)
+            etiquetas = {boton.text() for boton in botones}
+            self.assertIn("Cancelar", etiquetas)
+            self.assertIn("Cambiar estudiante", etiquetas)
+            self.assertNotIn("Yes", etiquetas)
+            self.assertNotIn("No", etiquetas)
+            cancelar = next(boton for boton in botones if boton.text() == "Cancelar")
+            self.assertTrue(cancelar.isDefault())
+            self.assertIn("background-color", dialogo.styleSheet())
+        finally:
+            dialogo.close()
 
     def test_gestor_marca_como_pendiente_plan_sin_malla_con_ruta_lista(self):
         planes = {

@@ -20,8 +20,8 @@ const labels = {
 };
 const macChoices = document.querySelectorAll('input[name="mac-chip"]');
 const macAssets = {
-  arm64: { name: 'Fenix-3.0.4-macos-arm64.zip', url: `${releaseRoot}v3.0.4/Fenix-3.0.4-macos-arm64.zip` },
-  x64: { name: 'Fenix-3.0.4-macos-x64.zip', url: `${releaseRoot}v3.0.4/Fenix-3.0.4-macos-x64.zip` }
+  arm64: { name: 'Fenix-3.0.5-macos-arm64.zip', url: `${releaseRoot}v3.0.5/Fenix-3.0.5-macos-arm64.zip` },
+  x64: { name: 'Fenix-3.0.5-macos-x64.zip', url: `${releaseRoot}v3.0.5/Fenix-3.0.5-macos-x64.zip` }
 };
 
 function setDownload(platform, asset) {

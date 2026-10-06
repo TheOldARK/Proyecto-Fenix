@@ -300,6 +300,55 @@ def preparar_dialogo_sin_barra(dialogo, disposicion, redimensionable=True):
         disposicion.addWidget(QSizeGrip(dialogo), 0, Qt.AlignmentFlag.AlignRight)
 
 
+def crear_dialogo_confirmar_cambio_estudiante(parent=None):
+    """Confirma el reinicio del perfil con botones claros y tema Fénix."""
+    dialogo = QDialog(parent)
+    dialogo.setWindowTitle("Cambiar estudiante")
+    dialogo.setModal(True)
+    dialogo.setFixedWidth(520)
+    dialogo.setStyleSheet(
+        f"QDialog {{ background-color: {COLOR_SUPERFICIE}; }} "
+        f"QLabel {{ color: {COLOR_TEXTO}; }} "
+        f"QPushButton {{ color: {COLOR_TEXTO}; background-color: {COLOR_SUPERFICIE_CLARA}; "
+        f"border: 1px solid {COLOR_LINEA}; border-radius: 5px; padding: 8px 14px; }} "
+        f"QPushButton:hover {{ border-color: {COLOR_VERDE}; }} "
+        f"QPushButton#confirmarCambioEstudiante {{ border-color: {COLOR_ROJO}; "
+        f"color: {COLOR_ROJO}; }}"
+    )
+    layout = QVBoxLayout(dialogo)
+    layout.setContentsMargins(20, 0, 20, 18)
+    layout.setSpacing(12)
+
+    titulo = QLabel("Se restablecerá el perfil actual")
+    titulo.setStyleSheet("font-size: 16px; font-weight: 700; padding-top: 7px;")
+    layout.addWidget(titulo)
+    detalle = QLabel(
+        "Se borrarán de este equipo el plan de estudios, la oferta académica "
+        "y los grupos guardados del estudiante actual. Fénix descargará de "
+        "nuevo la información necesaria para la nueva carrera."
+    )
+    detalle.setWordWrap(True)
+    detalle.setStyleSheet(f"color: {COLOR_TEXTO_SECUNDARIO};")
+    layout.addWidget(detalle)
+    pregunta = QLabel("¿Quieres continuar?")
+    pregunta.setStyleSheet("font-weight: 600;")
+    layout.addWidget(pregunta)
+
+    fila_botones = QHBoxLayout()
+    fila_botones.addStretch(1)
+    cancelar = QPushButton("Cancelar")
+    cambiar = QPushButton("Cambiar estudiante")
+    cambiar.setObjectName("confirmarCambioEstudiante")
+    cancelar.clicked.connect(dialogo.reject)
+    cambiar.clicked.connect(dialogo.accept)
+    fila_botones.addWidget(cancelar)
+    fila_botones.addWidget(cambiar)
+    layout.addLayout(fila_botones)
+    cancelar.setDefault(True)
+    preparar_dialogo_sin_barra(dialogo, layout, redimensionable=False)
+    return dialogo
+
+
 def centrar_contenido_si_no_hay_barra(area, disposicion, margen_con_barra, separacion_barra):
     """Devuelve al contenido el espacio reservado para la barra cuando esta desaparece."""
     barra = area.verticalScrollBar()
@@ -526,6 +575,7 @@ def carrera_disponible_en_selector(nombre):
     nombres_pendientes = {
         "ciencia politica",
         "farmacia",
+        "ingenieria agronomica",
         "ingenieria agricola",
         "ingenieria forestal",
         "zootecnia",
@@ -6629,15 +6679,8 @@ class VentanaPrincipal(QMainWindow):
         ) % len(self._frames_animacion_carga)
 
     def reiniciar_estudiante(self):
-        respuesta = QMessageBox.question(
-            self,
-            "Cambiar estudiante",
-            "Se borrarán el plan, la oferta académica y los grupos guardados. "
-            "Esto forzará una actualización completa para la nueva carrera. ¿Continuar?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if respuesta != QMessageBox.StandardButton.Yes:
+        confirmacion = crear_dialogo_confirmar_cambio_estudiante(self)
+        if confirmacion.exec() != QDialog.DialogCode.Accepted:
             return
         self.cambiando_estudiante = True
         self.temporizador_estado.stop()
