@@ -521,6 +521,19 @@ def codigo_numerico_plan(codigo):
         return -1
 
 
+def carrera_disponible_en_selector(nombre):
+    """Oculta temporalmente carreras sin malla verificada, sin borrar el catálogo."""
+    nombres_pendientes = {
+        "ciencia politica",
+        "farmacia",
+        "ingenieria agricola",
+        "ingenieria forestal",
+        "zootecnia",
+        "quimica",
+    }
+    return clave_alfabetica(str(nombre or "").strip()) not in nombres_pendientes
+
+
 def texto_horarios(grupo):
     """Presenta las sesiones de un grupo en una sola línea."""
     dias_cortos = {
@@ -808,6 +821,7 @@ class DialogoPlan(QDialog):
             for codigo, plan in self.planes.items()
             if clave_facultad is not None
             and f"{plan.sede_codigo}:{plan.facultad_codigo}" == clave_facultad
+            and carrera_disponible_en_selector(plan.nombre)
         ]
         for codigo, plan in sorted(
             opciones,

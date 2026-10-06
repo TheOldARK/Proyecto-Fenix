@@ -7,7 +7,11 @@ from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QWheelEvent
 from PySide6.QtWidgets import QApplication, QDialogButtonBox
 
-from aplicacion.interfaz import DialogoPlan, SelectorSinCambioPorRueda
+from aplicacion.interfaz import (
+    DialogoPlan,
+    SelectorSinCambioPorRueda,
+    carrera_disponible_en_selector,
+)
 from dominio.plan_estudios import PlanEstudios, Semestre
 from herramientas.gestor_publicadores import planes_con_malla_pendiente
 
@@ -34,7 +38,7 @@ class SelectorFacultadTests(unittest.TestCase):
     def test_selector_filtra_carreras_y_restaura_facultad_del_estudiante(self):
         planes = {
             "1102:3068:3528": self.plan("1102:3068:3528", "Sistemas", "3068", ["3001"]),
-            "1102:3065:3705": self.plan("1102:3065:3705", "Química", "3065"),
+            "1102:3065:3705": self.plan("1102:3065:3705", "Ingeniería Química", "3065"),
         }
         dialogo = DialogoPlan(
             planes, {}, estudiante={"plan_estudios": "1102:3065:3705"}
@@ -79,6 +83,17 @@ class SelectorFacultadTests(unittest.TestCase):
         self.assertEqual(dialogo.selector.count(), 2)
         self.assertIsNone(dialogo.selector.currentData())
         dialogo.close()
+
+    def test_selector_oculta_solo_carreras_sin_malla_verificada(self):
+        ocultas = (
+            "Ciencia Política", "Farmacia", "Ingeniería Agrícola",
+            "Ingeniería Forestal", "Zootecnia", "Química",
+        )
+        for nombre in ocultas:
+            with self.subTest(nombre=nombre):
+                self.assertFalse(carrera_disponible_en_selector(nombre))
+        self.assertTrue(carrera_disponible_en_selector("Ingeniería Química"))
+        self.assertTrue(carrera_disponible_en_selector("Ingeniería de Sistemas"))
 
     def test_gestor_marca_como_pendiente_plan_sin_malla_con_ruta_lista(self):
         planes = {

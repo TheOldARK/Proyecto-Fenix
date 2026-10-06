@@ -1,3 +1,10 @@
+# Fénix 3.0.4
+
+- Se retiraron temporalmente del selector las carreras Ciencia Política,
+  Farmacia, Ingeniería Agrícola, Ingeniería Forestal, Zootecnia y Química,
+  porque sus mallas aún no están verificadas. Sus datos se conservan para
+  incorporarlas de nuevo cuando estén listas.
+
 # Fénix 3.0.3
 
 - Se quitaron los textos emergentes superpuestos en los promedios P.A.P.A. y

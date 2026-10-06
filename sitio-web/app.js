@@ -3,9 +3,9 @@ const repo = 'TheOldARK/Proyecto-Fenix';
 const releaseRoot = `https://github.com/${repo}/releases/download/`;
 const expected = {
   windows: /^Fenix-\d+\.\d+\.\d+[a-zA-Z0-9.-]*-windows-x64-setup\.exe$/,
-  macosArm: /^Fenix-Instalador-macos-arm64\.zip$/,
-  macosIntel: /^Fenix-Instalador-macos-x64\.zip$/,
-  linux: /^Fenix-Instalador-linux-x64\.tar\.gz$/
+  macosArm: /^Fenix-\d+\.\d+\.\d+-macos-arm64\.zip$/,
+  macosIntel: /^Fenix-\d+\.\d+\.\d+-macos-x64\.zip$/,
+  linux: /^Fenix-\d+\.\d+\.\d+-linux-x64\.tar\.gz$/
 };
 
 const links = {
@@ -20,8 +20,8 @@ const labels = {
 };
 const macChoices = document.querySelectorAll('input[name="mac-chip"]');
 const macAssets = {
-  arm64: { name: 'Fenix-Instalador-macos-arm64.zip', url: `${releaseRoot}v2.1.1/Fenix-Instalador-macos-arm64.zip` },
-  x64: { name: 'Fenix-Instalador-macos-x64.zip', url: `${releaseRoot}v2.1.1/Fenix-Instalador-macos-x64.zip` }
+  arm64: { name: 'Fenix-3.0.4-macos-arm64.zip', url: `${releaseRoot}v3.0.4/Fenix-3.0.4-macos-arm64.zip` },
+  x64: { name: 'Fenix-3.0.4-macos-x64.zip', url: `${releaseRoot}v3.0.4/Fenix-3.0.4-macos-x64.zip` }
 };
 
 function setDownload(platform, asset) {

@@ -1,4 +1,4 @@
-name: Publicar Fénix 3.0.3 multiplataforma
+name: Publicar Fénix 3.0.4 multiplataforma
 
 on:
   workflow_dispatch:
@@ -29,8 +29,8 @@ jobs:
         with:
           name: paquete-windows
           path: |
-            dist/Fenix-3.0.3-windows-x64.zip
-            dist/Fenix-3.0.3-windows-x64-setup.exe
+            dist/Fenix-3.0.4-windows-x64.zip
+            dist/Fenix-3.0.4-windows-x64-setup.exe
           if-no-files-found: error
 
   macos:
@@ -62,8 +62,8 @@ jobs:
         with:
           name: paquete-macos-${{ matrix.arch }}
           path: |
-            dist/macos/Fenix-3.0.3-macos-*.zip
-            dist/macos/Fenix-3.0.3-macos-*.zip.sha256
+            dist/macos/Fenix-3.0.4-macos-*.zip
+            dist/macos/Fenix-3.0.4-macos-*.zip.sha256
           if-no-files-found: error
 
   linux:
@@ -87,8 +87,8 @@ jobs:
         with:
           name: paquete-linux
           path: |
-            dist/linux/Fenix-3.0.3-linux-x64.tar.gz
-            dist/linux/Fenix-3.0.3-linux-x64.tar.gz.sha256
+            dist/linux/Fenix-3.0.4-linux-x64.tar.gz
+            dist/linux/Fenix-3.0.4-linux-x64.tar.gz.sha256
           if-no-files-found: error
 
   publicar:
@@ -106,21 +106,21 @@ jobs:
         run: |
           set -euo pipefail
           cd paquetes
-          test -s Fenix-3.0.3-windows-x64.zip
-          test -s Fenix-3.0.3-windows-x64-setup.exe
-          test -s Fenix-3.0.3-macos-arm64.zip
-          test -s Fenix-3.0.3-macos-x64.zip
-          test -s Fenix-3.0.3-linux-x64.tar.gz
-          sha256sum -c Fenix-3.0.3-macos-arm64.zip.sha256
-          sha256sum -c Fenix-3.0.3-macos-x64.zip.sha256
-          sha256sum -c Fenix-3.0.3-linux-x64.tar.gz.sha256
+          test -s Fenix-3.0.4-windows-x64.zip
+          test -s Fenix-3.0.4-windows-x64-setup.exe
+          test -s Fenix-3.0.4-macos-arm64.zip
+          test -s Fenix-3.0.4-macos-x64.zip
+          test -s Fenix-3.0.4-linux-x64.tar.gz
+          sha256sum -c Fenix-3.0.4-macos-arm64.zip.sha256
+          sha256sum -c Fenix-3.0.4-macos-x64.zip.sha256
+          sha256sum -c Fenix-3.0.4-linux-x64.tar.gz.sha256
       - name: Crear release completa
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release create v3.0.3 paquetes/Fenix-3.0.3-* \
-            --title 'Fénix 3.0.3' --notes-file <(sed -n '/^# Fénix 3.0.3$/,/^# Fénix 3.0.2$/p' ACTUALIZACIONES.md | sed '$d;1d') \
+          gh release create v3.0.4 paquetes/Fenix-3.0.4-* \
+            --title 'Fénix 3.0.4' --notes-file <(sed -n '/^# Fénix 3.0.4$/,/^# Fénix 3.0.3$/p' ACTUALIZACIONES.md | sed '$d;1d') \
             --draft --target "${GITHUB_SHA}"
-          gh release edit v3.0.3 --draft=false --latest
+          gh release edit v3.0.4 --draft=false --latest
